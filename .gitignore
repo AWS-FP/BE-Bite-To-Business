@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Local-only configuration may contain credentials.
+src/main/resources/application-local.properties
+.env
+.env.*
