@@ -1320,3 +1320,64 @@ CREATE INDEX ix_inventory_movements_type_created_at
 -- Hủy hàng chưa xuất chỉ RELEASE, không RECEIVE; hàng đã xuất chỉ nhập khi thực tế nhận lại.
 -- INSERT movement không tự cập nhật inventory; API transaction chưa triển khai.
 ALTER TABLE public.inventory_movements ENABLE ROW LEVEL SECURITY;
+
+-- Phiên AI dùng chung cho chat/đặt nhanh theo tác vụ, hoặc E-commerce tạo poster.
+CREATE TABLE public.ai_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users (id) ON DELETE RESTRICT,
+    session_type VARCHAR(30) NOT NULL,
+    title VARCHAR(200),
+    language_code VARCHAR(2) NOT NULL DEFAULT 'vi',
+    -- Route frontend, không phải URL API/tool đã được gọi.
+    current_route VARCHAR(255),
+    context JSONB NOT NULL DEFAULT '{}'::JSONB,
+    context_version BIGINT NOT NULL DEFAULT 1,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ,
+    closed_at TIMESTAMPTZ,
+
+    CONSTRAINT ck_ai_sessions_type CHECK (
+        session_type IN ('SHOPPING_ASSISTANT', 'POSTER_DESIGN')
+    ),
+    CONSTRAINT ck_ai_sessions_poster_owner CHECK (
+        session_type <> 'POSTER_DESIGN' OR user_id IS NOT NULL
+    ),
+    CONSTRAINT ck_ai_sessions_title CHECK (title IS NULL OR BTRIM(title) <> ''),
+    CONSTRAINT ck_ai_sessions_language CHECK (language_code IN ('vi', 'en')),
+    CONSTRAINT ck_ai_sessions_route CHECK (
+        current_route IS NULL OR (BTRIM(current_route) = current_route AND current_route LIKE '/%')
+    ),
+    CONSTRAINT ck_ai_sessions_context_object CHECK (JSONB_TYPEOF(context) = 'object'),
+    CONSTRAINT ck_ai_sessions_context_version CHECK (context_version > 0),
+    CONSTRAINT ck_ai_sessions_status CHECK (status IN ('ACTIVE', 'CLOSED', 'EXPIRED')),
+    CONSTRAINT ck_ai_sessions_timestamps CHECK (
+        updated_at >= created_at
+        AND (expires_at IS NULL OR expires_at > created_at)
+        AND (closed_at IS NULL OR (closed_at >= created_at AND closed_at <= updated_at))
+    ),
+    CONSTRAINT ck_ai_sessions_closed_state CHECK (
+        (status = 'CLOSED' AND closed_at IS NOT NULL)
+        OR (status IN ('ACTIVE', 'EXPIRED') AND closed_at IS NULL)
+    ),
+    CONSTRAINT ck_ai_sessions_expired_state CHECK (
+        status <> 'EXPIRED' OR (expires_at IS NOT NULL AND updated_at >= expires_at)
+    )
+);
+
+CREATE INDEX ix_ai_sessions_user_updated_at
+    ON public.ai_sessions (user_id, updated_at DESC) WHERE user_id IS NOT NULL;
+CREATE INDEX ix_ai_sessions_status_expires_at
+    ON public.ai_sessions (status, expires_at) WHERE expires_at IS NOT NULL;
+
+-- context chỉ giữ intent/điều kiện/ID tham chiếu; không chép giá, tồn hoặc cả hội thoại.
+-- Backend kiểm tra quyền, loại phiên, route allowlist và ID trong context trước khi dùng.
+-- Guest user_id NULL vẫn phải có cơ chế xác minh chủ phiên riêng; ID không là quyền truy cập.
+-- Chặn xóa chủ tài khoản khi còn phiên, tránh biến phiên riêng thành phiên Guest.
+-- Mỗi yêu cầu/ngữ cảnh mới tăng context_version trong transaction và cập nhật updated_at;
+-- chỉ áp phản hồi khi version còn khớp, không để kết quả đến trễ ghi đè tác vụ mới.
+-- Đóng phiên ghi CLOSED/closed_at/updated_at cùng lúc. Hết hạn phải kiểm tra cả expires_at;
+-- thời gian trôi không tự đổi status, worker/API đánh dấu EXPIRED sau khi tới hạn.
+-- Bảng là nền tảng schema; chưa triển khai AI, API session, memory hay RLS policies.
+ALTER TABLE public.ai_sessions ENABLE ROW LEVEL SECURITY;

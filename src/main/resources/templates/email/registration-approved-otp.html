@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>Xác minh tài khoản | Bite to Business</title>
+    <style>
+        @media only screen and (max-width: 620px) {
+            .email-card { width: 100% !important; }
+            .email-body { padding: 28px 22px !important; }
+            .email-header { padding: 28px 22px !important; }
+            .otp-code { font-size: 26px !important; letter-spacing: 3px !important; }
+        }
+    </style>
+</head>
+<body style="margin:0;padding:0;background-color:#f2f5ef;color:#263b30;font-family:Arial,Helvetica,sans-serif;">
+<!-- Dòng xem trước; không chứa OTP để tránh lộ mã ngay trên thông báo email. -->
+<div style="display:none;font-size:1px;line-height:1px;color:#f2f5ef;max-height:0;max-width:0;overflow:hidden;">
+    Hồ sơ của bạn đã được duyệt. Xác minh email để tự tạo mật khẩu. Your registration has been approved.
+</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f2f5ef;">
+    <tr>
+        <td align="center" style="padding:32px 12px;">
+            <table role="presentation" class="email-card" width="600" cellpadding="0" cellspacing="0" border="0"
+                   style="width:600px;max-width:600px;background-color:#ffffff;border:1px solid #dce3dc;border-radius:18px;overflow:hidden;">
+                <tr>
+                    <td class="email-header" style="padding:32px 40px;background-color:#153d2b;border-radius:18px 18px 0 0;">
+                        <p style="margin:0 0 10px;color:#c4e6a4;font-size:11px;font-weight:bold;letter-spacing:2px;">TÀI KHOẢN CỦA BẠN · YOUR ACCOUNT</p>
+                        <p style="margin:0;color:#ffffff;font-size:28px;line-height:36px;font-weight:bold;">Bite to Business<span style="color:#c4e6a4;">.</span></p>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="email-body" style="padding:36px 40px;">
+                        <p style="margin:0 0 18px;color:#21613d;font-size:12px;font-weight:bold;letter-spacing:1px;">HỒ SƠ ĐÃ ĐƯỢC DUYỆT</p>
+                        <h1 style="margin:0 0 16px;color:#153d2b;font-size:27px;line-height:35px;">Chỉ còn một bước xác minh.</h1>
+                        <p style="margin:0 0 12px;font-size:15px;line-height:24px;">Xin chào bạn,</p>
+                        <p style="margin:0 0 24px;font-size:15px;line-height:24px;">
+                            Admin đã duyệt hồ sơ đăng ký của bạn. Nhập mã bên dưới trên màn hình xác minh của Bite to Business,
+                            sau đó tự tạo và xác nhận mật khẩu để kích hoạt tài khoản.
+                        </p>
+
+                        <!-- Thymeleaf thay hai biến bằng mã thật và số phút của cấu hình OTP. -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                               style="background-color:#f0f4eb;border:1px solid #dce3dc;border-radius:12px;">
+                            <tr>
+                                <td align="center" style="padding:24px 16px;">
+                                    <p style="margin:0 0 12px;color:#52685a;font-size:12px;font-weight:bold;">MÃ XÁC MINH · VERIFICATION CODE</p>
+                                    <p class="otp-code" th:text="${otp}"
+                                       style="margin:0;color:#153d2b;font-family:'Courier New',monospace;font-size:32px;line-height:44px;font-weight:bold;letter-spacing:5px;">123456</p>
+                                    <p style="margin:12px 0 0;color:#52685a;font-size:13px;line-height:21px;">
+                                        Có hiệu lực <strong th:text="|${expiresInMinutes} phút|">10 phút</strong> kể từ khi gửi.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="margin:20px 0 24px;color:#52685a;font-size:13px;line-height:21px;">
+                            Mã chỉ dùng một lần. Không chia sẻ OTP hoặc mật khẩu với người khác.
+                            Nếu mã hết hạn, hãy liên hệ bộ phận hỗ trợ để được gửi lại.
+                        </p>
+
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #dce3dc;">
+                            <tr>
+                                <td lang="en" style="padding-top:24px;">
+                                    <h2 style="margin:0 0 12px;color:#153d2b;font-size:18px;line-height:26px;">Your registration has been approved</h2>
+                                    <p style="margin:0 0 12px;color:#52685a;font-size:14px;line-height:23px;">
+                                        Enter the code above on the Bite to Business verification screen. Then create and confirm your own password to activate your account.
+                                    </p>
+                                    <p style="margin:0;color:#52685a;font-size:13px;line-height:21px;">
+                                        The code expires <strong th:text="|${expiresInMinutes} minutes|">10 minutes</strong> after it is sent and can be used once.
+                                        Never share your code or password. Contact support if you need a new code.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:22px 28px;background-color:#f8faf6;border-top:1px solid #dce3dc;border-radius:0 0 18px 18px;text-align:center;">
+                        <p style="margin:0 0 6px;color:#153d2b;font-size:13px;font-weight:bold;">Bite to Business</p>
+                        <p style="margin:0;color:#6b7a70;font-size:12px;line-height:20px;">Nếu bạn không đăng ký tài khoản, hãy bỏ qua email này.<br><span lang="en">If you did not register, please ignore this email.</span></p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
