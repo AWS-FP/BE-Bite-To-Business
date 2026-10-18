@@ -3,10 +3,6 @@ package com.se203730.mvc.generateuibe.features.auth.service;
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.config.security.AuthProperties;
-import com.se203730.mvc.generateuibe.features.user.dto.response.UserResponse;
-import com.se203730.mvc.generateuibe.features.admin.registration.dto.request.ReviewRegistrationRequest;
-import com.se203730.mvc.generateuibe.features.admin.registration.dto.response.RegistrationResponse;
-import com.se203730.mvc.generateuibe.features.admin.registration.dto.response.RegistrationReviewResponse;
 import com.se203730.mvc.generateuibe.features.user.entity.UserProfile;
 import com.se203730.mvc.generateuibe.features.user.repository.UserProfileRepository;
 import com.se203730.mvc.generateuibe.features.auth.client.SupabaseAuthClient;
@@ -18,15 +14,10 @@ import com.se203730.mvc.generateuibe.features.auth.enums.RegistrationStatus;
 import com.se203730.mvc.generateuibe.features.user.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.auth.repository.RegistrationRequestRepository;
 import com.se203730.mvc.generateuibe.features.user.repository.UserRepository;
-import com.se203730.mvc.generateuibe.features.notification.service.RegistrationMailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
@@ -34,7 +25,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Điều phối đăng ký Customer từ lúc gửi form, Admin duyệt, xác minh OTP đến khi tạo mật khẩu và kích hoạt tài khoản.
+ * Xử lý Guest gửi đăng ký, Customer xác minh OTP và tạo mật khẩu. Nghiệp vụ xét duyệt nằm trong AdminRegistrationService.
  */
 @Service
 @RequiredArgsConstructor
@@ -44,7 +35,6 @@ public class RegistrationService {
     private final UserProfileRepository profiles;
     private final RegistrationRequestRepository registrations;
     private final SupabaseAuthClient supabase;
-    private final RegistrationMailService mail;
     private final AccountAccessService accounts;
     private final AuthProperties properties;
     private final TransactionTemplate transaction;
@@ -99,80 +89,6 @@ public class RegistrationService {
         }
     }
 
-    /** Admin xem danh sách hồ sơ theo trạng thái, có phân trang và đưa hồ sơ mới nhất lên trước. */
-    @Transactional(readOnly = true)
-    public Page<RegistrationResponse> list(UUID adminId, RegistrationStatus status, int page, int size) {
-        accounts.requireAdmin(adminId);
-        return registrations.findByStatus(status, PageRequest.of(page, size, Sort.by("submittedAt").descending()))
-                .map(this::view);
-    }
-
-    /** Kiểm tra quyền Admin rồi ghép thông tin tài khoản, hồ sơ và kết quả xét duyệt. */
-    @Transactional(readOnly = true)
-    public RegistrationResponse detail(UUID adminId, UUID requestId) {
-        accounts.requireAdmin(adminId);
-        return view(registrations.findById(requestId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND)));
-    }
-
-    /** Chốt quyết định duyệt/từ chối một lần; nếu được duyệt thì gửi OTP sau khi đã lưu quyết định. */
-    public RegistrationReviewResponse review(UUID adminId, UUID id, ReviewRegistrationRequest review) {
-        accounts.requireAdmin(adminId);
-        if (review.decision() == ReviewRegistrationRequest.Decision.REJECT && review.note() == null)
-            throw new BusinessException(ErrorCode.REJECTION_NOTE_REQUIRED);
-
-        RegistrationResponse response = Objects.requireNonNull(transaction.execute(status -> {
-            RegistrationRequest registration = locked(id);
-            if (registration.getStatus() != RegistrationStatus.PENDING)
-                throw new BusinessException(ErrorCode.REGISTRATION_ALREADY_REVIEWED);
-            registration.setStatus(review.decision() == ReviewRegistrationRequest.Decision.APPROVE
-                    ? RegistrationStatus.APPROVED : RegistrationStatus.REJECTED);
-            registration.setReviewedAt(Instant.now()); registration.setReviewNote(review.note());
-            registration.setUpdatedAt(Instant.now());
-            registrations.saveAndFlush(registration);
-            return view(registration);
-        }));
-
-        if (review.decision() == ReviewRegistrationRequest.Decision.REJECT)
-            return new RegistrationReviewResponse(response, false);
-        // Quyết định được lưu trước. Gửi thư lỗi thì Admin có endpoint gửi lại, không duyệt lần hai.
-        try { return new RegistrationReviewResponse(sendOtp(id), true); }
-        catch (BusinessException ex) {
-            if (ex.getErrorCode() != ErrorCode.EMAIL_DELIVERY_FAILED
-                    && ex.getErrorCode() != ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE
-                    && ex.getErrorCode() != ErrorCode.AUTH_NOT_CONFIGURED) throw ex;
-            log.warn("Registration {} approved; OTP delivery needs retry ({})", id, ex.getErrorCode());
-            return new RegistrationReviewResponse(response, false);
-        }
-    }
-
-    /** Cho phép Admin gửi lại OTP mà không thay đổi quyết định duyệt đã lưu. */
-    public RegistrationResponse resendOtp(UUID adminId, UUID requestId) {
-        accounts.requireAdmin(adminId);
-        return sendOtp(requestId);
-    }
-
-    /** Kiểm tra hồ sơ đã duyệt và thời gian chờ, lấy OTP từ Supabase rồi gửi email cho đúng tài khoản. */
-    private RegistrationResponse sendOtp(UUID id) {
-        return Objects.requireNonNull(transaction.execute(status -> {
-            RegistrationRequest registration = locked(id);
-            User user = approvedCustomer(registration);
-            Instant now = Instant.now();
-            if (registration.getOtpSentAt() != null
-                    && now.isBefore(registration.getOtpSentAt().plus(properties.getOtpResendCooldown())))
-                throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
-            var generated = supabase.generateOtp(user.getEmail());
-            if (!user.getId().equals(generated.id()) || !user.getEmail().equalsIgnoreCase(generated.email())
-                    || generated.emailOtp() == null || !generated.emailOtp().matches("[0-9]{6,10}"))
-                throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
-            // Chỉ ghi otpSentAt sau khi SMTP chấp nhận gửi thư để lần gửi lỗi vẫn có thể được thử lại.
-            mail.sendOtp(user.getEmail(), generated.emailOtp(), properties.getOtpMaxAge().toMinutes());
-            registration.setOtpSentAt(Instant.now()); registration.setUpdatedAt(Instant.now());
-            registrations.saveAndFlush(registration);
-            return view(registration);
-        }));
-    }
-
     /** Kiểm tra thời hạn và xác minh OTP; chỉ đánh dấu email đã xác minh, chưa ghi nhận kích hoạt. */
     public OtpVerificationResponse verifyOtp(VerifyOtpRequest request) {
         return Objects.requireNonNull(transaction.execute(status -> {
@@ -180,7 +96,7 @@ public class RegistrationService {
                     .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_OTP));
             RegistrationRequest registration = registrations.findByCustomerIdForUpdate(user.getId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED));
-            approvedCustomer(registration);
+            accounts.requireApprovedCustomer(registration);
             if (registration.getOtpSentAt() == null) throw new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED);
             if (Instant.now().isAfter(registration.getOtpSentAt().plus(properties.getOtpMaxAge())))
                 throw new BusinessException(ErrorCode.OTP_EXPIRED);
@@ -204,7 +120,7 @@ public class RegistrationService {
         transaction.executeWithoutResult(status -> {
             RegistrationRequest registration = registrations.findByCustomerIdForUpdate(id)
                     .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED));
-            User user = approvedCustomer(registration);
+            User user = accounts.requireApprovedCustomer(registration);
             if (!user.isEmailVerified() || registration.getOtpSentAt() == null)
                 throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
             // Giới hạn tuổi phiên tạo mật khẩu; chấp nhận lệch một giây do thời gian JWT chỉ chính xác tới giây.
@@ -219,34 +135,4 @@ public class RegistrationService {
         });
     }
 
-    /** Khóa dòng yêu cầu trong transaction để hai request không cùng xử lý quyết định hoặc OTP. */
-    private RegistrationRequest locked(UUID id) {
-        return registrations.findForUpdate(id).orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-    }
-
-    /** Chỉ chấp nhận Customer đã được duyệt, chưa kích hoạt và không bị cấm. */
-    private User approvedCustomer(RegistrationRequest registration) {
-        User user = users.findById(registration.getCustomerId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        if (user.isBanned()) throw new BusinessException(ErrorCode.ACCOUNT_BANNED);
-        if (user.getRole() != UserRole.CUSTOMER || registration.getStatus() != RegistrationStatus.APPROVED)
-            throw new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED);
-        if (registration.getActivatedAt() != null)
-            throw new BusinessException(ErrorCode.REGISTRATION_ALREADY_ACTIVATED);
-        return user;
-    }
-
-    /** Ghép ba entity thành DTO để Admin xem hồ sơ; không trả trực tiếp entity database ra API. */
-    private RegistrationResponse view(RegistrationRequest registration) {
-        User user = users.findById(registration.getCustomerId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        UserProfile profile = profiles.findById(user.getId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        return new RegistrationResponse(registration.getId(), UserResponse.from(user), profile.getCustomerType(),
-                profile.getBusinessName(), profile.getProvince(), profile.getDistrict(), profile.getWard(),
-                profile.getDeliveryAddress(), profile.getInvoiceSameAsDelivery(), profile.getInvoicePurchaser(),
-                profile.getInvoiceTaxCode(), profile.getInvoiceEmail(), profile.getInvoiceAddress(),
-                registration.getStatus(), registration.getReviewNote(), registration.getSubmittedAt(),
-                registration.getReviewedAt(), registration.getOtpSentAt(), registration.getActivatedAt());
-    }
 }

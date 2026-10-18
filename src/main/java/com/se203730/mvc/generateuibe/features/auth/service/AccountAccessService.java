@@ -3,6 +3,7 @@ package com.se203730.mvc.generateuibe.features.auth.service;
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.common.security.AccountAccessDeniedException;
+import com.se203730.mvc.generateuibe.features.auth.entity.RegistrationRequest;
 import com.se203730.mvc.generateuibe.features.user.entity.User;
 import com.se203730.mvc.generateuibe.features.auth.enums.RegistrationStatus;
 import com.se203730.mvc.generateuibe.features.user.enums.UserRole;
@@ -51,6 +52,24 @@ public class AccountAccessService {
     /** Kiểm tra tài khoản đang hoạt động và có đúng role ADMIN. */
     public void requireAdmin(UUID id) {
         if (requireActiveUser(id).getRole() != UserRole.ADMIN) throw new BusinessException(ErrorCode.ACCESS_DENIED);
+    }
+
+    /** Điều kiện dùng chung cho gửi OTP, xác minh OTP và tạo mật khẩu sau khi Admin duyệt. */
+    public User requireApprovedCustomer(RegistrationRequest registration) {
+        User user = users.findById(registration.getCustomerId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (user.isBanned()) {
+            throw new BusinessException(ErrorCode.ACCOUNT_BANNED);
+        }
+        if (user.getRole() != UserRole.CUSTOMER || registration.getStatus() != RegistrationStatus.APPROVED) {
+            throw new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED);
+        }
+        if (registration.getActivatedAt() != null) {
+            throw new BusinessException(ErrorCode.REGISTRATION_ALREADY_ACTIVATED);
+        }
+
+        return user;
     }
 
     /** Chuyển role trong database thành ROLE_... để Spring Security sử dụng; không lấy role do client tự khai. */

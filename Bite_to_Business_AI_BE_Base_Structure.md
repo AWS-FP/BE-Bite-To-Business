@@ -72,7 +72,7 @@ Generate-UI-BE/
 
 `features` là thư mục cha của các chức năng. Folder theo role chứa các chức năng thuộc role đó, ví dụ `admin/registration` và `logistics/inventory`. Mỗi chức năng có thể chứa `controller/`, `dto/`, `entity/`, `repository/` và `service/`; chỉ thêm tầng cần thiết khi triển khai. Các phần dùng chung như `auth`, `user`, `notification`, `media` và `ai` nằm trực tiếp trong `features`.
 
-Package theo cùng cấu trúc thư mục. Cách đặt folder không tự cấp quyền truy cập; Spring Security và service tiếp tục kiểm tra quyền theo role. Entity/repository dùng chung được tái sử dụng, không sao chép theo từng role. Hiện luồng đăng ký và kích hoạt dùng chung nằm trong `auth`; controller và DTO xét duyệt của Admin nằm trong `admin/registration`. Các file test tự động đã được gỡ theo yêu cầu của chủ dự án.
+Package theo cùng cấu trúc thư mục. Cách đặt folder không tự cấp quyền truy cập; Spring Security và service tiếp tục kiểm tra quyền theo role. Entity/repository dùng chung được tái sử dụng, không sao chép theo từng role. Luồng gửi đăng ký, xác minh OTP và tạo mật khẩu nằm trong `auth`; controller, DTO và `AdminRegistrationService` xử lý xem/duyệt hồ sơ/gửi OTP nằm trong `admin/registration`. Các file test tự động đã được gỡ theo yêu cầu của chủ dự án.
 
 ## Trách nhiệm module
 
