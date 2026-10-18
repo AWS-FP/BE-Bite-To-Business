@@ -36,3 +36,6 @@ build/
 src/main/resources/application-local.properties
 .env
 .env.*
+
+# Tài liệu dự án chỉ lưu ở local.
+/docs/
