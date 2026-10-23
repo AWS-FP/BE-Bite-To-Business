@@ -4,6 +4,7 @@ import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -21,16 +22,15 @@ import java.util.Locale;
  */
 @Service
 public class RegistrationMailService {
-    private final JavaMailSender sender;
-    private final TemplateEngine templateEngine;
-    private final String from;
+    @Autowired
+    private JavaMailSender sender;
 
-    public RegistrationMailService(JavaMailSender sender, TemplateEngine templateEngine,
-                                   @Value("${spring.mail.username:}") String from) {
-        this.sender = sender;
-        this.templateEngine = templateEngine;
-        this.from = from;
-    }
+    @Autowired
+    private TemplateEngine templateEngine;
+
+    // Giá trị chuỗi lấy từ cấu hình nên dùng @Value.
+    @Value("${spring.mail.username:}")
+    private String from;
 
     public void sendOtp(String email, String otp, long minutes) {
         if (from.isBlank()) throw new BusinessException(ErrorCode.EMAIL_DELIVERY_FAILED);

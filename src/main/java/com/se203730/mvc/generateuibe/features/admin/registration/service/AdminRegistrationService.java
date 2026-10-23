@@ -17,8 +17,8 @@ import com.se203730.mvc.generateuibe.features.user.entity.User;
 import com.se203730.mvc.generateuibe.features.user.entity.UserProfile;
 import com.se203730.mvc.generateuibe.features.user.repository.UserProfileRepository;
 import com.se203730.mvc.generateuibe.features.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,17 +36,31 @@ import java.util.UUID;
  * Controller nhận request; service kiểm tra quyền/điều kiện và gọi repository để đọc, ghi dữ liệu.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AdminRegistrationService {
-    private final UserRepository users;
-    private final UserProfileRepository profiles;
-    private final RegistrationRequestRepository registrations;
-    private final AccountAccessService accounts;
-    private final SupabaseAuthClient supabase;
-    private final RegistrationMailService mail;
-    private final AuthProperties properties;
-    private final TransactionTemplate transaction;
+    @Autowired
+    private UserRepository users;
+
+    @Autowired
+    private UserProfileRepository profiles;
+
+    @Autowired
+    private RegistrationRequestRepository registrations;
+
+    @Autowired
+    private AccountAccessService accounts;
+
+    @Autowired
+    private SupabaseAuthClient supabase;
+
+    @Autowired
+    private RegistrationMailService mail;
+
+    @Autowired
+    private AuthProperties properties;
+
+    @Autowired
+    private TransactionTemplate transaction;
 
     /** Danh sách hồ sơ theo trạng thái, có phân trang và sắp xếp hồ sơ mới nhất trước. */
     @Transactional(readOnly = true)
@@ -171,7 +185,9 @@ public class AdminRegistrationService {
     private boolean isOtpDeliveryFailure(ErrorCode errorCode) {
         return errorCode == ErrorCode.EMAIL_DELIVERY_FAILED
                 || errorCode == ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE
-                || errorCode == ErrorCode.AUTH_NOT_CONFIGURED;
+                || errorCode == ErrorCode.AUTH_NOT_CONFIGURED
+                // Quyết định APPROVED đã commit; bị giới hạn gửi mã không có nghĩa duyệt thất bại.
+                || errorCode == ErrorCode.TOO_MANY_REQUESTS;
     }
 
     /** DTO trả đầy đủ form để Admin xem, không trả entity trực tiếp hoặc lộ OTP/token/mật khẩu. */

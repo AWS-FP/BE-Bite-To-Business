@@ -4,7 +4,7 @@ import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.common.exception.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -23,9 +23,9 @@ import java.util.List;
  * Trả lỗi JSON cho lỗi xác thực/phân quyền tại Security Filter, trước khi request đi tới controller.
  */
 @Component
-@RequiredArgsConstructor
 public class RestSecurityExceptionHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
-    private final ObjectMapper objectMapper;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     // Gọi khi chưa đăng nhập hoặc Bearer token không hợp lệ; trả HTTP 401 và header chuẩn cho Bearer authentication.
     @Override

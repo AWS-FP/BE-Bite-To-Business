@@ -6,8 +6,8 @@ import com.se203730.mvc.generateuibe.features.auth.client.SupabaseAuthClient;
 import com.se203730.mvc.generateuibe.features.auth.dto.request.LoginRequest;
 import com.se203730.mvc.generateuibe.features.auth.dto.response.AuthResponse;
 import com.se203730.mvc.generateuibe.features.user.dto.response.UserResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.core.AuthenticationException;
@@ -17,12 +17,16 @@ import org.springframework.stereotype.Service;
  * Xử lý đăng nhập, làm mới phiên và đăng xuất; Supabase quản lý mật khẩu/token, backend kiểm tra thêm trạng thái nghiệp vụ.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AuthService {
-    private final SupabaseAuthClient supabase;
-    private final AccountAccessService accounts;
-    private final JwtDecoder jwtDecoder;
+    @Autowired
+    private SupabaseAuthClient supabase;
+
+    @Autowired
+    private AccountAccessService accounts;
+
+    @Autowired
+    private JwtDecoder jwtDecoder;
 
     /** Gửi Gmail/password tới Supabase, sau đó kiểm tra tài khoản có đủ điều kiện dùng website. */
     public AuthResponse login(LoginRequest request) {
@@ -42,8 +46,13 @@ public class AuthService {
     /** Xác minh token, đối chiếu UUID và kiểm tra trạng thái trong database trước khi trả phiên cho frontend. */
     private AuthResponse authenticatedSession(SupabaseAuthClient.Session session) {
         try {
-            if (session.accessToken() == null || session.refreshToken() == null || session.user() == null
-                    || session.user().id() == null) throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            // Thiếu trường snake_case từ provider phải báo lỗi, không trả phiên có expiresIn = 0 cho FE.
+            if (session.accessToken() == null || session.accessToken().isBlank()
+                    || session.refreshToken() == null || session.refreshToken().isBlank()
+                    || !"bearer".equalsIgnoreCase(session.tokenType()) || session.expiresIn() <= 0
+                    || session.user() == null || session.user().id() == null) {
+                throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            }
             // Không tin trực tiếp JSON trả về: kiểm tra chữ ký, issuer, audience và thời hạn JWT qua decoder.
             var jwt = jwtDecoder.decode(session.accessToken());
             if (!AccountAccessService.subject(jwt).equals(session.user().id()))

@@ -7,8 +7,14 @@ import jakarta.validation.constraints.*;
  * Dữ liệu Guest gửi để đăng ký Customer; chỉ nhận thông tin hồ sơ, không nhận role hoặc mật khẩu do client tự chọn.
  */
 public record RegisterRequest(
-        @NotBlank @Size(max = 100) @Pattern(regexp = "[\\p{L}\\p{M}][\\p{L}\\p{M} .'-]*") String firstName,
-        @NotBlank @Size(max = 100) @Pattern(regexp = "[\\p{L}\\p{M}][\\p{L}\\p{M} .'-]*") String lastName,
+        @NotBlank
+        @Size(max = 100)
+        @Pattern(regexp = "[\\p{L}\\p{M}][\\p{L}\\p{M} .'-]*")
+        String firstName,
+        @NotBlank
+        @Size(max = 100)
+        @Pattern(regexp = "[\\p{L}\\p{M}][\\p{L}\\p{M} .'-]*")
+        String lastName,
         @NotBlank @Size(max = 254) @Email @Pattern(regexp = "(?i)[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@gmail\\.com") String email,
         @NotBlank @Pattern(regexp = "(?:0|\\+84)[35789][0-9]{8}") String phone,
         @NotNull CustomerType customerType,
@@ -17,7 +23,8 @@ public record RegisterRequest(
         @NotBlank @Size(max = 100) String district,
         @NotBlank @Size(max = 100) String ward,
         @NotBlank @Size(max = 1000) String deliveryAddress,
-        boolean invoiceSameAsDelivery,
+        // FE gửi rõ true hoặc false; không âm thầm đổi null/thiếu trường thành false.
+        @NotNull Boolean invoiceSameAsDelivery,
         @Size(max = 200) String invoicePurchaser,
         @Pattern(regexp = "[0-9]{10}") String invoiceTaxCode,
         @Size(max = 254) @Email @Pattern(regexp = "(?i)[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@gmail\\.com") String invoiceEmail,

@@ -13,7 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 
 import org.springframework.http.CacheControl;
@@ -27,10 +27,10 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/admin/registration-requests")
-@RequiredArgsConstructor
 @Tag(name = "Admin - Customer registration")
 public class RegistrationAdminController {
-    private final AdminRegistrationService registrations;
+    @Autowired
+    private AdminRegistrationService registrations;
 
     /** Lọc danh sách hồ sơ theo trạng thái; page bắt đầu từ 0, size giới hạn tối đa 100. */
     @GetMapping

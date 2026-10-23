@@ -9,7 +9,7 @@ import com.se203730.mvc.generateuibe.features.auth.enums.RegistrationStatus;
 import com.se203730.mvc.generateuibe.features.user.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.auth.repository.RegistrationRequestRepository;
 import com.se203730.mvc.generateuibe.features.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.authorization.AuthorizationDecision;
@@ -29,11 +29,13 @@ import java.util.UUID;
  * Kiểm tra quyền và trạng thái tài khoản trong database; một JWT hợp lệ chưa có nghĩa tài khoản được phép mua hàng.
  */
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AccountAccessService {
-    private final UserRepository users;
-    private final RegistrationRequestRepository registrations;
+    @Autowired
+    private UserRepository users;
+
+    @Autowired
+    private RegistrationRequestRepository registrations;
 
     /** Tài khoản phải tồn tại, không bị cấm và đã xác minh email; Customer còn phải được duyệt và kích hoạt. */
     public User requireActiveUser(UUID id) {

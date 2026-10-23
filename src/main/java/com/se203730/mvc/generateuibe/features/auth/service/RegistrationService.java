@@ -14,8 +14,8 @@ import com.se203730.mvc.generateuibe.features.auth.enums.RegistrationStatus;
 import com.se203730.mvc.generateuibe.features.user.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.auth.repository.RegistrationRequestRepository;
 import com.se203730.mvc.generateuibe.features.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -28,16 +28,28 @@ import java.util.UUID;
  * Xử lý Guest gửi đăng ký, Customer xác minh OTP và tạo mật khẩu. Nghiệp vụ xét duyệt nằm trong AdminRegistrationService.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class RegistrationService {
-    private final UserRepository users;
-    private final UserProfileRepository profiles;
-    private final RegistrationRequestRepository registrations;
-    private final SupabaseAuthClient supabase;
-    private final AccountAccessService accounts;
-    private final AuthProperties properties;
-    private final TransactionTemplate transaction;
+    @Autowired
+    private UserRepository users;
+
+    @Autowired
+    private UserProfileRepository profiles;
+
+    @Autowired
+    private RegistrationRequestRepository registrations;
+
+    @Autowired
+    private SupabaseAuthClient supabase;
+
+    @Autowired
+    private AccountAccessService accounts;
+
+    @Autowired
+    private AuthProperties properties;
+
+    @Autowired
+    private TransactionTemplate transaction;
 
     /** Tạo tài khoản chờ, lưu hồ sơ và yêu cầu PENDING; chỉ trả biên nhận, chưa cho phép đăng nhập mua hàng. */
     public RegistrationReceipt register(RegisterRequest request) {
@@ -102,8 +114,12 @@ public class RegistrationService {
                 throw new BusinessException(ErrorCode.OTP_EXPIRED);
             // Backend kiểm tra điều kiện nghiệp vụ; Supabase kiểm tra OTP có đúng và còn dùng được hay không.
             var session = supabase.verifyOtp(user.getEmail(), request.otp());
+            if (session.accessToken() == null || session.accessToken().isBlank()
+                    || !"bearer".equalsIgnoreCase(session.tokenType()) || session.expiresIn() <= 0) {
+                throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            }
             if (session.user() == null || !user.getId().equals(session.user().id())
-                    || session.user().emailConfirmedAt() == null || session.accessToken() == null)
+                    || session.user().emailConfirmedAt() == null)
                 throw new BusinessException(ErrorCode.UNAUTHORIZED);
             user.setEmailVerified(true); user.setUpdatedAt(Instant.now()); users.saveAndFlush(user);
             // Không trả refresh token của phiên OTP; token này không qua được cổng API nghiệp vụ.
