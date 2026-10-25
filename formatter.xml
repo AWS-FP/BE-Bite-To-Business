@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<profiles version="23">
+    <profile kind="CodeFormatterProfile" name="Bite to Business" version="23">
+        <setting id="org.eclipse.jdt.core.formatter.tabulation.char" value="space" />
+        <setting id="org.eclipse.jdt.core.formatter.tabulation.size" value="4" />
+        <setting id="org.eclipse.jdt.core.formatter.indentation.size" value="4" />
+        <setting id="org.eclipse.jdt.core.formatter.lineSplit" value="100" />
+        <setting id="org.eclipse.jdt.core.formatter.continuation_indentation" value="2" />
+        <setting id="org.eclipse.jdt.core.formatter.brace_position_for_type_declaration" value="end_of_line" />
+        <setting id="org.eclipse.jdt.core.formatter.brace_position_for_record_declaration" value="end_of_line" />
+        <setting id="org.eclipse.jdt.core.formatter.brace_position_for_record_constructor" value="end_of_line" />
+        <setting id="org.eclipse.jdt.core.formatter.brace_position_for_method_declaration" value="end_of_line" />
+        <setting id="org.eclipse.jdt.core.formatter.brace_position_for_constructor_declaration" value="end_of_line" />
+        <setting id="org.eclipse.jdt.core.formatter.brace_position_for_block" value="end_of_line" />
+        <setting id="org.eclipse.jdt.core.formatter.brace_position_for_lambda_body" value="end_of_line" />
+        <setting id="org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_type" value="insert" />
+        <setting id="org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_method" value="insert" />
+        <setting id="org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_field" value="insert" />
+        <setting id="org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_parameter" value="insert" />
+        <setting id="org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_record_parameter" value="insert" />
+        <setting id="org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_local_variable" value="insert" />
+        <setting id="org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_enum_constant" value="insert" />
+        <setting id="org.eclipse.jdt.core.formatter.insert_new_line_after_type_annotation" value="insert" />
+        <setting id="org.eclipse.jdt.core.formatter.alignment_for_annotations_on_field" value="49" />
+        <setting id="org.eclipse.jdt.core.formatter.alignment_for_annotations_on_method" value="49" />
+        <setting id="org.eclipse.jdt.core.formatter.alignment_for_annotations_on_type" value="49" />
+        <setting id="org.eclipse.jdt.core.formatter.alignment_for_annotations_on_parameter" value="49" />
+        <setting id="org.eclipse.jdt.core.formatter.alignment_for_record_components" value="49" />
+        <setting id="org.eclipse.jdt.core.formatter.alignment_for_parameters_in_method_declaration" value="48" />
+        <setting id="org.eclipse.jdt.core.formatter.alignment_for_parameters_in_constructor_declaration" value="48" />
+        <setting id="org.eclipse.jdt.core.formatter.parentheses_positions_in_method_declaration" value="separate_lines_if_wrapped" />
+        <setting id="org.eclipse.jdt.core.formatter.parentheses_positions_in_record_declaration" value="separate_lines_if_wrapped" />
+        <setting id="org.eclipse.jdt.core.formatter.blank_lines_before_field" value="1" />
+        <setting id="org.eclipse.jdt.core.formatter.blank_lines_between_methods" value="1" />
+        <setting id="org.eclipse.jdt.core.formatter.keep_method_body_on_one_line" value="one_line_never" />
+        <setting id="org.eclipse.jdt.core.formatter.keep_record_constructor_on_one_line" value="one_line_never" />
+        <setting id="org.eclipse.jdt.core.formatter.keep_code_block_on_one_line" value="one_line_never" />
+        <setting id="org.eclipse.jdt.core.formatter.keep_simple_getter_setter_on_one_line" value="false" />
+        <setting id="org.eclipse.jdt.core.formatter.keep_imple_if_on_one_line" value="false" />
+        <setting id="org.eclipse.jdt.core.formatter.keep_simple_for_body_on_same_line" value="false" />
+        <setting id="org.eclipse.jdt.core.formatter.keep_simple_while_body_on_same_line" value="false" />
+        <setting id="org.eclipse.jdt.core.formatter.comment.format_javadoc_comments" value="false" />
+        <setting id="org.eclipse.jdt.core.formatter.comment.format_block_comments" value="false" />
+        <setting id="org.eclipse.jdt.core.formatter.comment.format_line_comments" value="false" />
+        <setting id="org.eclipse.jdt.core.formatter.join_wrapped_lines" value="false" />
+    </profile>
+</profiles>

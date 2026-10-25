@@ -29,7 +29,10 @@ public class RestSecurityExceptionHandler implements AuthenticationEntryPoint, A
 
     // Gọi khi chưa đăng nhập hoặc Bearer token không hợp lệ; trả HTTP 401 và header chuẩn cho Bearer authentication.
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException ex)
+    public void commence(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AuthenticationException ex)
             throws IOException {
         new BearerTokenAuthenticationEntryPoint().commence(request, response, ex);
         write(request, response, ErrorCode.UNAUTHORIZED);
@@ -37,18 +40,25 @@ public class RestSecurityExceptionHandler implements AuthenticationEntryPoint, A
 
     // Gọi khi có xác thực nhưng tài khoản không đủ quyền hoặc không đạt điều kiện nghiệp vụ.
     @Override
-    public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException ex)
+    public void handle(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AccessDeniedException ex)
             throws IOException {
         write(request, response, ex instanceof AccountAccessDeniedException denied
-                ? denied.getErrorCode() : ErrorCode.ACCESS_DENIED);
+                ? denied.getErrorCode()
+                : ErrorCode.ACCESS_DENIED);
     }
 
     // Tạo cùng cấu trúc ErrorResponse như lỗi MVC và yêu cầu trình duyệt không cache phản hồi này.
-    private void write(HttpServletRequest request, HttpServletResponse response, ErrorCode code) throws IOException {
+    private void write(HttpServletRequest request, HttpServletResponse response, ErrorCode code)
+            throws IOException {
         response.setStatus(code.getStatus().value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
-        objectMapper.writeValue(response.getOutputStream(), new ErrorResponse(code.getStatus().value(),
-                code.name(), code.getMessage(), request.getRequestURI(), List.of(), Instant.now()));
+        objectMapper.writeValue(response.getOutputStream(),
+                new ErrorResponse(code.getStatus().value(),
+                        code.name(), code.getMessage(), request.getRequestURI(), List.of(),
+                        Instant.now()));
     }
 }

@@ -14,11 +14,13 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
     // So sánh email bằng lower(...) để TEST@gmail.com và test@gmail.com được hiểu là cùng tài khoản.
     @Query("select count(u) > 0 from User u where lower(u.email) = lower(:email)")
-    boolean existsByEmailIgnoreCase(@Param("email") String email);
+    boolean existsByEmailIgnoreCase(@Param("email")
+    String email);
 
     // Số đã được chuẩn hóa về +84 trước khi truy vấn.
     boolean existsByPhone(String phone);
 
     @Query("select u from User u where lower(u.email) = lower(:email)")
-    Optional<User> findByEmailIgnoreCase(@Param("email") String email);
+    Optional<User> findByEmailIgnoreCase(@Param("email")
+    String email);
 }

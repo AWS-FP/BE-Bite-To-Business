@@ -14,10 +14,14 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "app.supabase")
 public class SupabaseProperties {
     private String url;
+
     // Key gọi API Auth thông thường; đây không phải secret dùng để ký JWT.
     private String publishableKey = "";
+
     // Key quản trị dùng để tạo tài khoản và lấy OTP; không trả về frontend.
     private String secretKey = "";
+
     private Duration connectTimeout = Duration.ofSeconds(5);
+
     private Duration readTimeout = Duration.ofSeconds(10);
 }

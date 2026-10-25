@@ -33,7 +33,9 @@ import java.util.stream.StreamSupport;
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<Object> handleBusinessException(BusinessException ex, WebRequest request) {
+    public ResponseEntity<Object> handleBusinessException(
+            BusinessException ex,
+            WebRequest request) {
         ErrorCode code = ex.getErrorCode();
         if (code.getStatus().is5xxServerError()) {
             log.error("Business operation failed at {}", requestPath(request), ex);
@@ -42,10 +44,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<Object> handleConstraintViolation(ConstraintViolationException ex, WebRequest request) {
+    public ResponseEntity<Object> handleConstraintViolation(
+            ConstraintViolationException ex,
+            WebRequest request) {
         // Lỗi dữ liệu trả ra là lỗi backend (500); lỗi dữ liệu người dùng nhập mới được trả thành lỗi validation (400).
         boolean invalidReturnValue = ex.getConstraintViolations().stream()
-                .anyMatch(violation -> StreamSupport.stream(violation.getPropertyPath().spliterator(), false)
+                .anyMatch(violation -> StreamSupport
+                        .stream(violation.getPropertyPath().spliterator(), false)
                         .anyMatch(node -> node.getKind() == ElementKind.RETURN_VALUE));
         if (invalidReturnValue) {
             log.error("Response validation failed at {}", requestPath(request), ex);
@@ -55,14 +60,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         List<ErrorResponse.ValidationError> errors = ex.getConstraintViolations().stream()
                 .map(violation -> new ErrorResponse.ValidationError(
                         violation.getPropertyPath().toString(),
-                        violation.getConstraintDescriptor().getAnnotation().annotationType().getSimpleName(),
+                        violation.getConstraintDescriptor().getAnnotation().annotationType()
+                                .getSimpleName(),
                         violation.getMessage()))
                 .toList();
         return respond(ErrorCode.VALIDATION_FAILED, errors, request);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<Object> handleDataConflict(DataIntegrityViolationException ex, WebRequest request) {
+    public ResponseEntity<Object> handleDataConflict(
+            DataIntegrityViolationException ex,
+            WebRequest request) {
         // Hai request có thể cùng vượt qua bước kiểm tra trùng; unique index là chốt cuối.
         Throwable cause = ex;
         while (cause != null) {
@@ -82,7 +90,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     // Các handler này xử lý lỗi trong MVC; lỗi ở Security Filter do RestSecurityExceptionHandler xử lý.
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<Object> handleAuthentication(AuthenticationException ex, WebRequest request) {
+    public ResponseEntity<Object> handleAuthentication(
+            AuthenticationException ex,
+            WebRequest request) {
         return respond(ErrorCode.UNAUTHORIZED, List.of(), request);
     }
 
@@ -98,8 +108,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @Override
-    protected @Nullable ResponseEntity<Object> handleExceptionInternal(
-            Exception ex, @Nullable Object body, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+    protected @Nullable
+    ResponseEntity<Object> handleExceptionInternal(
+            Exception ex,
+            @Nullable
+            Object body,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
         ErrorCode code = ErrorCode.fromHttpStatus(status);
         List<ErrorResponse.ValidationError> errors = List.of();
 
@@ -118,8 +134,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                         }
                         String name = result.getMethodParameter().getParameterName();
                         return new ErrorResponse.ValidationError(
-                                name != null ? name : "arg" + result.getMethodParameter().getParameterIndex(),
-                                "Invalid", error.getDefaultMessage() != null ? error.getDefaultMessage() : "Invalid value.");
+                                name != null
+                                        ? name
+                                        : "arg" + result.getMethodParameter().getParameterIndex(),
+                                "Invalid",
+                                error.getDefaultMessage() != null
+                                        ? error.getDefaultMessage()
+                                        : "Invalid value.");
                     }))
                     .toList();
         }
@@ -138,21 +159,28 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private ResponseEntity<Object> respond(
-            ErrorCode code, List<ErrorResponse.ValidationError> errors, WebRequest request) {
-        ErrorResponse response = new ErrorResponse(code.getStatus().value(), code.name(), code.getMessage(),
+            ErrorCode code,
+            List<ErrorResponse.ValidationError> errors,
+            WebRequest request) {
+        ErrorResponse response = new ErrorResponse(code.getStatus().value(), code.name(),
+                code.getMessage(),
                 requestPath(request), errors, Instant.now());
-        return ResponseEntity.status(code.getStatus()).contentType(MediaType.APPLICATION_JSON).body(response);
+        return ResponseEntity.status(code.getStatus()).contentType(MediaType.APPLICATION_JSON)
+                .body(response);
     }
 
     private ErrorResponse.ValidationError validationError(ObjectError error) {
         return new ErrorResponse.ValidationError(
-                error instanceof FieldError fieldError ? fieldError.getField() : error.getObjectName(),
+                error instanceof FieldError fieldError
+                        ? fieldError.getField()
+                        : error.getObjectName(),
                 error.getCode() != null ? error.getCode() : "Invalid",
                 error.getDefaultMessage() != null ? error.getDefaultMessage() : "Invalid value.");
     }
 
     private static String requestPath(WebRequest request) {
         return request instanceof ServletWebRequest servletRequest
-                ? servletRequest.getRequest().getRequestURI() : "";
+                ? servletRequest.getRequest().getRequestURI()
+                : "";
     }
 }

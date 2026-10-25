@@ -30,11 +30,14 @@ public class CurrentUserUUIDArgumentResolver implements HandlerMethodArgumentRes
     }
 
     @Override
-    public @Nullable Object resolveArgument(
+    public @Nullable
+    Object resolveArgument(
             MethodParameter parameter,
-            @Nullable ModelAndViewContainer mavContainer,
+            @Nullable
+            ModelAndViewContainer mavContainer,
             NativeWebRequest webRequest,
-            @Nullable WebDataBinderFactory binderFactory) {
+            @Nullable
+            WebDataBinderFactory binderFactory) {
         CurrentUserUUID annotation = parameter.getParameterAnnotation(CurrentUserUUID.class);
         boolean required = annotation == null || annotation.required();
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

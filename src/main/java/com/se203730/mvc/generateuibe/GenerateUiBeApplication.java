@@ -9,8 +9,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class GenerateUiBeApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(GenerateUiBeApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(GenerateUiBeApplication.class, args);
+    }
 
 }
