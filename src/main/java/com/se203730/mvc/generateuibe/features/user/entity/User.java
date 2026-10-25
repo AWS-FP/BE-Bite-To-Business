@@ -1,6 +1,7 @@
 package com.se203730.mvc.generateuibe.features.user.entity;
 
 import com.se203730.mvc.generateuibe.features.user.enums.UserRole;
+import com.se203730.mvc.generateuibe.common.util.PhoneNumberUtils;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -44,4 +45,11 @@ public class User {
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    // Các luồng tạo/sửa tài khoản qua JPA đều lưu số điện thoại cùng một định dạng.
+    @PrePersist
+    @PreUpdate
+    private void normalizePhone() {
+        phone = PhoneNumberUtils.normalize(phone);
+    }
 }

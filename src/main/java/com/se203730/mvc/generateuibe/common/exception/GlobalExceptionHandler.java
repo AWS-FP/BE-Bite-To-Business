@@ -63,6 +63,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Object> handleDataConflict(DataIntegrityViolationException ex, WebRequest request) {
+        // Hai request có thể cùng vượt qua bước kiểm tra trùng; unique index là chốt cuối.
+        Throwable cause = ex;
+        while (cause != null) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException constraint) {
+                String constraintName = constraint.getConstraintName();
+                if ("ux_users_phone".equals(constraintName)) {
+                    return respond(ErrorCode.PHONE_ALREADY_EXISTS, List.of(), request);
+                }
+                if ("ux_users_email_ci".equals(constraintName)) {
+                    return respond(ErrorCode.EMAIL_ALREADY_EXISTS, List.of(), request);
+                }
+            }
+            cause = cause.getCause();
+        }
         return respond(ErrorCode.CONFLICT, List.of(), request);
     }
 

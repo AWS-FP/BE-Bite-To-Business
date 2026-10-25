@@ -8,6 +8,7 @@ import lombok.Setter;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.StringJoiner;
 
 /** Hồ sơ dùng chung; thông tin không áp dụng cho role có thể để null. */
 @Entity
@@ -33,6 +34,8 @@ public class UserProfile {
     private String ward;
     @Column(name = "delivery_address")
     private String deliveryAddress;
+    @Column(name = "delivery_note", length = 1000)
+    private String deliveryNote;
     // Boolean có ba giá trị: true, false và null khi thông tin này không áp dụng cho role.
     @Column(name = "invoice_same_as_delivery")
     private Boolean invoiceSameAsDelivery;
@@ -48,4 +51,14 @@ public class UserProfile {
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    // Ghep tu cac truong da luu, khong luu them mot cot dia chi trung lap.
+    @Transient
+    public String getFullDeliveryAddress() {
+        StringJoiner address = new StringJoiner(", ");
+        for (String part : new String[] { deliveryAddress, ward, district, province }) {
+            if (part != null && !part.isBlank()) address.add(part.strip());
+        }
+        return address.toString();
+    }
 }

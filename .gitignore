@@ -39,3 +39,4 @@ src/main/resources/application-local.properties
 
 # Tài liệu dự án chỉ lưu ở local.
 /docs/
+HELP.md

@@ -8,9 +8,15 @@ Use sequential names such as `V1__init_schema.sql`, `V2__allow_optional_user_pro
 
 Current migrations:
 
+New in V6: `V6__add_customer_delivery_note.sql` adds optional `user_profiles.delivery_note` (up to 1000 characters). Existing records retain NULL notes. Registration now uses city/ward addresses for Hanoi and Ho Chi Minh City, with district optional; V2 already permits NULL district. The backend computes the full delivery address from the stored parts. V6 has not been applied by this implementation task; run the configured backend to apply it through Flyway. Keep V1–V5 unchanged.
+
 - `V1__init_schema.sql`: the initial schema, already applied.
 - `V2__allow_optional_user_profile_fields.sql`: allow optional profile fields for Admin and Staff.
 - `V3__create_product_details.sql`: add the four-section product details table, VAT invoice records (`invoices`), product bundles (`combos`, `combo_items`), purchased combo components (`order_combo_items`), and AI conversation messages (`ai_messages`). Each Order has at most one invoice; buyer details, amounts and invoice lines reuse the immutable snapshots in `orders` and `order_items`.
+- `V4__create_user_search_history.sql`: add account search history (`id`, `user_id`, `keyword`, `searched_at`). A case-insensitive unique index prevents duplicate keywords per user; a recency index supports the five latest keywords. Repeating a keyword updates its timestamp. Deleting a user deletes their history. RLS is enabled; access goes through the backend.
+- `V5__normalize_and_enforce_unique_user_phone.sql`: normalize Vietnamese mobile numbers to `+84...` and require a unique number across all user roles. Registration checks phone availability before creating a Supabase Auth account; the unique index also protects concurrent requests. Existing invalid numbers or duplicates stop and roll back V5 for correction; no accounts are deleted. This migration keeps all required user fields and email OTP unchanged. It replaces the cancelled proposal for optional Admin profile fields, which was never created.
+
+Search history uses `GET` and `POST /api/users/me/search-history`. Both require an active password-authenticated account; the backend obtains the user ID from the verified JWT. POST accepts only `keyword` (up to 160 characters) and returns the five latest entries, as does GET. The Header uses these APIs for signed-in users; Guest history remains separate in browser session storage. V4 must be applied by Flyway before using the new API.
 
 V2 and V3 were renamed from timestamp-based filenames before being run, as confirmed by the user. V3 was subsequently extended with invoices, combos, purchased combo components and AI messages at the user's request, before migration. The invoice schema does not implement PDF generation or email delivery by itself.
 

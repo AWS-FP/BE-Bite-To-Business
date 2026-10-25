@@ -54,6 +54,7 @@ public class RegistrationService {
     /** Tạo tài khoản chờ, lưu hồ sơ và yêu cầu PENDING; chỉ trả biên nhận, chưa cho phép đăng nhập mua hàng. */
     public RegistrationReceipt register(RegisterRequest request) {
         if (users.existsByEmailIgnoreCase(request.email())) throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
+        if (users.existsByPhone(request.phone())) throw new BusinessException(ErrorCode.PHONE_ALREADY_EXISTS);
         // 1. Tạo tài khoản phía Supabase; dùng cùng UUID cho bảng users của ứng dụng.
         UUID authUserId = supabase.createPendingUser(request.email());
         try {
@@ -74,11 +75,12 @@ public class RegistrationService {
                 profile.setBusinessName(request.businessName()); profile.setProvince(request.province());
                 profile.setDistrict(request.district()); profile.setWard(request.ward());
                 profile.setDeliveryAddress(request.deliveryAddress());
+                profile.setDeliveryNote(request.deliveryNote());
                 profile.setInvoiceSameAsDelivery(request.invoiceSameAsDelivery());
                 profile.setInvoicePurchaser(request.invoicePurchaser()); profile.setInvoiceTaxCode(request.invoiceTaxCode());
                 profile.setInvoiceEmail(request.invoiceEmail());
                 profile.setInvoiceAddress(request.invoiceSameAsDelivery()
-                        ? String.join(", ", request.deliveryAddress(), request.ward(), request.district(), request.province())
+                        ? profile.getFullDeliveryAddress()
                         : request.invoiceAddress());
                 profile.setCreatedAt(now); profile.setUpdatedAt(now);
                 profiles.saveAndFlush(profile);

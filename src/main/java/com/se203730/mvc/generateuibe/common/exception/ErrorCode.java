@@ -31,6 +31,7 @@ public enum ErrorCode {
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Please verify your email address."),
     ACCOUNT_NOT_ACTIVATED(HttpStatus.FORBIDDEN, "This account has not been activated."),
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "This email address is already registered."),
+    PHONE_ALREADY_EXISTS(HttpStatus.CONFLICT, "This phone number is already registered."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "The user was not found."),
     INVALID_OTP(HttpStatus.BAD_REQUEST, "The verification code is invalid."),
     OTP_EXPIRED(HttpStatus.BAD_REQUEST, "The verification code has expired."),
