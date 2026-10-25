@@ -1,12 +1,11 @@
 package com.se203730.mvc.generateuibe.config.security;
 
 import com.se203730.mvc.generateuibe.common.security.RestSecurityExceptionHandler;
-import com.se203730.mvc.generateuibe.features.auth.service.AccountAccessService;
+import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-
 
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -31,13 +30,16 @@ public class SecurityConfig {
             CorsConfigurationSource corsConfigurationSource,
             AccountAccessService accounts,
             RestSecurityExceptionHandler securityErrors,
-            @Value("${app.docs.public-enabled:false}") boolean docsPublicEnabled) throws Exception {
+            @Value("${app.docs.public-enabled:false}")
+            boolean docsPublicEnabled) throws Exception {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource));
         // Các API dùng Bearer token trong header, không xác thực bằng cookie.
         http.csrf(AbstractHttpConfigurer::disable);
-        http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        http.sessionManagement(
+                session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.requestCache(cache -> cache.disable());
-        http.exceptionHandling(errors -> errors.authenticationEntryPoint(securityErrors).accessDeniedHandler(securityErrors));
+        http.exceptionHandling(errors -> errors.authenticationEntryPoint(securityErrors)
+                .accessDeniedHandler(securityErrors));
 
         // Khai báo route công khai trước; các route còn lại phải vượt qua kiểm tra tài khoản và phiên đăng nhập.
         http.authorizeHttpRequests(authorize -> {
@@ -57,9 +59,11 @@ public class SecurityConfig {
             }
             // API quản trị cần ADMIN; API khác vẫn phải có tài khoản đang hoạt động và phiên đăng nhập bằng password.
             authorize.requestMatchers("/api/admin/**")
-                    .access((authentication, context) -> accounts.authorize(authentication.get(), true));
+                    .access((authentication, context) -> accounts.authorize(authentication.get(),
+                            true));
             authorize.anyRequest()
-                    .access((authentication, context) -> accounts.authorize(authentication.get(), false));
+                    .access((authentication, context) -> accounts.authorize(authentication.get(),
+                            false));
         });
 
         // Spring xác minh JWT qua cấu hình JWKS; converter bổ sung quyền từ role đang lưu trong database.

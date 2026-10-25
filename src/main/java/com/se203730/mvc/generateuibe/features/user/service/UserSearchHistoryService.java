@@ -1,6 +1,6 @@
 package com.se203730.mvc.generateuibe.features.user.service;
 
-import com.se203730.mvc.generateuibe.features.auth.service.AccountAccessService;
+import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.user.dto.request.SaveSearchHistoryRequest;
 import com.se203730.mvc.generateuibe.features.user.dto.response.SearchHistoryResponse;
 import com.se203730.mvc.generateuibe.features.user.entity.UserSearchHistory;
@@ -38,7 +38,8 @@ public class UserSearchHistoryService {
     }
 
     private List<SearchHistoryResponse> readRecentHistory(UUID userId) {
-        List<UserSearchHistory> historyList = historyRepository.findTop5ByUserIdOrderBySearchedAtDescIdDesc(userId);
+        List<UserSearchHistory> historyList = historyRepository
+                .findTop5ByUserIdOrderBySearchedAtDescIdDesc(userId);
         List<SearchHistoryResponse> responses = new ArrayList<>();
 
         for (UserSearchHistory history : historyList) {

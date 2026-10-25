@@ -17,9 +17,12 @@ public class CorsConfig {
 
     @Bean
     UrlBasedCorsConfigurationSource corsConfigurationSource(
-            @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOrigins,
-            @Value("${app.cors.allow-credentials:false}") boolean allowCredentials,
-            @Value("${app.cors.max-age:3600}") long maxAge) {
+            @Value("${app.cors.allowed-origins:http://localhost:5173}")
+            String allowedOrigins,
+            @Value("${app.cors.allow-credentials:false}")
+            boolean allowCredentials,
+            @Value("${app.cors.max-age:3600}")
+            long maxAge) {
         CorsConfiguration configuration = new CorsConfiguration();
         // Tách danh sách domain trong properties, bỏ khoảng trắng và loại giá trị trùng.
         configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
@@ -27,8 +30,10 @@ public class CorsConfig {
                 .filter(origin -> !origin.isEmpty())
                 .distinct()
                 .toList());
-        configuration.setAllowedMethods(List.of("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Accept-Language"));
+        configuration.setAllowedMethods(
+                List.of("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(
+                List.of("Authorization", "Content-Type", "Accept", "Accept-Language"));
         // Bật credentials khi cần cookie; luồng hiện tại truyền Bearer token bằng header Authorization.
         configuration.setAllowCredentials(allowCredentials);
         configuration.setMaxAge(maxAge);

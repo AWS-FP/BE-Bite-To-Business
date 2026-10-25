@@ -15,7 +15,6 @@ public record SearchHistoryResponse(
         return new SearchHistoryResponse(
                 history.getId(),
                 history.getKeyword(),
-                history.getSearchedAt()
-        );
+                history.getSearchedAt());
     }
 }

@@ -16,7 +16,9 @@ public class ResponseObject<T> {
 
     // Mã HTTP tương ứng, ví dụ 200 thành công hoặc 201 đã tạo dữ liệu.
     private int status;
+
     private String message;
+
     // T cho phép dùng cùng một khung response với UserResponse, danh sách, hoặc null.
     private T data;
 }

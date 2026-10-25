@@ -19,7 +19,8 @@ public class SupabaseClientConfig {
     @Bean
     RestClient supabaseAuthRestClient(SupabaseProperties properties) {
         // Timeout kết nối và đọc response giúp request không chờ Supabase vô thời hạn.
-        HttpClient client = HttpClient.newBuilder().connectTimeout(properties.getConnectTimeout()).build();
+        HttpClient client = HttpClient.newBuilder().connectTimeout(properties.getConnectTimeout())
+                .build();
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(client);
         factory.setReadTimeout(properties.getReadTimeout());
         return RestClient.builder()

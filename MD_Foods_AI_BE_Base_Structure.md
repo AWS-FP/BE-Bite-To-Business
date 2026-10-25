@@ -1,7 +1,30 @@
 ﻿# Cấu trúc Backend MD Foods
 
 **Kiến trúc:** Spring Boot Modular Monolith, tổ chức theo module nghiệp vụ như dự án SWP391.  
-**Trạng thái:** Cây thư mục mục tiêu; các module sẽ được triển khai dần. Tài liệu này không định nghĩa database schema hay nội dung migration.
+**Trạng thái:** Cây thư mục dưới đây là định hướng nghiệp vụ ban đầu; các module sẽ được triển khai dần. Tài liệu này không định nghĩa database schema hay nội dung migration.
+
+## Cấu trúc code hiện tại
+
+Package nghiệp vụ đang dùng `features`, thay cho `modules`. Toàn bộ code đăng ký, đăng nhập,
+OTP, tạo mật khẩu và duyệt hồ sơ đã gộp vào `features/admin`; không tạo folder `auth` riêng:
+
+```text
+features/admin/
+├── client/                 # SupabaseAuthClient
+├── controller/             # AuthController, RegistrationAdminController
+├── dto/request/
+├── dto/response/
+├── entity/                 # RegistrationRequest
+├── enums/                  # RegistrationStatus
+├── repository/             # RegistrationRequestRepository
+└── service/                # AuthService, RegistrationService, AdminRegistrationService, ...
+```
+
+Test tương ứng nằm trong `src/test/java/com/se203730/mvc/generateuibe/features/admin`.
+Tài khoản, profile và repository dùng chung vẫn nằm trong `features/user`. Đường dẫn API
+và phân quyền được giữ nguyên; vị trí folder không quyết định ai được truy cập API.
+
+## Định hướng nghiệp vụ ban đầu
 
 ```text
 Generate-UI-BE/

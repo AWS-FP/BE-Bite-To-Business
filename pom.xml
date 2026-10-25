@@ -124,6 +124,22 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>net.revelc.code.formatter</groupId>
+                <artifactId>formatter-maven-plugin</artifactId>
+                <version>2.29.0</version>
+                <configuration>
+                    <configFile>${project.basedir}/formatter.xml</configFile>
+                    <encoding>UTF-8</encoding>
+                    <lineEnding>LF</lineEnding>
+                    <compilerSource>${java.version}</compilerSource>
+                    <compilerCompliance>${java.version}</compilerCompliance>
+                    <compilerTargetPlatform>${java.version}</compilerTargetPlatform>
+                    <includes>
+                        <include>**/*.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>

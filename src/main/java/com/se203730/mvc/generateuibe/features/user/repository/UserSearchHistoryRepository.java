@@ -21,7 +21,10 @@ public interface UserSearchHistoryRepository extends JpaRepository<UserSearchHis
             ON CONFLICT (user_id, LOWER(keyword))
             DO UPDATE SET keyword = EXCLUDED.keyword, searched_at = EXCLUDED.searched_at
             """, nativeQuery = true)
-    void saveKeyword(@Param("id") UUID id,
-                     @Param("userId") UUID userId,
-                     @Param("keyword") String keyword);
+    void saveKeyword(@Param("id")
+    UUID id,
+            @Param("userId")
+            UUID userId,
+            @Param("keyword")
+            String keyword);
 }

@@ -19,6 +19,10 @@ public record ErrorResponse(
     }
 
     // Không đưa giá trị đã nhập (password, OTP...) vào response lỗi.
-    public record ValidationError(String field, String code, String message) {
+    public record ValidationError(
+            String field,
+            String code,
+            String message
+    ) {
     }
 }

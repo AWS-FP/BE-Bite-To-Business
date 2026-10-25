@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>Kết quả hồ sơ đăng ký | Bite to Business</title>
+    <style>
+        @media only screen and (max-width: 620px) {
+            .email-card { width: 100% !important; }
+            .email-body, .email-header { padding: 28px 22px !important; }
+        }
+    </style>
+</head>
+<body style="margin:0;padding:0;background-color:#f2f5ef;color:#263b30;font-family:Arial,Helvetica,sans-serif;">
+<div style="display:none;font-size:1px;line-height:1px;color:#f2f5ef;max-height:0;max-width:0;overflow:hidden;">
+    Bite to Business đã có kết quả xét duyệt hồ sơ đăng ký của bạn. Your registration has been reviewed.
+</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f2f5ef;">
+    <tr>
+        <td align="center" style="padding:32px 12px;">
+            <table role="presentation" class="email-card" width="600" cellpadding="0" cellspacing="0" border="0"
+                   style="width:600px;max-width:600px;background-color:#ffffff;border:1px solid #dce3dc;border-radius:18px;overflow:hidden;">
+                <tr>
+                    <td class="email-header" style="padding:32px 40px;background-color:#153d2b;border-radius:18px 18px 0 0;">
+                        <p style="margin:0 0 10px;color:#c4e6a4;font-size:11px;font-weight:bold;letter-spacing:2px;">TÀI KHOẢN CỦA BẠN · YOUR ACCOUNT</p>
+                        <p style="margin:0;color:#ffffff;font-size:28px;line-height:36px;font-weight:bold;">Bite to Business<span style="color:#c4e6a4;">.</span></p>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="email-body" style="padding:36px 40px;">
+                        <p style="margin:0 0 18px;color:#993b45;font-size:12px;font-weight:bold;letter-spacing:1px;">KẾT QUẢ XÉT DUYỆT HỒ SƠ</p>
+                        <h1 style="margin:0 0 16px;color:#153d2b;font-size:27px;line-height:35px;">Hồ sơ chưa được chấp thuận.</h1>
+                        <p style="margin:0 0 12px;font-size:15px;line-height:24px;">Xin chào bạn,</p>
+                        <p style="margin:0 0 24px;font-size:15px;line-height:24px;">
+                            Cảm ơn bạn đã đăng ký tài khoản tại Bite to Business. Sau khi xem xét,
+                            chúng tôi chưa thể chấp thuận hồ sơ của bạn vì lý do dưới đây.
+                        </p>
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                               style="background-color:#fff4f2;border:1px solid #eed5d1;border-radius:12px;">
+                            <tr>
+                                <td style="padding:22px 24px;">
+                                    <p style="margin:0 0 12px;color:#993b45;font-size:12px;font-weight:bold;">LÝ DO TỪ CHỐI · REASON</p>
+                                    <p th:text="${reason}" style="margin:0;color:#543b3a;font-size:15px;line-height:25px;white-space:pre-line;overflow-wrap:anywhere;word-break:break-word;">Thông tin hồ sơ cần được bổ sung.</p>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="margin:24px 0 18px;font-size:14px;line-height:23px;">
+                            Tài khoản chưa được kích hoạt. Bạn có thể phản hồi email này hoặc liên hệ hỗ trợ
+                            để được hướng dẫn về thông tin cần bổ sung.
+                        </p>
+                        <p style="margin:0 0 28px;text-align:center;">
+                            <a th:href="|mailto:${supportEmail}|" href="mailto:support@example.com"
+                               style="display:inline-block;padding:14px 22px;border-radius:10px;background-color:#153d2b;color:#ffffff;font-size:14px;font-weight:bold;line-height:22px;text-decoration:none;">
+                                Liên hệ hỗ trợ / Contact support
+                            </a>
+                        </p>
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #dce3dc;">
+                            <tr>
+                                <td lang="en" style="padding-top:24px;">
+                                    <h2 style="margin:0 0 12px;color:#153d2b;font-size:18px;line-height:26px;">Your registration was not approved</h2>
+                                    <p style="margin:0 0 12px;color:#52685a;font-size:14px;line-height:23px;">
+                                        Thank you for registering with Bite to Business. After reviewing your application,
+                                        we are unable to approve it for the reason shown above.
+                                    </p>
+                                    <p style="margin:0;color:#52685a;font-size:14px;line-height:23px;">
+                                        Your account has not been activated. Reply to this email or contact support
+                                        for guidance on the information that needs to be provided.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:22px 28px;background-color:#f8faf6;border-top:1px solid #dce3dc;border-radius:0 0 18px 18px;text-align:center;">
+                        <p style="margin:0 0 6px;color:#153d2b;font-size:13px;font-weight:bold;">Bite to Business</p>
+                        <p style="margin:0;color:#6b7a70;font-size:12px;line-height:20px;">Nếu bạn không đăng ký tài khoản, hãy bỏ qua email này.<br><span lang="en">If you did not register, please ignore this email.</span></p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
