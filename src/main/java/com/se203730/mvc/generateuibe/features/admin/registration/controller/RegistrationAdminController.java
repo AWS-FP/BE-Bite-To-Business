@@ -10,7 +10,6 @@ import com.se203730.mvc.generateuibe.features.admin.registration.dto.response.Re
 import com.se203730.mvc.generateuibe.features.user.enums.CustomerType;
 import com.se203730.mvc.generateuibe.features.auth.enums.RegistrationStatus;
 import com.se203730.mvc.generateuibe.features.admin.registration.service.AdminRegistrationService;
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -38,7 +37,6 @@ public class RegistrationAdminController {
 
     /** Lọc danh sách hồ sơ theo trạng thái; page bắt đầu từ 0, size giới hạn tối đa 100. */
     @GetMapping
-    @Operation(summary = "Admin xem danh sách yêu cầu đăng ký Customer")
     public ResponseEntity<ResponseObject<PageResponse<RegistrationResponse>>> list(@CurrentUserUUID UUID adminId,
             @RequestParam(defaultValue = "PENDING") RegistrationStatus status,
             @RequestParam(defaultValue = "false") boolean allStatuses,
@@ -56,7 +54,6 @@ public class RegistrationAdminController {
     }
 
     @GetMapping("/stats")
-    @Operation(summary = "Admin xem số hồ sơ theo trạng thái trên toàn hệ thống")
     public ResponseEntity<ResponseObject<RegistrationStatsResponse>> stats(@CurrentUserUUID UUID adminId) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(new ResponseObject<>(200, "Success", registrations.stats(adminId)));
@@ -64,7 +61,6 @@ public class RegistrationAdminController {
 
     /** Xem chi tiết một yêu cầu đăng ký theo ID của yêu cầu, không phải ID của tài khoản. */
     @GetMapping("/{id}")
-    @Operation(summary = "Admin xem đầy đủ thông tin form đăng ký của Customer")
     public ResponseEntity<ResponseObject<RegistrationResponse>> detail(@CurrentUserUUID UUID adminId, @PathVariable UUID id) {
         RegistrationResponse data = registrations.detail(adminId, id);
         ResponseObject<RegistrationResponse> response = new ResponseObject<>(200, "Success", data);
@@ -74,8 +70,6 @@ public class RegistrationAdminController {
 
     /** Nhận quyết định duyệt/từ chối của Admin; service kiểm tra quyền và trạng thái trước khi xử lý. */
     @PostMapping("/{id}/review")
-    @Operation(summary = "Admin duyệt hoặc từ chối hồ sơ Customer",
-            description = "Chỉ xử lý hồ sơ PENDING. Từ chối phải có lý do; duyệt sẽ gửi OTP tới Gmail đăng ký.")
     public ResponseEntity<ResponseObject<RegistrationReviewResponse>> review(@CurrentUserUUID UUID adminId,
             @PathVariable UUID id, @Valid @RequestBody ReviewRegistrationRequest request) {
         RegistrationReviewResponse data = registrations.review(adminId, id, request);
@@ -92,7 +86,6 @@ public class RegistrationAdminController {
 
     /** Gửi lại mã cho hồ sơ đã duyệt nếu lần gửi trước lỗi hoặc Customer cần mã mới. */
     @PostMapping("/{id}/resend-otp")
-    @Operation(summary = "Admin gửi lại OTP cho hồ sơ đã duyệt, chưa kích hoạt")
     public ResponseEntity<ResponseObject<RegistrationResponse>> resend(@CurrentUserUUID UUID adminId, @PathVariable UUID id) {
         RegistrationResponse data = registrations.resendOtp(adminId, id);
         ResponseObject<RegistrationResponse> response = new ResponseObject<>(200, "OTP sent.", data);

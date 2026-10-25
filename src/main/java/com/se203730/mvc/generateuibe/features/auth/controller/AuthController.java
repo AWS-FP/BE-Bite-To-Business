@@ -15,7 +15,6 @@ import com.se203730.mvc.generateuibe.features.auth.dto.response.RegistrationRece
 import com.se203730.mvc.generateuibe.features.auth.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.auth.service.AuthService;
 import com.se203730.mvc.generateuibe.features.auth.service.RegistrationService;
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -56,7 +55,6 @@ public class AuthController {
     /** Guest gửi form chờ Admin duyệt; HTTP 201 chỉ báo đã tạo yêu cầu, chưa kích hoạt tài khoản. */
     @PostMapping("/register")
     @SecurityRequirements
-    @Operation(summary = "Guest gửi form đăng ký Customer để Admin xét duyệt")
     public ResponseEntity<ResponseObject<RegistrationReceipt>> register(@Valid @RequestBody RegisterRequest request) {
         // 1. Service lưu hồ sơ và yêu cầu chờ duyệt, trả biên nhận đăng ký.
         RegistrationReceipt data = registrationService.register(request);
@@ -78,7 +76,6 @@ public class AuthController {
     /** Đăng nhập bằng Gmail/password sau khi đã hoàn thành duyệt, OTP và tạo mật khẩu. */
     @PostMapping("/login")
     @SecurityRequirements
-    @Operation(summary = "Đăng nhập bằng Gmail và mật khẩu")
     public ResponseEntity<ResponseObject<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse data = authService.login(request);
 
@@ -98,7 +95,6 @@ public class AuthController {
     /** Nhận mã OTP từ form; trả token phục vụ bước tạo mật khẩu. */
     @PostMapping("/verify-otp")
     @SecurityRequirements
-    @Operation(summary = "Xác minh OTP sau khi được duyệt và nhận token để tạo mật khẩu")
     public ResponseEntity<ResponseObject<OtpVerificationResponse>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
         OtpVerificationResponse data = registrationService.verifyOtp(request);
 
@@ -116,7 +112,6 @@ public class AuthController {
 
     /** Spring lấy JWT từ Bearer header và truyền vào tham số có @AuthenticationPrincipal. */
     @PostMapping("/activate")
-    @Operation(summary = "Tạo mật khẩu ban đầu bằng token nhận được sau khi xác minh OTP")
     public ResponseEntity<ResponseObject<Void>> activate(@AuthenticationPrincipal Jwt jwt,
                                                         @Valid @RequestBody SetPasswordRequest request) {
         // JWT lấy từ Authorization header; password và confirmPassword lấy từ JSON body.
@@ -138,7 +133,6 @@ public class AuthController {
     /** Nhận refresh token để cấp lại phiên; không yêu cầu access token cũ còn hạn. */
     @PostMapping("/refresh")
     @SecurityRequirements
-    @Operation(summary = "Dùng refresh token để lấy phiên đăng nhập mới")
     public ResponseEntity<ResponseObject<AuthResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         String refreshToken = request.refreshToken();
         AuthResponse data = authService.refresh(refreshToken);
@@ -157,7 +151,6 @@ public class AuthController {
 
     /** Đăng xuất phiên tương ứng với token mà người dùng đang gửi lên. */
     @PostMapping("/logout")
-    @Operation(summary = "Đăng xuất phiên hiện tại")
     public ResponseEntity<ResponseObject<Void>> logout(@AuthenticationPrincipal Jwt jwt) {
         String accessToken = jwt.getTokenValue();
         authService.logout(accessToken);
@@ -176,7 +169,6 @@ public class AuthController {
 
     /** Lấy tài khoản đang đăng nhập; @CurrentUserUUID lấy ID từ JWT thay vì query parameter. */
     @GetMapping("/me")
-    @Operation(summary = "Lấy thông tin tài khoản đang đăng nhập")
     public ResponseEntity<ResponseObject<UserResponse>> me(@CurrentUserUUID UUID id) {
         User user = accountAccessService.requireActiveUser(id);
         UserResponse data = UserResponse.from(user);

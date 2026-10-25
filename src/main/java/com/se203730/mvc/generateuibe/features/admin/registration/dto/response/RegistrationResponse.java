@@ -3,14 +3,12 @@ package com.se203730.mvc.generateuibe.features.admin.registration.dto.response;
 import com.se203730.mvc.generateuibe.features.user.dto.response.UserResponse;
 import com.se203730.mvc.generateuibe.features.user.enums.CustomerType;
 import com.se203730.mvc.generateuibe.features.auth.enums.RegistrationStatus;
-import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;
 
 /**
  * Thông tin hồ sơ mà Admin cần xem: tài khoản, doanh nghiệp, địa chỉ, hóa đơn, kết quả duyệt và các mốc thời gian.
  */
-@Schema(description = "Hồ sơ đăng ký Customer dành cho Admin xem và xét duyệt")
 public record RegistrationResponse(
         // ID yêu cầu dùng cho API chi tiết, duyệt và gửi lại OTP.
         UUID id,
