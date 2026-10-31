@@ -1,6 +1,6 @@
-package com.se203730.mvc.generateuibe.features.user.repository;
+package com.se203730.mvc.generateuibe.features.admin.repository;
 
-import com.se203730.mvc.generateuibe.features.user.entity.UserSearchHistory;
+import com.se203730.mvc.generateuibe.features.admin.entity.UserSearchHistory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

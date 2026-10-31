@@ -1,6 +1,6 @@
 package com.se203730.mvc.generateuibe.features.admin.dto.response;
 
-import com.se203730.mvc.generateuibe.features.user.dto.response.UserResponse;
+import com.se203730.mvc.generateuibe.features.admin.dto.response.UserResponse;
 
 /**
  * Phiên đăng nhập trả cho frontend gồm access token, refresh token, thời hạn và thông tin người dùng.

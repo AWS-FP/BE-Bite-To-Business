@@ -2,9 +2,9 @@ package com.se203730.mvc.generateuibe.features.admin.service;
 
 import com.se203730.mvc.generateuibe.features.admin.entity.RegistrationRequest;
 import com.se203730.mvc.generateuibe.features.admin.enums.RegistrationStatus;
-import com.se203730.mvc.generateuibe.features.user.entity.User;
-import com.se203730.mvc.generateuibe.features.user.entity.UserProfile;
-import com.se203730.mvc.generateuibe.features.user.enums.CustomerType;
+import com.se203730.mvc.generateuibe.features.admin.entity.User;
+import com.se203730.mvc.generateuibe.features.admin.entity.UserProfile;
+import com.se203730.mvc.generateuibe.features.admin.enums.CustomerType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 

@@ -1,4 +1,4 @@
-package com.se203730.mvc.generateuibe.features.user.dto.request;
+package com.se203730.mvc.generateuibe.features.admin.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

@@ -7,7 +7,7 @@ import com.se203730.mvc.generateuibe.features.admin.dto.request.ReviewRegistrati
 import com.se203730.mvc.generateuibe.features.admin.dto.response.RegistrationResponse;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.RegistrationReviewResponse;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.RegistrationStatsResponse;
-import com.se203730.mvc.generateuibe.features.user.enums.CustomerType;
+import com.se203730.mvc.generateuibe.features.admin.enums.CustomerType;
 import com.se203730.mvc.generateuibe.features.admin.enums.RegistrationStatus;
 import com.se203730.mvc.generateuibe.features.admin.service.AdminRegistrationService;
 import io.swagger.v3.oas.annotations.tags.Tag;

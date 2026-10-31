@@ -1,7 +1,7 @@
 package com.se203730.mvc.generateuibe.features.admin.dto.response;
 
-import com.se203730.mvc.generateuibe.features.user.dto.response.UserResponse;
-import com.se203730.mvc.generateuibe.features.user.enums.CustomerType;
+import com.se203730.mvc.generateuibe.features.admin.dto.response.UserResponse;
+import com.se203730.mvc.generateuibe.features.admin.enums.CustomerType;
 import com.se203730.mvc.generateuibe.features.admin.enums.RegistrationStatus;
 import java.time.Instant;
 import java.util.UUID;

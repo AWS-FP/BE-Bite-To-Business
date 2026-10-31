@@ -1,6 +1,6 @@
-package com.se203730.mvc.generateuibe.features.user.entity;
+package com.se203730.mvc.generateuibe.features.admin.entity;
 
-import com.se203730.mvc.generateuibe.features.user.enums.CustomerType;
+import com.se203730.mvc.generateuibe.features.admin.enums.CustomerType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

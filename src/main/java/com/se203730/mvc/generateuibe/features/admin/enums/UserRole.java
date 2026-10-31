@@ -1,4 +1,4 @@
-package com.se203730.mvc.generateuibe.features.user.enums;
+package com.se203730.mvc.generateuibe.features.admin.enums;
 
 /**
  * Các role được lưu trong database để backend kiểm tra quyền; Guest là người chưa đăng nhập nên không có trong enum này.
