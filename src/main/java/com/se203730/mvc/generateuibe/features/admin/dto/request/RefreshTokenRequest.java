@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 /**
- * Refresh token dùng để xin phiên đăng nhập mới khi access token hết hạn; không chứa thông tin role do client tự khai.
+ * Refresh token dùng để xin phiên đăng nhập mới khi access token hết hạn
  */
 public record RefreshTokenRequest(
         @NotBlank

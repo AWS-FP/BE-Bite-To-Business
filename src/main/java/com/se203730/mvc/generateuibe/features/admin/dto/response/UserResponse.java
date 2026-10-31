@@ -1,7 +1,7 @@
-package com.se203730.mvc.generateuibe.features.user.dto.response;
+package com.se203730.mvc.generateuibe.features.admin.dto.response;
 
-import com.se203730.mvc.generateuibe.features.user.entity.User;
-import com.se203730.mvc.generateuibe.features.user.enums.UserRole;
+import com.se203730.mvc.generateuibe.features.admin.entity.User;
+import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import java.util.UUID;
 
 /**

@@ -1,10 +1,10 @@
-package com.se203730.mvc.generateuibe.features.user.controller;
+package com.se203730.mvc.generateuibe.features.admin.controller;
 
 import com.se203730.mvc.generateuibe.common.annotation.CurrentUserUUID;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
-import com.se203730.mvc.generateuibe.features.user.dto.request.SaveSearchHistoryRequest;
-import com.se203730.mvc.generateuibe.features.user.dto.response.SearchHistoryResponse;
-import com.se203730.mvc.generateuibe.features.user.service.UserSearchHistoryService;
+import com.se203730.mvc.generateuibe.features.admin.dto.request.SaveSearchHistoryRequest;
+import com.se203730.mvc.generateuibe.features.admin.dto.response.SearchHistoryResponse;
+import com.se203730.mvc.generateuibe.features.admin.service.UserSearchHistoryService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -17,8 +17,7 @@ import java.util.UUID;
 /**
  * Truy cập bảng yêu cầu đăng ký bằng Spring Data JPA; các truy vấn khóa ghi được dùng trong transaction để tránh xử lý đồng thời.
  */
-public interface RegistrationRequestRepository
-        extends
+public interface RegistrationRequestRepository extends
             JpaRepository<RegistrationRequest, UUID>,
             JpaSpecificationExecutor<RegistrationRequest> {
     Optional<RegistrationRequest> findByCustomerId(UUID customerId);

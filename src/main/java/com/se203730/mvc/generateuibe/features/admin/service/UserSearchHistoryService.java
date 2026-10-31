@@ -1,10 +1,10 @@
-package com.se203730.mvc.generateuibe.features.user.service;
+package com.se203730.mvc.generateuibe.features.admin.service;
 
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
-import com.se203730.mvc.generateuibe.features.user.dto.request.SaveSearchHistoryRequest;
-import com.se203730.mvc.generateuibe.features.user.dto.response.SearchHistoryResponse;
-import com.se203730.mvc.generateuibe.features.user.entity.UserSearchHistory;
-import com.se203730.mvc.generateuibe.features.user.repository.UserSearchHistoryRepository;
+import com.se203730.mvc.generateuibe.features.admin.dto.request.SaveSearchHistoryRequest;
+import com.se203730.mvc.generateuibe.features.admin.dto.response.SearchHistoryResponse;
+import com.se203730.mvc.generateuibe.features.admin.entity.UserSearchHistory;
+import com.se203730.mvc.generateuibe.features.admin.repository.UserSearchHistoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

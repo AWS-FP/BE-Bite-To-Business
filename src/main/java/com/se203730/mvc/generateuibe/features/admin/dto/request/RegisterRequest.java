@@ -1,11 +1,11 @@
 package com.se203730.mvc.generateuibe.features.admin.dto.request;
 
-import com.se203730.mvc.generateuibe.features.user.enums.CustomerType;
+import com.se203730.mvc.generateuibe.features.admin.enums.CustomerType;
 import com.se203730.mvc.generateuibe.common.util.PhoneNumberUtils;
 import jakarta.validation.constraints.*;
 
 /**
- * Dữ liệu Guest gửi để đăng ký Customer; chỉ nhận thông tin hồ sơ, không nhận role hoặc mật khẩu do client tự chọn.
+ * Dữ liệu Guest gửi để đăng ký Customer; chỉ nhận thông tin hồ sơ
  */
 public record RegisterRequest(
         @NotBlank
@@ -33,7 +33,6 @@ public record RegisterRequest(
         @Size(max = 100)
         @Pattern(regexp = "Thành phố Hà Nội|Thành phố Hồ Chí Minh")
         String province,
-        // Dia chi hanh chinh moi chi con thanh pho va phuong/xa; quan/huyen cu co the NULL.
         @Size(max = 100)
         String district,
         @NotBlank
@@ -44,7 +43,6 @@ public record RegisterRequest(
         String deliveryAddress,
         @Size(max = 1000)
         String deliveryNote,
-        // FE gửi rõ true hoặc false; không âm thầm đổi null/thiếu trường thành false.
         @NotNull
         Boolean invoiceSameAsDelivery,
         @Size(max = 200)

@@ -1,6 +1,6 @@
-package com.se203730.mvc.generateuibe.features.user.repository;
+package com.se203730.mvc.generateuibe.features.admin.repository;
 
-import com.se203730.mvc.generateuibe.features.user.entity.User;
+import com.se203730.mvc.generateuibe.features.admin.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

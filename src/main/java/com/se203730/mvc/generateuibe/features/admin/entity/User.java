@@ -1,6 +1,6 @@
-package com.se203730.mvc.generateuibe.features.user.entity;
+package com.se203730.mvc.generateuibe.features.admin.entity;
 
-import com.se203730.mvc.generateuibe.features.user.enums.UserRole;
+import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.common.util.PhoneNumberUtils;
 import jakarta.persistence.*;
 import lombok.Getter;

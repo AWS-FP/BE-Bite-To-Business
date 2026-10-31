@@ -1,4 +1,4 @@
-package com.se203730.mvc.generateuibe.features.user.enums;
+package com.se203730.mvc.generateuibe.features.admin.enums;
 
 /**
  * Phân loại Customer là hộ/cá nhân kinh doanh hoặc doanh nghiệp/hợp tác xã; không phải role phân quyền.
