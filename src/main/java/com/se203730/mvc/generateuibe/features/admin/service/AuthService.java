@@ -5,7 +5,7 @@ import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.features.admin.client.SupabaseAuthClient;
 import com.se203730.mvc.generateuibe.features.admin.dto.request.LoginRequest;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.AuthResponse;
-import com.se203730.mvc.generateuibe.features.user.dto.response.UserResponse;
+import com.se203730.mvc.generateuibe.features.admin.dto.response.UserResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.jwt.JwtDecoder;

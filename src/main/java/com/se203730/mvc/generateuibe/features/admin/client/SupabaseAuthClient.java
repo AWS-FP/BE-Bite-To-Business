@@ -76,8 +76,38 @@ public class SupabaseAuthClient {
         }
     }
 
+    public UUID createStaffUser(String email, String password) {
+        try {
+            RestClient.RequestBodySpec request = client.post().uri("/admin/users");
+            addAdminHeaders(request);
+            request.contentType(MediaType.APPLICATION_JSON);
+            request.body(Map.of("email", email, "password", password, "email_confirm", true));
+            SupabaseUser user = request.retrieve().body(SupabaseUser.class);
+            if (user == null || user.id() == null) {
+                throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            }
+            return user.id();
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().value() == 401
+                    || exception.getStatusCode().value() == 403) {
+                throw new BusinessException(ErrorCode.AUTH_NOT_CONFIGURED);
+            }
+            int status = exception.getStatusCode().value();
+            ErrorCode fallback = status == 400 || status == 422
+                    ? ErrorCode.PASSWORD_POLICY_REJECTED
+                    : ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE;
+            throw convertResponseError(exception, fallback);
+        } catch (RestClientException exception) {
+            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+        }
+    }
+
     /** Dọn tài khoản Auth vừa tạo nếu transaction lưu hồ sơ nội bộ thất bại. */
     public void deletePendingUser(UUID id) {
+        deleteUser(id);
+    }
+
+    public void deleteUser(UUID id) {
         try {
             // {id} được thay bằng UUID của tài khoản vừa tạo nhưng chưa lưu hồ sơ thành công.
             RestClient.RequestHeadersSpec<?> request = client.delete().uri("/admin/users/{id}", id);
