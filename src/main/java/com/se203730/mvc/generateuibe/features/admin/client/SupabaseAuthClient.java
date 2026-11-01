@@ -5,11 +5,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.config.integration.SupabaseProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -26,6 +30,8 @@ import java.util.UUID;
  */
 @Component
 public class SupabaseAuthClient {
+    private static final Logger log = LoggerFactory.getLogger(SupabaseAuthClient.class);
+
     // Chọn đúng RestClient đã cấu hình URL và timeout dành cho Supabase Auth.
     @Autowired
     @Qualifier("supabaseAuthRestClient")
@@ -69,10 +75,10 @@ public class SupabaseAuthClient {
             return user.id();
         } catch (RestClientResponseException exception) {
             // Supabase đã phản hồi, nhưng HTTP status là lỗi, ví dụ 400 hoặc 500.
-            throw convertResponseError(exception, ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertAdminResponseError(exception, ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
         } catch (RestClientException exception) {
             // Không gọi được dịch vụ hoặc không đọc được response, ví dụ lỗi kết nối/timeout.
-            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertClientError("createPendingUser", exception);
         }
     }
 
@@ -88,17 +94,13 @@ public class SupabaseAuthClient {
             }
             return user.id();
         } catch (RestClientResponseException exception) {
-            if (exception.getStatusCode().value() == 401
-                    || exception.getStatusCode().value() == 403) {
-                throw new BusinessException(ErrorCode.AUTH_NOT_CONFIGURED);
-            }
             int status = exception.getStatusCode().value();
             ErrorCode fallback = status == 400 || status == 422
                     ? ErrorCode.PASSWORD_POLICY_REJECTED
                     : ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE;
-            throw convertResponseError(exception, fallback);
+            throw convertAdminResponseError(exception, fallback);
         } catch (RestClientException exception) {
-            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertClientError("createStaffUser", exception);
         }
     }
 
@@ -117,9 +119,9 @@ public class SupabaseAuthClient {
             // API này không cần đọc nội dung JSON; chỉ cần biết request đã thành công.
             response.toBodilessEntity();
         } catch (RestClientResponseException exception) {
-            throw convertResponseError(exception, ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertAdminResponseError(exception, ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
         } catch (RestClientException exception) {
-            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertClientError("deleteUser", exception);
         }
     }
 
@@ -145,9 +147,9 @@ public class SupabaseAuthClient {
             // Record chứa OTP do Supabase tạo; service sẽ gửi mã bằng email template của mình.
             return generatedOtp;
         } catch (RestClientResponseException exception) {
-            throw convertResponseError(exception, ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertAdminResponseError(exception, ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
         } catch (RestClientException exception) {
-            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertClientError("generateOtp", exception);
         }
     }
 
@@ -301,12 +303,41 @@ public class SupabaseAuthClient {
         request.header("apikey", key);
     }
 
+    private BusinessException convertClientError(String operation, RestClientException exception) {
+        Throwable cause = NestedExceptionUtils.getMostSpecificCause(exception);
+        log.error("Supabase Auth {} failed: clientException={}, cause={}", operation,
+                exception.getClass().getSimpleName(), cause.getClass().getSimpleName());
+
+        if (exception instanceof ResourceAccessException) {
+            // Lỗi I/O không chứa response Auth; giữ nguyên cause để biết timeout, DNS hoặc SSL.
+            return new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE, exception);
+        }
+
+        // Lỗi đọc JSON có thể chứa token trong message; chỉ giữ loại lỗi, không ghi response gốc.
+        return new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE,
+                new IllegalStateException("Supabase Auth response could not be read: "
+                        + cause.getClass().getSimpleName()));
+    }
+
+    private BusinessException convertAdminResponseError(
+            RestClientResponseException exception,
+            ErrorCode defaultError) {
+        int httpStatus = exception.getStatusCode().value();
+        if (httpStatus == 401 || httpStatus == 403) {
+            log.warn("Supabase Auth admin request rejected: HTTP {}", httpStatus);
+            return new BusinessException(ErrorCode.AUTH_NOT_CONFIGURED);
+        }
+        return convertResponseError(exception, defaultError);
+    }
+
     /** Đổi lỗi HTTP của Supabase thành lỗi mà GlobalExceptionHandler của website hiểu được. */
     private BusinessException convertResponseError(
             RestClientResponseException exception,
             ErrorCode defaultError) {
         String providerCode = readProviderErrorCode(exception);
         int httpStatus = exception.getStatusCode().value();
+        log.warn("Supabase Auth request rejected: HTTP {}, providerCode={}", httpStatus,
+                providerCode.isBlank() ? "unknown" : providerCode);
 
         if (httpStatus == 429) {
             return new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
@@ -332,7 +363,7 @@ public class SupabaseAuthClient {
     private String readProviderErrorCode(RestClientResponseException exception) {
         try {
             ProviderError error = exception.getResponseBodyAs(ProviderError.class);
-            if (error != null && error.code() != null) {
+            if (error != null && error.code() != null && error.code().matches("[a-z0-9_]{1,100}")) {
                 return error.code();
             }
         } catch (RuntimeException exceptionWhileReadingBody) {
