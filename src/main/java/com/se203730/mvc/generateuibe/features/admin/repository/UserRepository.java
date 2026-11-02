@@ -4,6 +4,8 @@ import com.se203730.mvc.generateuibe.features.admin.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
 import java.util.List;
@@ -41,6 +43,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     // Số đã được chuẩn hóa về +84 trước khi truy vấn.
     boolean existsByPhone(String phone);
+
+    boolean existsByPhoneAndIdNot(String phone, UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> findByIdForUpdate(@Param("id")
+    UUID id);
 
     @Query("select u from User u where lower(u.email) = lower(:email)")
     Optional<User> findByEmailIgnoreCase(@Param("email")

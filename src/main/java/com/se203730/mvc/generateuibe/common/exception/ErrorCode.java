@@ -69,7 +69,9 @@ public enum ErrorCode {
                                                                                                                                     HttpStatus.SERVICE_UNAVAILABLE,
                                                                                                                                     "The authentication service is not configured."), SETUP_SESSION_EXPIRED(
                                                                                                                                             HttpStatus.UNAUTHORIZED,
-                                                                                                                                            "The password setup session has expired.");
+                                                                                                                                            "The password setup session has expired."),
+
+    CUSTOMER_PROFILE_NOT_FOUND(HttpStatus.NOT_FOUND, "The customer profile was not found.");
 
     private final HttpStatus status;
 
