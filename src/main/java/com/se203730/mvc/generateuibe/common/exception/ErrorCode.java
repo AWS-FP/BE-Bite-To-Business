@@ -69,7 +69,19 @@ public enum ErrorCode {
                                                                                                                                     HttpStatus.SERVICE_UNAVAILABLE,
                                                                                                                                     "The authentication service is not configured."), SETUP_SESSION_EXPIRED(
                                                                                                                                             HttpStatus.UNAUTHORIZED,
-                                                                                                                                            "The password setup session has expired.");
+                                                                                                                                            "The password setup session has expired."),
+
+    DELIVERY_TRIP_NOT_FOUND(HttpStatus.NOT_FOUND, "No assigned delivery trip was found."),
+    DELIVERY_STOP_NOT_FOUND(HttpStatus.NOT_FOUND, "The stop was not found in this delivery trip."),
+    DELIVERY_TRIP_INVALID_STATE(HttpStatus.CONFLICT, "The delivery trip is not in the required state."),
+    DELIVERY_ROUTE_NOT_READY(HttpStatus.CONFLICT, "The route and active package stops must be prepared before departure."),
+    DELIVERY_NO_ACTIVE_PACKAGES(HttpStatus.CONFLICT, "There are no active packages to deliver."),
+    DELIVERY_PACKAGE_CANCELLED(HttpStatus.CONFLICT, "This package has been cancelled."),
+    DELIVERY_PACKAGES_NOT_DELIVERED(HttpStatus.CONFLICT, "Confirm delivery of every active package before completing the trip."),
+    DELIVERY_DATA_INVALID(HttpStatus.CONFLICT, "The delivery trip and order data are inconsistent."),
+    ORDER_PAYMENT_REQUIRED(HttpStatus.CONFLICT, "Successful payment of the order total is required before departure."),
+    ORDER_NOT_READY_FOR_DELIVERY(HttpStatus.CONFLICT, "The order must be processing before delivery."),
+    ORDER_CANCELLED(HttpStatus.CONFLICT, "This order has been cancelled.");
 
     private final HttpStatus status;
 
