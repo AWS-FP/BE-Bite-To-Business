@@ -177,7 +177,7 @@ public class SupabaseAuthClient {
         } catch (RestClientResponseException exception) {
             throw convertResponseError(exception, ErrorCode.INVALID_OTP);
         } catch (RestClientException exception) {
-            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertClientError("verifyOtp", exception);
         }
     }
 
@@ -204,7 +204,7 @@ public class SupabaseAuthClient {
         } catch (RestClientResponseException exception) {
             throw convertResponseError(exception, ErrorCode.INVALID_CREDENTIALS);
         } catch (RestClientException exception) {
-            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertClientError("login", exception);
         }
     }
 
@@ -231,7 +231,7 @@ public class SupabaseAuthClient {
         } catch (RestClientResponseException exception) {
             throw convertResponseError(exception, ErrorCode.UNAUTHORIZED);
         } catch (RestClientException exception) {
-            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertClientError("refresh", exception);
         }
     }
 
@@ -259,7 +259,7 @@ public class SupabaseAuthClient {
         } catch (RestClientResponseException exception) {
             throw convertResponseError(exception, ErrorCode.PASSWORD_POLICY_REJECTED);
         } catch (RestClientException exception) {
-            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertClientError("setPassword", exception);
         }
     }
 
@@ -275,7 +275,7 @@ public class SupabaseAuthClient {
         } catch (RestClientResponseException exception) {
             throw convertResponseError(exception, ErrorCode.UNAUTHORIZED);
         } catch (RestClientException exception) {
-            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            throw convertClientError("logout", exception);
         }
     }
 
@@ -353,6 +353,18 @@ public class SupabaseAuthClient {
 
         if (exception.getStatusCode().is5xxServerError()) {
             return new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+        }
+
+        if (providerCode.equals("email_not_confirmed")) {
+            return new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
+
+        if (providerCode.equals("user_banned")) {
+            return new BusinessException(ErrorCode.ACCOUNT_BANNED);
+        }
+
+        if (providerCode.equals("weak_password") || providerCode.equals("same_password")) {
+            return new BusinessException(ErrorCode.PASSWORD_POLICY_REJECTED);
         }
 
         // Ví dụ login nhận lỗi 400 không thuộc các mã trên thì dùng INVALID_CREDENTIALS.
