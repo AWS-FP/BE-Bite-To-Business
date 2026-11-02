@@ -71,6 +71,8 @@ public enum ErrorCode {
                                                                                                                                             HttpStatus.UNAUTHORIZED,
                                                                                                                                             "The password setup session has expired."),
 
+    CUSTOMER_PROFILE_NOT_FOUND(HttpStatus.NOT_FOUND, "The customer profile was not found."),
+
     DELIVERY_TRIP_NOT_FOUND(HttpStatus.NOT_FOUND, "No assigned delivery trip was found."),
     DELIVERY_STOP_NOT_FOUND(HttpStatus.NOT_FOUND, "The stop was not found in this delivery trip."),
     DELIVERY_TRIP_INVALID_STATE(HttpStatus.CONFLICT, "The delivery trip is not in the required state."),
