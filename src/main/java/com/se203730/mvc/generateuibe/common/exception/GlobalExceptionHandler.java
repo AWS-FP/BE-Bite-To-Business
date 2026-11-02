@@ -5,6 +5,7 @@ import jakarta.validation.ElementKind;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -85,6 +86,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             }
             cause = cause.getCause();
         }
+        return respond(ErrorCode.CONFLICT, List.of(), request);
+    }
+
+    @ExceptionHandler(ConcurrencyFailureException.class)
+    public ResponseEntity<Object> handleConcurrentUpdate(
+            ConcurrencyFailureException ex,
+            WebRequest request) {
         return respond(ErrorCode.CONFLICT, List.of(), request);
     }
 
