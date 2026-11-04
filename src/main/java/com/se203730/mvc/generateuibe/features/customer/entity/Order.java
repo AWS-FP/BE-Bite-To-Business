@@ -29,6 +29,15 @@ public class Order {
     @Column(name = "order_number", nullable = false, length = 50, updatable = false)
     private String orderNumber;
 
+    @Column(name = "customer_id", nullable = false, updatable = false)
+    private UUID customerId;
+
+    @Column(name = "coupon_id", updatable = false)
+    private UUID couponId;
+
+    @Column(name = "coupon_redeemed_at")
+    private Instant couponRedeemedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OrderStatus status;
