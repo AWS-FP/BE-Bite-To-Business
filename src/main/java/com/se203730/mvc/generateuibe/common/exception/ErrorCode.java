@@ -83,7 +83,12 @@ public enum ErrorCode {
     DELIVERY_DATA_INVALID(HttpStatus.CONFLICT, "The delivery trip and order data are inconsistent."),
     ORDER_PAYMENT_REQUIRED(HttpStatus.CONFLICT, "Successful payment of the order total is required before departure."),
     ORDER_NOT_READY_FOR_DELIVERY(HttpStatus.CONFLICT, "The order must be processing before delivery."),
-    ORDER_CANCELLED(HttpStatus.CONFLICT, "This order has been cancelled.");
+    ORDER_CANCELLED(HttpStatus.CONFLICT, "This order has been cancelled."),
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "The payment was not found."),
+    PAYMENT_ALREADY_PAID(HttpStatus.CONFLICT, "This order has already been paid."),
+    PAYMENT_INVALID_STATE(HttpStatus.CONFLICT, "The order or payment is not in a valid state."),
+    PAYMENT_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "The payment service is not configured."),
+    PAYMENT_WEBHOOK_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "The payment notification could not be verified.");
 
     private final HttpStatus status;
 
