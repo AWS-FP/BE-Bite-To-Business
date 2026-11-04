@@ -46,6 +46,8 @@ public class SecurityConfig {
             authorize.requestMatchers(HttpMethod.GET, "/api/health").permitAll();
             authorize.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
                     "/api/auth/verify-otp", "/api/auth/refresh").permitAll();
+            // Webhook dùng chữ ký HMAC của SePay thay cho JWT của khách hàng.
+            authorize.requestMatchers(HttpMethod.POST, "/api/payments/sepay/webhook").permitAll();
             // Phiên OTP chưa kích hoạt chỉ được đi vào bước tạo mật khẩu.
             authorize.requestMatchers(HttpMethod.POST, "/api/auth/activate").authenticated();
             // Chỉ mở Swagger khi cấu hình môi trường cho phép công khai tài liệu API.
