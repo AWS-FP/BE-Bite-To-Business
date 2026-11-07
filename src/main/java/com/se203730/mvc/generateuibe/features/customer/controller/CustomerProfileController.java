@@ -14,6 +14,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -51,5 +55,14 @@ public class CustomerProfileController {
         HttpHeaders headers = new HttpHeaders();
         headers.setCacheControl("no-store");
         return new ResponseEntity<>(response, headers, HttpStatus.OK);
+    }
+
+    @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResponseObject<CustomerProfileResponse>> updateAvatar(
+            @CurrentUserUUID UUID customerId,
+            @RequestPart("file") MultipartFile file) {
+        CustomerProfileResponse data = profileService.updateAvatar(customerId, file);
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Avatar updated.", data));
     }
 }
