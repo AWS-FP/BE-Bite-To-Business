@@ -44,6 +44,7 @@ public class SecurityConfig {
         // Khai báo route công khai trước; các route còn lại phải vượt qua kiểm tra tài khoản và phiên đăng nhập.
         http.authorizeHttpRequests(authorize -> {
             authorize.requestMatchers(HttpMethod.GET, "/api/health").permitAll();
+            authorize.requestMatchers(HttpMethod.GET, "/api/delivery-estimate/**").permitAll();
             authorize.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
                     "/api/auth/verify-otp", "/api/auth/refresh").permitAll();
             // Webhook dùng chữ ký HMAC của SePay thay cho JWT của khách hàng.
