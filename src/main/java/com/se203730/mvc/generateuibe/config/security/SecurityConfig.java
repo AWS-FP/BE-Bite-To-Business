@@ -82,6 +82,11 @@ public class SecurityConfig {
             ).permitAll();
 
             authorize.requestMatchers(
+                HttpMethod.GET,
+                "/api/catalog/products"
+            ).permitAll();
+
+            authorize.requestMatchers(
                 HttpMethod.POST,
                 "/api/auth/register",
                 "/api/auth/login",

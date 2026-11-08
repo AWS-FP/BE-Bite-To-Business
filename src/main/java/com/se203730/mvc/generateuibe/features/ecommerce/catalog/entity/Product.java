@@ -1,3 +1,4 @@
+
 package com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity;
 
 import jakarta.persistence.Column;
@@ -8,14 +9,15 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
-/** Chỉ map các cột cần đọc cho Catalog. Không thực hiện ghi từ Brands API. */
 @Entity
 @Table(name = "products", schema = "public")
 @Getter
 @NoArgsConstructor
 public class Product {
+
     @Id
     private UUID id;
 
@@ -66,4 +68,7 @@ public class Product {
 
     @Column(name = "status", nullable = false)
     private String status;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
 }
