@@ -84,7 +84,8 @@ public class SecurityConfig {
             authorize.requestMatchers(
                 HttpMethod.GET,
                 "/api/catalog/products",
-                "/api/catalog/products/*"
+                "/api/catalog/products/*",
+                "/api/catalog/products/*/pricing"
             ).permitAll();
 
 
