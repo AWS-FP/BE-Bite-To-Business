@@ -1,7 +1,7 @@
 
-package com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository;
+package com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository;
 
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.ProductPrice;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.entity.ProductPrice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
