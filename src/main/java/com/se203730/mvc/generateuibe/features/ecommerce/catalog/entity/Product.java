@@ -42,6 +42,9 @@ public class Product {
     @Column(name = "description_en", columnDefinition = "text")
     private String descriptionEn;
 
+    @Column(name = "note", columnDefinition = "text")
+    private String note;
+
     @Column(name = "origin")
     private String origin;
 
