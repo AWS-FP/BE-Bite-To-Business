@@ -3,11 +3,15 @@ package com.se203730.mvc.generateuibe.features.ecommerce.catalog.service;
 
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
+import com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response.ProductDetailResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response.ProductPageResponse;
+import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Brand;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Category;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Product;
+import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.ProductDetail;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.BrandRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.CategoryRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.ProductDetailRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -40,7 +44,9 @@ public class ProductService {
     private final ProductRepository products;
     private final BrandRepository brands;
     private final CategoryRepository categories;
+    private final ProductDetailRepository productDetails;
 
+    // [GIỮ NGUYÊN] Danh sách sản phẩm, tìm kiếm, lọc, sắp xếp.
     public ProductPageResponse getAll(
         String q,
         UUID categoryId,
@@ -63,11 +69,9 @@ public class ProductService {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }
 
-        // Luôn chỉ lấy sản phẩm đã PUBLISHED.
         Specification<Product> filter = (root, query, cb) ->
             cb.equal(root.get("status"), PUBLISHED);
 
-        // Tìm kiếm theo tên tiếng Việt, tiếng Anh hoặc SKU.
         if (!keyword.isEmpty()) {
             String pattern = "%" +
                 escapeLike(keyword.toLowerCase(Locale.ROOT)) +
@@ -80,13 +84,11 @@ public class ProductService {
             ));
         }
 
-        // Lọc theo thương hiệu.
         if (brandId != null) {
             filter = filter.and((root, query, cb) ->
                 cb.equal(root.get("brandId"), brandId));
         }
 
-        // Lọc theo danh mục cha/con đang active.
         if (categoryId != null) {
             Set<UUID> acceptedCategoryIds =
                 findVisibleSubtree(categoryId);
@@ -95,13 +97,43 @@ public class ProductService {
                 root.get("categoryId").in(acceptedCategoryIds));
         }
 
-        // Truy vấn có phân trang và sắp xếp.
         Page<Product> result = products.findAll(
             filter,
             PageRequest.of(page, size, sortBy(sort))
         );
 
         return ProductPageResponse.from(result);
+    }
+
+    // [MỚI] Lấy chi tiết sản phẩm theo ID.
+    public ProductDetailResponse getById(UUID productId) {
+
+        Product product = products.findById(productId)
+            .filter(p -> PUBLISHED.equals(p.getStatus()))
+            .orElseThrow(() ->
+                new BusinessException(
+                    ErrorCode.RESOURCE_NOT_FOUND
+                )
+            );
+
+        Brand brand = product.getBrandId() == null
+            ? null
+            : brands.findById(product.getBrandId()).orElse(null);
+
+        Category category = categories.findById(
+            product.getCategoryId()
+        ).orElse(null);
+
+        ProductDetail details = productDetails.findById(
+            productId
+        ).orElse(null);
+
+        return ProductDetailResponse.from(
+            product,
+            brand,
+            category,
+            details
+        );
     }
 
     private Sort sortBy(String sort) {
@@ -136,7 +168,6 @@ public class ProductService {
         };
     }
 
-    // Tìm tất cả category con active của category được chọn.
     private Set<UUID> findVisibleSubtree(UUID selectedId) {
         List<Category> active = categories.findAllActiveSorted();
 
@@ -154,7 +185,6 @@ public class ProductService {
             }
         }
 
-        // Category và toàn bộ cha của nó phải active.
         Set<UUID> ancestors = new HashSet<>();
         UUID currentId = selectedId;
 
@@ -197,7 +227,6 @@ public class ProductService {
         return result;
     }
 
-    // Tránh ký tự % hoặc _ bị hiểu là wildcard khi search.
     private String escapeLike(String value) {
         return value.replace("\\", "\\\\")
             .replace("%", "\\%")
