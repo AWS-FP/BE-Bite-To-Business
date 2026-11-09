@@ -1,16 +1,16 @@
 
-package com.se203730.mvc.generateuibe.features.ecommerce.catalog.service;
+package com.se203730.mvc.generateuibe.features.ecommerce.pricing.service;
 
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response.ProductPriceTierResponse;
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response.ProductPricingResponse;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.dto.response.ProductPriceTierResponse;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.dto.response.ProductPricingResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Product;
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.ProductInventory;
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.ProductPrice;
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.ProductInventoryRepository;
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.ProductPriceRepository;
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.ProductPriceTierRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.entity.ProductInventory;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.entity.ProductPrice;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductInventoryRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductPriceRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductPriceTierRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

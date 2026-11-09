@@ -1,7 +1,7 @@
 
-package com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response;
+package com.se203730.mvc.generateuibe.features.ecommerce.pricing.dto.response;
 
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.ProductPriceTier;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.entity.ProductPriceTier;
 
 import java.math.BigDecimal;
 import java.util.UUID;

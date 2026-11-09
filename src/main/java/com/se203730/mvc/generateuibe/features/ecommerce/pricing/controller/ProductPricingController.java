@@ -1,9 +1,9 @@
 
-package com.se203730.mvc.generateuibe.features.ecommerce.catalog.controller;
+package com.se203730.mvc.generateuibe.features.ecommerce.pricing.controller;
 
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response.ProductPricingResponse;
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.service.ProductPricingService;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.dto.response.ProductPricingResponse;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.service.ProductPricingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;

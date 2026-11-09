@@ -1,5 +1,5 @@
 
-package com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity;
+package com.se203730.mvc.generateuibe.features.ecommerce.pricing.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
