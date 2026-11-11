@@ -8,6 +8,7 @@ import com.se203730.mvc.generateuibe.features.ecommerce.dto.request.QuoteAddress
 import com.se203730.mvc.generateuibe.features.ecommerce.dto.request.QuoteDecisionRequest;
 import com.se203730.mvc.generateuibe.features.ecommerce.service.QuoteReviewService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/ecommerce/quotes")
 @PreAuthorize("hasRole('ECOMMERCE_EXECUTIVE')")
+@Tag(name = "E-commerce - Quotes")
 @Validated
 public class EcommerceQuoteController {
     @Autowired

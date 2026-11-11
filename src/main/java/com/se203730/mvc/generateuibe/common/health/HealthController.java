@@ -11,7 +11,7 @@ import java.util.Map;
  * API công khai để kiểm tra backend đang chạy; không kiểm tra kết nối database hoặc dịch vụ bên ngoài.
  */
 @RestController
-@Tag(name = "Health")
+@Tag(name = "System - Health")
 public class HealthController {
 
     @GetMapping("/api/health")

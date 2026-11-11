@@ -6,6 +6,7 @@ import com.se203730.mvc.generateuibe.features.customer.dto.request.SepayWebhookR
 import com.se203730.mvc.generateuibe.features.customer.service.BankPaymentService;
 import com.se203730.mvc.generateuibe.features.customer.service.SepayWebhookVerifier;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +18,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.Map;
 
 @RestController
+@Tag(name = "Integration - SePay Webhooks")
 public class SepayWebhookController {
     @Autowired
     private SepayWebhookVerifier verifier;

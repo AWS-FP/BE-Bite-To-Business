@@ -21,7 +21,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/users/me/search-history")
-@Tag(name = "User - Search history")
+@Tag(name = "Shared - Search History")
 public class UserSearchHistoryController {
     @Autowired
     private UserSearchHistoryService historyService;

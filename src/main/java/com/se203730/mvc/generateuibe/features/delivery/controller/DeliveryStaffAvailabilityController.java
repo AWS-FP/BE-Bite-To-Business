@@ -3,6 +3,7 @@ package com.se203730.mvc.generateuibe.features.delivery.controller;
 import com.se203730.mvc.generateuibe.common.annotation.CurrentUserUUID;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
 import com.se203730.mvc.generateuibe.features.delivery.service.DeliveryStaffAvailabilityService;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -26,6 +27,7 @@ public class DeliveryStaffAvailabilityController {
     public record UpdateRequest(@NotBlank @Pattern(regexp = "AVAILABLE|OFF_DUTY") String status) {}
 
     @GetMapping("/api/logistics/delivery-staff")
+    @Operation(tags = "Logistics - Delivery Staff")
     @PreAuthorize("hasRole('LOGISTICS_STAFF')")
     public ResponseEntity<ResponseObject<List<DeliveryStaffAvailabilityService.Staff>>> list(@CurrentUserUUID UUID userId) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
@@ -33,6 +35,7 @@ public class DeliveryStaffAvailabilityController {
     }
 
     @PutMapping("/api/delivery/availability")
+    @Operation(tags = "Delivery - Availability")
     @PreAuthorize("hasRole('DELIVERY_STAFF')")
     public ResponseEntity<ResponseObject<String>> update(@CurrentUserUUID UUID userId,
                                                           @Valid @RequestBody UpdateRequest request) {

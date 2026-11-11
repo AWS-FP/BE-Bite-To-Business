@@ -16,6 +16,7 @@ import com.se203730.mvc.generateuibe.features.customer.service.QuotePackageRouti
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteCouponService;
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteWorkflowService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/customer/quotes")
 @PreAuthorize("hasRole('CUSTOMER')")
+@Tag(name = "Customer - Quotes")
 @Validated
 public class CustomerQuoteController {
     @Autowired
