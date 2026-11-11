@@ -14,6 +14,7 @@ import com.se203730.mvc.generateuibe.features.customer.dto.response.CustomerProf
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -31,6 +32,9 @@ public class CustomerProfileService {
 
     @Autowired
     private DatabaseClock clock;
+
+    @Autowired
+    private CustomerAvatarService avatars;
 
     @Transactional(readOnly = true)
     public CustomerProfileResponse getProfile(UUID customerId) {
@@ -55,7 +59,6 @@ public class CustomerProfileService {
         customer.setFirstName(request.firstName());
         customer.setLastName(request.lastName());
         customer.setPhone(request.phone());
-        customer.setAvatarUrl(request.avatarUrl());
         customer.setUpdatedAt(now);
 
         profile.setBusinessName(request.businessName());
@@ -76,6 +79,13 @@ public class CustomerProfileService {
         users.saveAndFlush(customer);
         profiles.saveAndFlush(profile);
         return CustomerProfileResponse.from(customer, profile);
+    }
+
+    public CustomerProfileResponse updateAvatar(UUID customerId, MultipartFile file) {
+        requireCustomer(customerId);
+        requireProfile(customerId);
+        String avatarUrl = avatars.upload(file);
+        return avatars.save(customerId, avatarUrl);
     }
 
     private User requireCustomer(UUID customerId) {
