@@ -6,6 +6,7 @@ import com.se203730.mvc.generateuibe.features.ecommerce.dto.request.UpdateProduc
 import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.ProductVatResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.service.ProductVatService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/ecommerce/products")
 @PreAuthorize("hasRole('ECOMMERCE_EXECUTIVE')")
+@Tag(name = "E-commerce - Product VAT")
 public class ProductVatController {
     @Autowired
     private ProductVatService service;
