@@ -38,6 +38,18 @@ public class Order {
     @Column(name = "coupon_redeemed_at")
     private Instant couponRedeemedAt;
 
+    @Column(name = "shipping_coupon_id", updatable = false)
+    private UUID shippingCouponId;
+
+    @Column(name = "shipping_coupon_redeemed_at")
+    private Instant shippingCouponRedeemedAt;
+
+    @Column(name = "reservation_expires_at")
+    private Instant reservationExpiresAt;
+
+    @Column(name = "reservation_released_at")
+    private Instant reservationReleasedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OrderStatus status;

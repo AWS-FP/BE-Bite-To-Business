@@ -85,7 +85,7 @@ public class DeliveryEstimateService {
             }
             coordinates.add(List.of(longitude, latitude));
         }
-        long fee = (long) Math.ceil(Math.max(0, metres - 5000) / 1000) * 5000;
+        long fee = Math.round(Math.max(0, metres - 5000) * 5);
         return new Estimate(address, lat, lng, metres, fee, coordinates);
     }
 
