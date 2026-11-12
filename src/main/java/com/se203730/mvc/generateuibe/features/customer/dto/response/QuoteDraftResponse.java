@@ -10,6 +10,7 @@ import java.util.UUID;
 
 public record QuoteDraftResponse(
         UUID id, String quoteNumber, String status, int revision, Instant submittedAt, String reviewNote,
+        String contactName, String contactPhone, String contactEmail, String companyName, String note,
         UUID productCouponId, UUID shippingCouponId,
         BigDecimal itemsSubtotal, BigDecimal volumeDiscountAmount, BigDecimal saleDiscountAmount,
         BigDecimal couponDiscountAmount, BigDecimal shippingFee, BigDecimal shippingCouponDiscountAmount,
@@ -39,6 +40,7 @@ public record QuoteDraftResponse(
                 .subtract(quote.getShippingCouponDiscountAmount());
         return new QuoteDraftResponse(quote.getId(), quote.getQuoteNumber(), quote.getStatus(), quote.getRevision(),
                 quote.getSubmittedAt(), quote.getReviewNote(),
+                quote.getContactName(), quote.getContactPhone(), quote.getContactEmail(), quote.getCompanyName(), quote.getNote(),
                 quote.getCouponId(), quote.getShippingCouponId(),
                 quote.getItemsSubtotal(), quote.getVolumeDiscountAmount(), quote.getSaleDiscountAmount(),
                 quote.getCouponDiscountAmount(), quote.getShippingFee(), quote.getShippingCouponDiscountAmount(),

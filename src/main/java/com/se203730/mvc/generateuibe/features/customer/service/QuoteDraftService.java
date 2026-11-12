@@ -7,6 +7,7 @@ import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.repository.UserRepository;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.UpdateQuoteItemRequest;
+import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteContactRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteDraftResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteSummaryResponse;
 import com.se203730.mvc.generateuibe.features.customer.entity.Quote;
@@ -133,6 +134,20 @@ public class QuoteDraftService {
         }
         items.flush();
         recalculate(quote, now);
+        return response(quote);
+    }
+
+    @Transactional
+    public QuoteDraftResponse updateContact(UUID customerId, UUID quoteId, QuoteContactRequest request) {
+        Quote quote = editableQuote(customerId, quoteId);
+        quote.setContactName(request.name().trim());
+        quote.setContactPhone(request.phone());
+        quote.setContactEmail(request.email().trim().toLowerCase(java.util.Locale.ROOT));
+        quote.setCompanyName(request.companyName() == null ? null : request.companyName().trim());
+        quote.setNote(request.note() == null ? null : request.note().trim());
+        quote.setRevision(quote.getRevision() + 1);
+        quote.setUpdatedAt(clock.now());
+        quotes.saveAndFlush(quote);
         return response(quote);
     }
 
