@@ -3,11 +3,8 @@ package com.se203730.mvc.generateuibe.features.customer.service;
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
-import com.se203730.mvc.generateuibe.features.admin.entity.User;
-import com.se203730.mvc.generateuibe.features.admin.entity.UserProfile;
-import com.se203730.mvc.generateuibe.features.admin.repository.UserProfileRepository;
-import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteDraftResponse;
+import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteAvailabilityResponse;
 import com.se203730.mvc.generateuibe.features.customer.entity.Quote;
 import com.se203730.mvc.generateuibe.features.customer.entity.QuoteItem;
 import com.se203730.mvc.generateuibe.features.customer.entity.QuotePackage;
@@ -15,7 +12,8 @@ import com.se203730.mvc.generateuibe.features.customer.entity.QuotePackageItem;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageRepository;
-import com.se203730.mvc.generateuibe.features.customer.repository.QuoteRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.entity.ProductInventory;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductInventoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,13 +26,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class QuoteWorkflowService {
     @Autowired
     private QuoteDraftService drafts;
-    @Autowired
-    private QuoteRepository quotes;
     @Autowired
     private QuoteItemRepository items;
     @Autowired
@@ -46,43 +43,62 @@ public class QuoteWorkflowService {
     @Autowired
     private QuoteCouponService coupons;
     @Autowired
-    private AccountAccessService accounts;
-    @Autowired
-    private UserProfileRepository profiles;
-    @Autowired
     private DatabaseClock clock;
+    @Autowired
+    private ProductInventoryRepository inventory;
+
+    @Transactional(readOnly = true)
+    public QuoteAvailabilityResponse availability(UUID customerId, UUID quoteId) {
+        drafts.get(customerId, quoteId);
+        List<QuoteItem> lines = items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId);
+        Map<UUID, ProductInventory> available = getInventory(lines);
+        List<QuoteAvailabilityResponse.Item> result = lines.stream().map(line -> {
+            ProductInventory stock = available.get(line.getProductId());
+            BigDecimal quantity = stock == null ? null : stock.getAvailableQuantity();
+            return new QuoteAvailabilityResponse.Item(line.getProductId(), line.getSku(), line.getQuantity(),
+                    quantity, quantity != null && quantity.compareTo(line.getQuantity()) >= 0);
+        }).toList();
+        return new QuoteAvailabilityResponse(!result.isEmpty() && result.stream().allMatch(QuoteAvailabilityResponse.Item::available), result);
+    }
 
     @Transactional
-    public QuoteDraftResponse submit(UUID customerId, UUID quoteId, int expectedRevision) {
+    public QuoteDraftResponse validatePricing(UUID customerId, UUID quoteId, int expectedRevision) {
         Quote quote = drafts.editableQuote(customerId, quoteId);
         if (quote.getRevision() != expectedRevision) {
             throw new BusinessException(ErrorCode.QUOTE_REVISION_CONFLICT);
         }
-        Instant now = clock.now();
         List<QuoteItem> lines = items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId);
+        if (lines.stream().anyMatch(item -> !item.isVatRateConfigured())) {
+            throw new BusinessException(ErrorCode.QUOTE_PRODUCT_VAT_MISSING);
+        }
         List<QuotePackage> parcels = packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId);
-        validateQuote(quote, lines, parcels, now);
-
-        User customer = accounts.requireActiveUser(customerId);
-        UserProfile profile = profiles.findById(customerId).orElse(null);
-        quote.setContactName((customer.getLastName() + " " + customer.getFirstName()).trim());
-        quote.setContactPhone(customer.getPhone());
-        quote.setContactEmail(customer.getEmail());
-        quote.setCompanyName(profile == null ? null : profile.getBusinessName());
-        quote.setStatus("PENDING_APPROVAL");
-        quote.setSubmittedAt(now);
-        quote.setReviewedBy(null);
-        quote.setReviewedAt(null);
-        quote.setReviewedRevision(null);
-        quote.setReviewNote(null);
-        quote.setExpiresAt(null);
-        quote.setUpdatedAt(now);
-        quotes.saveAndFlush(quote);
-        quotes.saveRevision(quoteId, customerId, "Submitted for review", now);
+        validateQuote(quote, lines, parcels, clock.now());
+        checkStock(lines);
         return QuoteDraftResponse.from(quote, lines);
     }
 
+    private void checkStock(List<QuoteItem> lines) {
+        Map<UUID, ProductInventory> available = getInventory(lines);
+        for (QuoteItem line : lines) {
+            ProductInventory stock = available.get(line.getProductId());
+            if (stock == null || stock.getAvailableQuantity().compareTo(line.getQuantity()) < 0) {
+                throw new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE);
+            }
+        }
+    }
+
+    private Map<UUID, ProductInventory> getInventory(List<QuoteItem> lines) {
+        List<UUID> productIds = lines.stream().map(QuoteItem::getProductId).toList();
+        return inventory.findAllById(productIds).stream()
+                .collect(Collectors.toMap(ProductInventory::getProductId, item -> item));
+    }
+
     public void validateQuote(Quote quote, List<QuoteItem> lines, List<QuotePackage> parcels, Instant now) {
+        if (quote.getContactName() == null || quote.getContactName().isBlank()
+                || quote.getContactPhone() == null || quote.getContactPhone().isBlank()
+                || quote.getContactEmail() == null || quote.getContactEmail().isBlank()) {
+            throw new BusinessException(ErrorCode.QUOTE_INCOMPLETE);
+        }
         if (lines.isEmpty() || parcels.isEmpty()) throw new BusinessException(ErrorCode.QUOTE_INCOMPLETE);
         Map<UUID, BigDecimal> quantities = new HashMap<>();
         BigDecimal shipping = BigDecimal.ZERO;

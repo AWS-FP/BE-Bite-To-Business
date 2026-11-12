@@ -75,6 +75,7 @@ public enum ErrorCode {
     QUOTE_REVISION_CONFLICT(HttpStatus.CONFLICT, "The quote has changed. Refresh and review it again."),
     QUOTE_INCOMPLETE(HttpStatus.BAD_REQUEST, "Complete the quote and allocate every item before submitting."),
     QUOTE_PRICING_STALE(HttpStatus.CONFLICT, "Prices or discounts changed. Refresh the quote before submitting."),
+    QUOTE_STOCK_UNAVAILABLE(HttpStatus.CONFLICT, "One or more products do not have enough available stock."),
     QUOTE_ADDRESS_UNVERIFIED(HttpStatus.CONFLICT, "Every delivery address must be verified before approval."),
     QUOTE_PRODUCT_VAT_MISSING(HttpStatus.CONFLICT, "VAT rates are missing for one or more products."),
     QUOTE_APPROVAL_NOT_READY(HttpStatus.SERVICE_UNAVAILABLE, "Final quote approval is not available yet."),

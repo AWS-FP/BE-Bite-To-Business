@@ -4,10 +4,12 @@ import com.se203730.mvc.generateuibe.common.annotation.CurrentUserUUID;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
 import com.se203730.mvc.generateuibe.common.api.PageResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.UpdateQuoteItemRequest;
+import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteContactRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuotePackageRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteCouponsRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteRevisionRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteDraftResponse;
+import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteAvailabilityResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuotePackageResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteSummaryResponse;
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteDraftService;
@@ -85,11 +87,33 @@ public class CustomerQuoteController {
         return ok(service.get(customerId, quoteId));
     }
 
+    @GetMapping("/{quoteId}/availability")
+    public ResponseEntity<ResponseObject<QuoteAvailabilityResponse>> availability(
+            @CurrentUserUUID
+            UUID customerId,
+            @PathVariable
+            UUID quoteId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", workflow.availability(customerId, quoteId)));
+    }
+
     @PutMapping("/{quoteId}/items")
     public ResponseEntity<ResponseObject<QuoteDraftResponse>> putItem(@CurrentUserUUID UUID customerId,
                                                                       @PathVariable UUID quoteId,
                                                                       @Valid @RequestBody UpdateQuoteItemRequest request) {
         return ok(service.putItem(customerId, quoteId, request));
+    }
+
+    @PutMapping("/{quoteId}/contact")
+    public ResponseEntity<ResponseObject<QuoteDraftResponse>> updateContact(
+            @CurrentUserUUID
+            UUID customerId,
+            @PathVariable
+            UUID quoteId,
+            @Valid
+            @RequestBody
+            QuoteContactRequest request) {
+        return ok(service.updateContact(customerId, quoteId, request));
     }
 
     @PostMapping("/{quoteId}/refresh-prices")
@@ -98,11 +122,16 @@ public class CustomerQuoteController {
         return ok(service.refreshPrices(customerId, quoteId));
     }
 
-    @PostMapping("/{quoteId}/submit")
-    public ResponseEntity<ResponseObject<QuoteDraftResponse>> submit(@CurrentUserUUID UUID customerId,
-                                                                    @PathVariable UUID quoteId,
-                                                                    @Valid @RequestBody QuoteRevisionRequest request) {
-        return ok(workflow.submit(customerId, quoteId, request.revision()));
+    @PostMapping("/{quoteId}/validate-pricing")
+    public ResponseEntity<ResponseObject<QuoteDraftResponse>> validatePricing(
+            @CurrentUserUUID
+            UUID customerId,
+            @PathVariable
+            UUID quoteId,
+            @Valid
+            @RequestBody
+            QuoteRevisionRequest request) {
+        return ok(workflow.validatePricing(customerId, quoteId, request.revision()));
     }
 
     @DeleteMapping("/{quoteId}/items/{itemId}")
