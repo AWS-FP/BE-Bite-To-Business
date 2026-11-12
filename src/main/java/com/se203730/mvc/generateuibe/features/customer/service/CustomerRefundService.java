@@ -10,6 +10,7 @@ import com.se203730.mvc.generateuibe.features.customer.dto.response.RefundReques
 import com.se203730.mvc.generateuibe.features.customer.entity.Order;
 import com.se203730.mvc.generateuibe.features.customer.entity.OrderPackage;
 import com.se203730.mvc.generateuibe.features.customer.entity.PackageRefund;
+import com.se203730.mvc.generateuibe.features.customer.entity.Payment;
 import com.se203730.mvc.generateuibe.features.customer.repository.OrderPackageRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.OrderRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.PackageRefundRepository;
@@ -20,10 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -41,7 +43,7 @@ public class CustomerRefundService {
         Order order = orders.findForUpdate(orderId)
                 .filter(item -> item.getCustomerId().equals(customerId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        var payment = payments.findByOrderIdAndStatus(orderId, "SUCCESS")
+        Payment payment = payments.findByOrderIdAndStatus(orderId, "SUCCESS")
                 .filter(item -> item.getPaidAt() != null && "VND".equals(item.getCurrency())
                         && item.getAmount().compareTo(order.getTotalAmount()) == 0)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_PAYMENT_REQUIRED));
@@ -53,18 +55,24 @@ public class CustomerRefundService {
                 || new HashSet<>(selectedIds).size() != selectedIds.size()) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        List<OrderPackage> selected = all.stream()
-                .filter(item -> request.entireOrder() || selectedIds.contains(item.getId()))
-                .toList();
+        List<OrderPackage> selected = new ArrayList<>();
+        for (OrderPackage item : all) {
+            if (request.entireOrder() || selectedIds.contains(item.getId())) {
+                selected.add(item);
+            }
+        }
         if (selected.isEmpty() || (!request.entireOrder() && selected.size() != selectedIds.size())) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        var packageIds = selected.stream().map(OrderPackage::getId).toList();
+        List<UUID> packageIds = new ArrayList<>();
+        for (OrderPackage item : selected) {
+            packageIds.add(item.getId());
+        }
         if (refunds.existsByOrderPackageIdInAndStatusIn(packageIds,
                 List.of("REQUESTED", "APPROVED", "PROCESSING", "REFUNDED"))) {
             throw new BusinessException(ErrorCode.CONFLICT);
         }
-        var now = clock.now();
+        Instant now = clock.now();
         UUID groupId = UUID.randomUUID();
         List<RefundRequestResponse> result = new ArrayList<>();
         for (OrderPackage parcel : selected) {
@@ -94,11 +102,15 @@ public class CustomerRefundService {
         requireCustomer(customerId);
         orders.findById(orderId).filter(order -> order.getCustomerId().equals(customerId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        Map<UUID, String> names = packages.findByOrderIdOrderByIdAsc(orderId).stream()
-                .collect(Collectors.toMap(OrderPackage::getId, OrderPackage::getPackageName));
-        return refunds.findByOrderIdAndRequestedByOrderByCreatedAtDesc(orderId, customerId).stream()
-                .map(refund -> RefundRequestResponse.from(refund, names.get(refund.getOrderPackageId())))
-                .toList();
+        Map<UUID, String> names = new HashMap<>();
+        for (OrderPackage item : packages.findByOrderIdOrderByIdAsc(orderId)) {
+            names.put(item.getId(), item.getPackageName());
+        }
+        List<RefundRequestResponse> result = new ArrayList<>();
+        for (PackageRefund refund : refunds.findByOrderIdAndRequestedByOrderByCreatedAtDesc(orderId, customerId)) {
+            result.add(RefundRequestResponse.from(refund, names.get(refund.getOrderPackageId())));
+        }
+        return result;
     }
 
     private void requireCustomer(UUID customerId) {

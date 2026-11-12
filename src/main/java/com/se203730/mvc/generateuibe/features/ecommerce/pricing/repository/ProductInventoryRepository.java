@@ -14,6 +14,13 @@ import java.util.UUID;
 public interface ProductInventoryRepository extends JpaRepository<ProductInventory, UUID> {
     @Modifying
     @Query(value = """
+            update public.inventory set reserved_quantity = reserved_quantity + :quantity, updated_at = :now
+            where product_id = :productId and available_quantity >= :quantity
+            """, nativeQuery = true)
+    int reserve(@Param("productId") UUID productId, @Param("quantity") BigDecimal quantity,
+                @Param("now") Instant now);
+    @Modifying
+    @Query(value = """
             update public.inventory set reserved_quantity = reserved_quantity - :quantity, updated_at = :now
             where product_id = :productId and reserved_quantity >= :quantity
             """, nativeQuery = true)

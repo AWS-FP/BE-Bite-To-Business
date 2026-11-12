@@ -135,7 +135,7 @@ public class BankPaymentService {
         event.setResult("REVIEW");
         event.setReviewReason("UNMATCHED_ACCOUNT_OR_CODE");
         event.setReceivedAt(now);
-        events.saveAndFlush(event);
+        event = events.saveAndFlush(event);
 
         if (!"BIDV".equalsIgnoreCase(request.gateway())
                 || !"in".equalsIgnoreCase(request.transferType())

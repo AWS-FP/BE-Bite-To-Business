@@ -15,11 +15,14 @@ import java.time.Instant;
 import java.util.UUID;
 
 public interface OrderRepository extends JpaRepository<Order, UUID> {
+    @Query(value = "select id from public.orders where quote_id = :quoteId and customer_id = :customerId", nativeQuery = true)
+    Optional<UUID> findIdByQuoteAndCustomer(@Param("quoteId") UUID quoteId, @Param("customerId") UUID customerId);
     @Query(value = """
-            select id from public.orders
-            where reservation_managed = true and status = 'CONFIRMED' and reservation_released_at is null
-              and reservation_expires_at is not null and reservation_expires_at <= clock_timestamp()
-            order by reservation_expires_at, id limit 50
+            select o.id from public.orders o
+            where o.reservation_managed = true and o.status = 'CONFIRMED' and o.reservation_released_at is null
+              and o.reservation_expires_at is not null and o.reservation_expires_at <= clock_timestamp()
+              and not exists (select 1 from public.payments p where p.order_id = o.id and p.status = 'SUCCESS')
+            order by o.reservation_expires_at, o.id limit 50
             """, nativeQuery = true)
     List<UUID> findExpiredReservations();
 

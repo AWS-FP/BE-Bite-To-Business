@@ -46,7 +46,7 @@ public class AccountAccessService {
         if (!user.isEmailVerified())
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         if (user.getRole() == UserRole.CUSTOMER) {
-            var registration = registrations.findByCustomerId(id)
+            RegistrationRequest registration = registrations.findByCustomerId(id)
                     .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED));
             if (registration.getStatus() != RegistrationStatus.APPROVED
                     || registration.getActivatedAt() == null)
@@ -90,9 +90,10 @@ public class AccountAccessService {
 
     /** Được SecurityConfig gọi để kiểm tra mỗi request nghiệp vụ hoặc request chỉ dành cho Admin. */
     public AuthorizationDecision authorize(Authentication authentication, boolean adminOnly) {
-        if (!(authentication instanceof JwtAuthenticationToken token)
-                || !authentication.isAuthenticated())
+        if (!(authentication instanceof JwtAuthenticationToken) || !authentication.isAuthenticated()) {
             return new AuthorizationDecision(false);
+        }
+        JwtAuthenticationToken token = (JwtAuthenticationToken) authentication;
         try {
             User user = requireActiveUser(subject(token.getToken()));
             requirePasswordLogin(token.getToken());
@@ -122,10 +123,17 @@ public class AccountAccessService {
     public static void requirePasswordLogin(Jwt jwt) {
         // amr ghi cách xác thực phiên. Phiên mua hàng cần phương thức password, không chỉ xác minh OTP.
         Object methods = jwt.getClaim("amr");
-        if (methods instanceof List<?> list && list.stream()
-                .anyMatch(value -> value instanceof Map<?, ?> map
-                        && "password".equals(map.get("method"))))
-            return;
+        if (methods instanceof List<?>) {
+            List<?> methodList = (List<?>) methods;
+            for (Object method : methodList) {
+                if (method instanceof Map<?, ?>) {
+                    Map<?, ?> details = (Map<?, ?>) method;
+                    if ("password".equals(details.get("method"))) {
+                        return;
+                    }
+                }
+            }
+        }
         throw new BusinessException(ErrorCode.PASSWORD_LOGIN_REQUIRED);
     }
 }

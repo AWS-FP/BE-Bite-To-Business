@@ -12,11 +12,13 @@ import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteDraftRe
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteAvailabilityResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuotePackageResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteSummaryResponse;
+import com.se203730.mvc.generateuibe.features.customer.dto.response.CreatedOrderResponse;
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteDraftService;
 import com.se203730.mvc.generateuibe.features.customer.service.QuotePackageService;
 import com.se203730.mvc.generateuibe.features.customer.service.QuotePackageRoutingService;
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteCouponService;
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteWorkflowService;
+import com.se203730.mvc.generateuibe.features.customer.service.OrderCreationService;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
@@ -59,6 +61,9 @@ public class CustomerQuoteController {
 
     @Autowired
     private QuoteWorkflowService workflow;
+
+    @Autowired
+    private OrderCreationService orderCreation;
 
     @GetMapping
     public ResponseEntity<ResponseObject<PageResponse<QuoteSummaryResponse>>> list(
@@ -132,6 +137,20 @@ public class CustomerQuoteController {
             @RequestBody
             QuoteRevisionRequest request) {
         return ok(workflow.validatePricing(customerId, quoteId, request.revision()));
+    }
+
+    @PostMapping("/{quoteId}/orders")
+    public ResponseEntity<ResponseObject<CreatedOrderResponse>> createOrder(
+            @CurrentUserUUID
+            UUID customerId,
+            @PathVariable
+            UUID quoteId,
+            @Valid
+            @RequestBody
+            QuoteRevisionRequest request) {
+        CreatedOrderResponse result = orderCreation.create(customerId, quoteId, request.revision());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", result));
     }
 
     @DeleteMapping("/{quoteId}/items/{itemId}")
