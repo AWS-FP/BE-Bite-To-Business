@@ -22,11 +22,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class QuoteWorkflowService {
@@ -52,13 +52,19 @@ public class QuoteWorkflowService {
         drafts.get(customerId, quoteId);
         List<QuoteItem> lines = items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId);
         Map<UUID, ProductInventory> available = getInventory(lines);
-        List<QuoteAvailabilityResponse.Item> result = lines.stream().map(line -> {
+        List<QuoteAvailabilityResponse.Item> result = new ArrayList<>();
+        boolean allAvailable = !lines.isEmpty();
+        for (QuoteItem line : lines) {
             ProductInventory stock = available.get(line.getProductId());
             BigDecimal quantity = stock == null ? null : stock.getAvailableQuantity();
-            return new QuoteAvailabilityResponse.Item(line.getProductId(), line.getSku(), line.getQuantity(),
-                    quantity, quantity != null && quantity.compareTo(line.getQuantity()) >= 0);
-        }).toList();
-        return new QuoteAvailabilityResponse(!result.isEmpty() && result.stream().allMatch(QuoteAvailabilityResponse.Item::available), result);
+            boolean enoughStock = quantity != null && quantity.compareTo(line.getQuantity()) >= 0;
+            if (!enoughStock) {
+                allAvailable = false;
+            }
+            result.add(new QuoteAvailabilityResponse.Item(line.getProductId(), line.getSku(), line.getQuantity(),
+                    quantity, enoughStock));
+        }
+        return new QuoteAvailabilityResponse(allAvailable, result);
     }
 
     @Transactional
@@ -68,8 +74,10 @@ public class QuoteWorkflowService {
             throw new BusinessException(ErrorCode.QUOTE_REVISION_CONFLICT);
         }
         List<QuoteItem> lines = items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId);
-        if (lines.stream().anyMatch(item -> !item.isVatRateConfigured())) {
-            throw new BusinessException(ErrorCode.QUOTE_PRODUCT_VAT_MISSING);
+        for (QuoteItem item : lines) {
+            if (!item.isVatRateConfigured()) {
+                throw new BusinessException(ErrorCode.QUOTE_PRODUCT_VAT_MISSING);
+            }
         }
         List<QuotePackage> parcels = packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId);
         validateQuote(quote, lines, parcels, clock.now());
@@ -88,9 +96,15 @@ public class QuoteWorkflowService {
     }
 
     private Map<UUID, ProductInventory> getInventory(List<QuoteItem> lines) {
-        List<UUID> productIds = lines.stream().map(QuoteItem::getProductId).toList();
-        return inventory.findAllById(productIds).stream()
-                .collect(Collectors.toMap(ProductInventory::getProductId, item -> item));
+        List<UUID> productIds = new ArrayList<>();
+        for (QuoteItem line : lines) {
+            productIds.add(line.getProductId());
+        }
+        Map<UUID, ProductInventory> result = new HashMap<>();
+        for (ProductInventory stock : inventory.findAllById(productIds)) {
+            result.put(stock.getProductId(), stock);
+        }
+        return result;
     }
 
     public void validateQuote(Quote quote, List<QuoteItem> lines, List<QuotePackage> parcels, Instant now) {

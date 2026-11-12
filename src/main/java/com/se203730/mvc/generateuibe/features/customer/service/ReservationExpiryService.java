@@ -2,6 +2,7 @@ package com.se203730.mvc.generateuibe.features.customer.service;
 
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.customer.entity.InventoryMovement;
+import com.se203730.mvc.generateuibe.features.customer.entity.Order;
 import com.se203730.mvc.generateuibe.features.customer.enums.OrderStatus;
 import com.se203730.mvc.generateuibe.features.customer.repository.InventoryMovementRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.OrderRepository;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -25,19 +28,19 @@ public class ReservationExpiryService {
 
     @Transactional
     public void expire(UUID orderId) {
-        var order = orders.findForUpdate(orderId).orElse(null);
-        var now = clock.now();
+        Order order = orders.findForUpdate(orderId).orElse(null);
+        Instant now = clock.now();
         if (order == null || order.getStatus() != OrderStatus.CONFIRMED
                 || order.getReservationReleasedAt() != null || order.getReservationExpiresAt() == null
                 || now.isBefore(order.getReservationExpiresAt())
                 || payments.existsByOrderIdAndStatus(orderId, "SUCCESS")) {
             return;
         }
-        var balances = movements.findBalances(orderId);
+        List<InventoryMovementRepository.Balance> balances = movements.findBalances(orderId);
         if (balances.isEmpty()) {
             throw new IllegalStateException("Reservation has no inventory movements: " + orderId);
         }
-        for (var balance : balances) {
+        for (InventoryMovementRepository.Balance balance : balances) {
             if (balance.getShipped().signum() != 0 || balance.getReleased().compareTo(balance.getReserved()) > 0) {
                 throw new IllegalStateException("Inconsistent inventory movements: " + orderId);
             }
