@@ -9,6 +9,8 @@ import com.se203730.mvc.generateuibe.features.admin.dto.response.UserResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import com.se203730.mvc.generateuibe.features.admin.entity.User;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
@@ -54,25 +56,32 @@ public class AuthService {
                 throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
             }
             // Không tin trực tiếp JSON trả về: kiểm tra chữ ký, issuer, audience và thời hạn JWT qua decoder.
-            var jwt = jwtDecoder.decode(session.accessToken());
-            if (!AccountAccessService.subject(jwt).equals(session.user().id()))
+            Jwt jwt = jwtDecoder.decode(session.accessToken());
+            if (!AccountAccessService.subject(jwt).equals(session.user().id())) {
                 throw new BusinessException(ErrorCode.UNAUTHORIZED);
+            }
             AccountAccessService.requirePasswordLogin(jwt);
-            var user = accounts.requireActiveUser(session.user().id());
+            User user = accounts.requireActiveUser(session.user().id());
             return new AuthResponse(session.accessToken(), session.refreshToken(), "Bearer",
                     session.expiresIn(),
                     UserResponse.from(user));
             // Nếu phiên mới không đạt kiểm tra nghiệp vụ, cố gắng thu hồi phiên đó tại Supabase.
-        } catch (BusinessException | JwtException | AuthenticationException ex) {
-            try {
-                if (session.accessToken() != null)
-                    supabase.logout(session.accessToken());
-            } catch (BusinessException ignored) {
-                log.warn("Could not revoke a rejected authentication session");
-            }
-            if (ex instanceof BusinessException business)
-                throw business;
+        } catch (BusinessException ex) {
+            revokeRejectedSession(session);
+            throw ex;
+        } catch (JwtException | AuthenticationException ex) {
+            revokeRejectedSession(session);
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+    }
+
+    private void revokeRejectedSession(SupabaseAuthClient.Session session) {
+        try {
+            if (session.accessToken() != null) {
+                supabase.logout(session.accessToken());
+            }
+        } catch (BusinessException ignored) {
+            log.warn("Could not revoke a rejected authentication session");
         }
     }
 }

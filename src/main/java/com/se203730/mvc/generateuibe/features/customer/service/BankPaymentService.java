@@ -64,6 +64,9 @@ public class BankPaymentService {
         if (order.getStatus() != OrderStatus.CONFIRMED && order.getStatus() != OrderStatus.PROCESSING) {
             throw new BusinessException(ErrorCode.PAYMENT_INVALID_STATE);
         }
+        if (reservationExpired(order, clock.now())) {
+            throw new BusinessException(ErrorCode.PAYMENT_INVALID_STATE);
+        }
         if (order.getTotalAmount() == null || order.getTotalAmount().signum() <= 0) {
             throw new BusinessException(ErrorCode.PAYMENT_INVALID_STATE);
         }
@@ -102,8 +105,8 @@ public class BankPaymentService {
         if (!"SEPAY".equals(payment.getProvider()) || !"BANK_TRANSFER".equals(payment.getPaymentMethod())) {
             throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND);
         }
-        boolean payable = order.getStatus() == OrderStatus.CONFIRMED
-                || order.getStatus() == OrderStatus.PROCESSING;
+        boolean payable = (order.getStatus() == OrderStatus.CONFIRMED
+                || order.getStatus() == OrderStatus.PROCESSING) && !reservationExpired(order, clock.now());
         return response(payment, payable);
     }
 
@@ -132,7 +135,7 @@ public class BankPaymentService {
         event.setResult("REVIEW");
         event.setReviewReason("UNMATCHED_ACCOUNT_OR_CODE");
         event.setReceivedAt(now);
-        events.saveAndFlush(event);
+        event = events.saveAndFlush(event);
 
         if (!"BIDV".equalsIgnoreCase(request.gateway())
                 || !"in".equalsIgnoreCase(request.transferType())
@@ -153,6 +156,10 @@ public class BankPaymentService {
             return;
         }
         event.setPaymentId(payment.getId());
+        if (reservationExpired(order, now)) {
+            event.setReviewReason("RESERVATION_EXPIRED");
+            return;
+        }
         event.setReviewReason("PAYMENT_STATE_OR_AMOUNT_MISMATCH");
         if (!"SEPAY".equals(payment.getProvider()) || !"BANK_TRANSFER".equals(payment.getPaymentMethod())
                 || !"PENDING".equals(payment.getStatus())
@@ -168,6 +175,10 @@ public class BankPaymentService {
         payment.setUpdatedAt(now);
         if (order.getCouponId() != null && order.getCouponRedeemedAt() == null) {
             order.setCouponRedeemedAt(now);
+            order.setUpdatedAt(now);
+        }
+        if (order.getShippingCouponId() != null && order.getShippingCouponRedeemedAt() == null) {
+            order.setShippingCouponRedeemedAt(now);
             order.setUpdatedAt(now);
         }
         event.setResult("MATCHED");
@@ -191,6 +202,11 @@ public class BankPaymentService {
         if (!order.getCustomerId().equals(customerId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
+    }
+
+    private boolean reservationExpired(Order order, Instant now) {
+        return order.getReservationReleasedAt() != null
+                || (order.getReservationExpiresAt() != null && !now.isBefore(order.getReservationExpiresAt()));
     }
 
     private void requireConfiguration() {
