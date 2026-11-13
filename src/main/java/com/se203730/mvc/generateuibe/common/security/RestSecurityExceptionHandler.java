@@ -45,9 +45,12 @@ public class RestSecurityExceptionHandler implements AuthenticationEntryPoint, A
             HttpServletResponse response,
             AccessDeniedException ex)
             throws IOException {
-        write(request, response, ex instanceof AccountAccessDeniedException denied
-                ? denied.getErrorCode()
-                : ErrorCode.ACCESS_DENIED);
+        ErrorCode code = ErrorCode.ACCESS_DENIED;
+        if (ex instanceof AccountAccessDeniedException) {
+            AccountAccessDeniedException denied = (AccountAccessDeniedException) ex;
+            code = denied.getErrorCode();
+        }
+        write(request, response, code);
     }
 
     // Tạo cùng cấu trúc ErrorResponse như lỗi MVC và yêu cầu trình duyệt không cache phản hồi này.

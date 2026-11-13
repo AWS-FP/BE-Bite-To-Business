@@ -71,6 +71,15 @@ public enum ErrorCode {
                                                                                                                                             HttpStatus.UNAUTHORIZED,
                                                                                                                                             "The password setup session has expired."),
 
+    CUSTOMER_PROFILE_NOT_FOUND(HttpStatus.NOT_FOUND, "The customer profile was not found."),
+    QUOTE_REVISION_CONFLICT(HttpStatus.CONFLICT, "The quote has changed. Refresh and review it again."),
+    QUOTE_INCOMPLETE(HttpStatus.BAD_REQUEST, "Complete the quote and allocate every item before submitting."),
+    QUOTE_PRICING_STALE(HttpStatus.CONFLICT, "Prices or discounts changed. Refresh the quote before submitting."),
+    QUOTE_STOCK_UNAVAILABLE(HttpStatus.CONFLICT, "One or more products do not have enough available stock."),
+    QUOTE_ADDRESS_UNVERIFIED(HttpStatus.CONFLICT, "Every delivery address must be verified before approval."),
+    QUOTE_PRODUCT_VAT_MISSING(HttpStatus.CONFLICT, "VAT rates are missing for one or more products."),
+    QUOTE_APPROVAL_NOT_READY(HttpStatus.SERVICE_UNAVAILABLE, "Final quote approval is not available yet."),
+
     DELIVERY_TRIP_NOT_FOUND(HttpStatus.NOT_FOUND, "No assigned delivery trip was found."),
     DELIVERY_STOP_NOT_FOUND(HttpStatus.NOT_FOUND, "The stop was not found in this delivery trip."),
     DELIVERY_TRIP_INVALID_STATE(HttpStatus.CONFLICT, "The delivery trip is not in the required state."),
@@ -81,7 +90,12 @@ public enum ErrorCode {
     DELIVERY_DATA_INVALID(HttpStatus.CONFLICT, "The delivery trip and order data are inconsistent."),
     ORDER_PAYMENT_REQUIRED(HttpStatus.CONFLICT, "Successful payment of the order total is required before departure."),
     ORDER_NOT_READY_FOR_DELIVERY(HttpStatus.CONFLICT, "The order must be processing before delivery."),
-    ORDER_CANCELLED(HttpStatus.CONFLICT, "This order has been cancelled.");
+    ORDER_CANCELLED(HttpStatus.CONFLICT, "This order has been cancelled."),
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "The payment was not found."),
+    PAYMENT_ALREADY_PAID(HttpStatus.CONFLICT, "This order has already been paid."),
+    PAYMENT_INVALID_STATE(HttpStatus.CONFLICT, "The order or payment is not in a valid state."),
+    PAYMENT_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "The payment service is not configured."),
+    PAYMENT_WEBHOOK_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "The payment notification could not be verified.");
 
     private final HttpStatus status;
 

@@ -1,7 +1,9 @@
 package com.se203730.mvc.generateuibe.common.exception;
 
 import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ElementKind;
+import jakarta.validation.Path;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -14,6 +16,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
+import org.springframework.context.MessageSourceResolvable;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -24,7 +28,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import java.time.Instant;
 import java.util.List;
-import java.util.stream.StreamSupport;
+import java.util.ArrayList;
 
 /**
  * Bắt lỗi phát sinh trong Spring MVC và trả JSON thống nhất thay vì để thông tin lỗi nội bộ lọt ra frontend.
@@ -49,22 +53,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             ConstraintViolationException ex,
             WebRequest request) {
         // Lỗi dữ liệu trả ra là lỗi backend (500); lỗi dữ liệu người dùng nhập mới được trả thành lỗi validation (400).
-        boolean invalidReturnValue = ex.getConstraintViolations().stream()
-                .anyMatch(violation -> StreamSupport
-                        .stream(violation.getPropertyPath().spliterator(), false)
-                        .anyMatch(node -> node.getKind() == ElementKind.RETURN_VALUE));
-        if (invalidReturnValue) {
-            log.error("Response validation failed at {}", requestPath(request), ex);
-            return respond(ErrorCode.INTERNAL_SERVER_ERROR, List.of(), request);
+        for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
+            for (Path.Node node : violation.getPropertyPath()) {
+                if (node.getKind() == ElementKind.RETURN_VALUE) {
+                    log.error("Response validation failed at {}", requestPath(request), ex);
+                    return respond(ErrorCode.INTERNAL_SERVER_ERROR, List.of(), request);
+                }
+            }
         }
 
-        List<ErrorResponse.ValidationError> errors = ex.getConstraintViolations().stream()
-                .map(violation -> new ErrorResponse.ValidationError(
-                        violation.getPropertyPath().toString(),
-                        violation.getConstraintDescriptor().getAnnotation().annotationType()
-                                .getSimpleName(),
-                        violation.getMessage()))
-                .toList();
+        List<ErrorResponse.ValidationError> errors = new ArrayList<>();
+        for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
+            String field = violation.getPropertyPath().toString();
+            String code = violation.getConstraintDescriptor().getAnnotation().annotationType().getSimpleName();
+            errors.add(new ErrorResponse.ValidationError(field, code, violation.getMessage()));
+        }
         return respond(ErrorCode.VALIDATION_FAILED, errors, request);
     }
 
@@ -129,28 +132,31 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         if (ex instanceof MethodArgumentNotValidException validationException) {
             code = ErrorCode.VALIDATION_FAILED;
-            errors = validationException.getBindingResult().getAllErrors().stream()
-                    .map(this::validationError)
-                    .toList();
+            errors = new ArrayList<>();
+            for (ObjectError error : validationException.getBindingResult().getAllErrors()) {
+                errors.add(validationError(error));
+            }
         } else if (ex instanceof HandlerMethodValidationException validationException
                 && !validationException.isForReturnValue()) {
             code = ErrorCode.VALIDATION_FAILED;
-            errors = validationException.getParameterValidationResults().stream()
-                    .flatMap(result -> result.getResolvableErrors().stream().map(error -> {
-                        if (error instanceof ObjectError objectError) {
-                            return validationError(objectError);
-                        }
+            errors = new ArrayList<>();
+            for (ParameterValidationResult result : validationException.getParameterValidationResults()) {
+                for (MessageSourceResolvable error : result.getResolvableErrors()) {
+                    if (error instanceof ObjectError) {
+                        errors.add(validationError((ObjectError) error));
+                    } else {
                         String name = result.getMethodParameter().getParameterName();
-                        return new ErrorResponse.ValidationError(
-                                name != null
-                                        ? name
-                                        : "arg" + result.getMethodParameter().getParameterIndex(),
-                                "Invalid",
-                                error.getDefaultMessage() != null
-                                        ? error.getDefaultMessage()
-                                        : "Invalid value.");
-                    }))
-                    .toList();
+                        if (name == null) {
+                            name = "arg" + result.getMethodParameter().getParameterIndex();
+                        }
+                        String message = error.getDefaultMessage();
+                        if (message == null) {
+                            message = "Invalid value.";
+                        }
+                        errors.add(new ErrorResponse.ValidationError(name, "Invalid", message));
+                    }
+                }
+            }
         }
 
         if (status.is5xxServerError()) {
@@ -178,17 +184,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private ErrorResponse.ValidationError validationError(ObjectError error) {
-        return new ErrorResponse.ValidationError(
-                error instanceof FieldError fieldError
-                        ? fieldError.getField()
-                        : error.getObjectName(),
-                error.getCode() != null ? error.getCode() : "Invalid",
-                error.getDefaultMessage() != null ? error.getDefaultMessage() : "Invalid value.");
+        String field = error.getObjectName();
+        if (error instanceof FieldError) {
+            FieldError fieldError = (FieldError) error;
+            field = fieldError.getField();
+        }
+        String code = error.getCode() != null ? error.getCode() : "Invalid";
+        String message = error.getDefaultMessage() != null ? error.getDefaultMessage() : "Invalid value.";
+        return new ErrorResponse.ValidationError(field, code, message);
     }
 
     private static String requestPath(WebRequest request) {
-        return request instanceof ServletWebRequest servletRequest
-                ? servletRequest.getRequest().getRequestURI()
-                : "";
+        if (request instanceof ServletWebRequest) {
+            ServletWebRequest servletRequest = (ServletWebRequest) request;
+            return servletRequest.getRequest().getRequestURI();
+        }
+        return "";
     }
 }

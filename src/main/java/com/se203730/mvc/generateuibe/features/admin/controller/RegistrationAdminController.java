@@ -30,7 +30,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/admin/registration-requests")
-@Tag(name = "Admin - Customer registration")
+@Tag(name = "Admin - Customer Registrations")
 public class RegistrationAdminController {
     @Autowired
     private AdminRegistrationService registrations;

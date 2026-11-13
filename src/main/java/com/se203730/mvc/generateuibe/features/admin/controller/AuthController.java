@@ -40,7 +40,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/auth")
-@Tag(name = "Authentication")
+@Tag(name = "Shared - Authentication")
 public class AuthController {
     // Spring tự gán các service vào những field có @Autowired khi tạo controller.
     @Autowired

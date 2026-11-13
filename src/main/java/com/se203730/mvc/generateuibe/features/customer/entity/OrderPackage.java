@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -38,4 +39,12 @@ public class OrderPackage {
 
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
+
+    private String recipientName;
+    private String recipientPhone;
+    private String deliveryTimeSlot;
+    private String deliveryNote;
+    private String city;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
 }
