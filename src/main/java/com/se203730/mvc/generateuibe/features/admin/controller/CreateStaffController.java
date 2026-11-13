@@ -22,7 +22,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin/staff")
-@Tag(name = "Admin - Staff accounts")
+@Tag(name = "Admin - Staff Accounts")
 public class CreateStaffController {
     @Autowired
     private AdminStaffService staffService;

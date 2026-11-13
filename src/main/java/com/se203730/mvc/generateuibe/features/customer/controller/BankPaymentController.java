@@ -2,6 +2,7 @@ package com.se203730.mvc.generateuibe.features.customer.controller;
 
 import com.se203730.mvc.generateuibe.common.annotation.CurrentUserUUID;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.BankPaymentResponse;
 import com.se203730.mvc.generateuibe.features.customer.service.BankPaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/customer")
 @PreAuthorize("hasRole('CUSTOMER')")
+@Tag(name = "Customer - Bank Payments")
 public class BankPaymentController {
     @Autowired
     private BankPaymentService paymentService;

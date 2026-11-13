@@ -3,6 +3,7 @@ package com.se203730.mvc.generateuibe.features.customer.controller;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
 import com.se203730.mvc.generateuibe.features.customer.service.DeliveryEstimateService;
 import com.se203730.mvc.generateuibe.features.customer.service.VietmapGeocodingService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -12,6 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/delivery-estimate")
+@Tag(name = "Shared - Delivery Estimates")
 public class DeliveryEstimateController {
     private final DeliveryEstimateService service;
     private final VietmapGeocodingService geocoding;
