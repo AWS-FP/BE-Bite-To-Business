@@ -13,7 +13,6 @@ import com.se203730.mvc.generateuibe.features.admin.entity.RegistrationRequest;
 import com.se203730.mvc.generateuibe.features.admin.enums.RegistrationStatus;
 import com.se203730.mvc.generateuibe.features.admin.repository.RegistrationRequestRepository;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
-import com.se203730.mvc.generateuibe.features.notification.service.RegistrationMailService;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.UserResponse;
 import com.se203730.mvc.generateuibe.features.admin.entity.User;
 import com.se203730.mvc.generateuibe.features.admin.entity.UserProfile;

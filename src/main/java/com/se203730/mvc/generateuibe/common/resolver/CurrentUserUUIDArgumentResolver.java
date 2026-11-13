@@ -51,10 +51,11 @@ public class CurrentUserUUIDArgumentResolver implements HandlerMethodArgumentRes
         }
 
         // Chỉ đọc JWT đã được Spring Security xác thực, không đọc token thô hoặc userId từ FE.
-        if (!(authentication instanceof JwtAuthenticationToken jwtAuthentication)) {
+        if (!(authentication instanceof JwtAuthenticationToken)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
 
+        JwtAuthenticationToken jwtAuthentication = (JwtAuthenticationToken) authentication;
         String subject = jwtAuthentication.getToken().getSubject();
         if (subject == null || subject.isBlank()) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
