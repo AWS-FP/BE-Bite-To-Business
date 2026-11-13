@@ -21,7 +21,8 @@ public interface ReadyDeliveryRepository extends JpaRepository<Order, UUID> {
                     and pay.currency = 'VND' and pay.amount = o.total_amount)
               and exists (select 1 from public.order_packages p where p.order_id = o.id
                     and p.cancelled_at is null and not exists
-                    (select 1 from public.delivery_stops s where s.order_package_id = p.id))
+                    (select 1 from public.delivery_stops s where s.order_package_id = p.id)
+                    and not exists (select 1 from public.delivery_package_claims c where c.package_id = p.id))
             order by o.created_at, o.id
             """, countQuery = """
             select count(*) from public.orders o
@@ -31,13 +32,15 @@ public interface ReadyDeliveryRepository extends JpaRepository<Order, UUID> {
                     and pay.currency = 'VND' and pay.amount = o.total_amount)
               and exists (select 1 from public.order_packages p where p.order_id = o.id
                     and p.cancelled_at is null and not exists
-                    (select 1 from public.delivery_stops s where s.order_package_id = p.id))
+                    (select 1 from public.delivery_stops s where s.order_package_id = p.id)
+                    and not exists (select 1 from public.delivery_package_claims c where c.package_id = p.id))
             """, nativeQuery = true)
     Page<Order> findReadyOrders(Pageable pageable);
 
     @Query("""
             select p from OrderPackage p where p.orderId in :orderIds and p.cancelledAt is null
             and not exists (select s.id from DeliveryStop s where s.orderPackageId = p.id)
+            and not exists (select c.packageId from DeliveryPackageClaim c where c.packageId = p.id)
             order by p.orderId, p.deliveryDate, p.id
             """)
     List<OrderPackage> findReadyPackages(@Param("orderIds") Collection<UUID> orderIds);

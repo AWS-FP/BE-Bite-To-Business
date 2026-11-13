@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface DeliveryStopRepository extends JpaRepository<DeliveryStop, UUID> {
     List<DeliveryStop> findByTripIdOrderByStopOrderAsc(UUID tripId);
+    boolean existsByOrderPackageId(UUID packageId);
 }

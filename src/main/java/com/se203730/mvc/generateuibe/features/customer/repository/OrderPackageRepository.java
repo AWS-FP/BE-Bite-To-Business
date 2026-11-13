@@ -5,12 +5,20 @@ import com.se203730.mvc.generateuibe.features.customer.repository.projection.Pac
 import com.se203730.mvc.generateuibe.features.customer.repository.projection.PackageItemView;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface OrderPackageRepository extends JpaRepository<OrderPackage, UUID> {
+    @Query("select p.orderId from OrderPackage p where p.id = :id")
+    Optional<UUID> findOrderIdByPackageId(@Param("id") UUID id);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from OrderPackage p where p.id = :id")
+    Optional<OrderPackage> findForUpdate(@Param("id") UUID id);
     List<OrderPackage> findByOrderIdOrderByIdAsc(UUID orderId);
 
     @Query(value = """
