@@ -35,12 +35,12 @@ public class ReadyDeliveryService {
         }
         var orders = repository.findReadyOrders(PageRequest.of(page, size));
         if (orders.isEmpty()) {
-            return orders.map(order -> new ReadyDeliveryOrderResponse(order.getId(), order.getOrderNumber(), List.of()));
+            return orders.map(order -> new ReadyDeliveryOrderResponse(order.getId(), order.getOrderNumber(), order.getContactName(), List.of()));
         }
         var orderIds = orders.getContent().stream().map(order -> order.getId()).toList();
         Map<UUID, List<OrderPackage>> packages = repository.findReadyPackages(orderIds).stream()
                 .collect(Collectors.groupingBy(OrderPackage::getOrderId));
-        return orders.map(order -> new ReadyDeliveryOrderResponse(order.getId(), order.getOrderNumber(),
+        return orders.map(order -> new ReadyDeliveryOrderResponse(order.getId(), order.getOrderNumber(), order.getContactName(),
                 packages.getOrDefault(order.getId(), List.of()).stream()
                         .map(p -> new ReadyDeliveryOrderResponse.Package(p.getId(), p.getPackageNumber(),
                                 p.getPackageName(), p.getDeliveryDate(), p.getDeliveryAddress()))
