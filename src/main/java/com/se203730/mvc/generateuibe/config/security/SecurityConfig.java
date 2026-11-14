@@ -1,4 +1,3 @@
-
 package com.se203730.mvc.generateuibe.config.security;
 
 import com.se203730.mvc.generateuibe.common.security.RestSecurityExceptionHandler;
@@ -34,7 +33,8 @@ public class SecurityConfig {
         @Value("${app.docs.public-enabled:false}")
         boolean docsPublicEnabled) throws Exception {
 
-        http.cors(cors -> cors.configurationSource(corsConfigurationSource));
+        http.cors(cors ->
+            cors.configurationSource(corsConfigurationSource));
 
         // Các API dùng Bearer token trong header,
         // không xác thực bằng cookie.
@@ -81,11 +81,13 @@ public class SecurityConfig {
                 "/api/catalog/brands/**"
             ).permitAll();
 
+            // [FEAT/HOME-PAGE] API trang chủ
             authorize.requestMatchers(
                 HttpMethod.GET,
                 "/api/catalog/home"
             ).permitAll();
 
+            // [FEAT/HOME-PAGE] API sản phẩm và giá
             authorize.requestMatchers(
                 HttpMethod.GET,
                 "/api/catalog/products",
@@ -93,6 +95,27 @@ public class SecurityConfig {
                 "/api/catalog/products/*/pricing"
             ).permitAll();
 
+            // [FEAT/REVIEWS] Public GET đánh giá sản phẩm
+            // Khách chưa đăng nhập vẫn có thể xem review.
+            // POST, PUT, DELETE Review vẫn yêu cầu đăng nhập.
+            authorize.requestMatchers(
+                HttpMethod.GET,
+                "/api/catalog/products/*/reviews"
+            ).permitAll();
+
+            // Các API xác thực công khai
+            // [CUSTOMER/HOMEPAGE] Public read-only homepage, category counts and banners.
+            authorize.requestMatchers(
+                HttpMethod.GET,
+                "/api/homepage",
+                "/api/homepage/**"
+            ).permitAll();
+
+            // [MARKETING] Public newsletter signup (consent is validated by the service).
+            authorize.requestMatchers(
+                HttpMethod.POST,
+                "/api/newsletter/subscriptions"
+            ).permitAll();
 
             authorize.requestMatchers(
                 HttpMethod.POST,
