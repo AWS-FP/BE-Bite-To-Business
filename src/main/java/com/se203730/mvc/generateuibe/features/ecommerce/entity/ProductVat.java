@@ -23,5 +23,6 @@ public class ProductVat {
     private UUID id;
     private String sku;
     private BigDecimal vatRate;
+    private Instant vatUpdatedAt;
     private Instant updatedAt;
 }

@@ -18,4 +18,5 @@ public class DeliveryPackageClaim {
     private UUID packageId;
     private UUID deliveryStaffId;
     private Instant claimedAt;
+    private Instant deliveredAt;
 }
