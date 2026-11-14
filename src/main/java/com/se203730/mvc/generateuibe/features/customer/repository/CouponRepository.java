@@ -8,10 +8,14 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface CouponRepository extends JpaRepository<Coupon, UUID> {
     Optional<Coupon> findByCode(String code);
+
+    @Query(value = "select product_id from public.coupon_products where coupon_id = :couponId", nativeQuery = true)
+    List<UUID> findProductIds(@Param("couponId") UUID couponId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from Coupon c where c.id = :id")

@@ -21,6 +21,7 @@ public class Coupon {
     private UUID id;
     private String code;
     private String appliesTo;
+    private String productScope;
     private String discountType;
     private BigDecimal discountValue;
     private BigDecimal minOrderAmount;

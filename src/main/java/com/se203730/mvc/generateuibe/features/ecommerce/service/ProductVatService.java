@@ -6,15 +6,14 @@ import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductVatRepository;
-import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductVatRateChangeRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.ProductVatResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.entity.ProductVat;
-import com.se203730.mvc.generateuibe.features.ecommerce.entity.ProductVatRateChange;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -24,8 +23,6 @@ public class ProductVatService {
     @Autowired
     private AccountAccessService accounts;
     @Autowired
-    private ProductVatRateChangeRepository changes;
-    @Autowired
     private DatabaseClock clock;
 
     @Transactional(readOnly = true)
@@ -33,7 +30,7 @@ public class ProductVatService {
         requireEcommerce(staffId);
         ProductVat product = products.findById(productId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        return new ProductVatResponse(product.getId(), product.getSku(), product.getVatRate());
+        return new ProductVatResponse(product.getId(), product.getSku(), product.getVatRate(), product.getVatUpdatedAt());
     }
 
     @Transactional
@@ -42,19 +39,13 @@ public class ProductVatService {
         ProductVat product = products.findForUpdate(productId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
         if (product.getVatRate() == null || product.getVatRate().compareTo(rate) != 0) {
-            ProductVatRateChange change = new ProductVatRateChange();
-            change.setId(UUID.randomUUID());
-            change.setProductId(productId);
-            change.setPreviousRate(product.getVatRate());
-            change.setNewRate(rate);
-            change.setChangedBy(staffId);
-            change.setChangedAt(clock.now());
+            Instant changedAt = clock.now();
             product.setVatRate(rate);
-            product.setUpdatedAt(change.getChangedAt());
+            product.setVatUpdatedAt(changedAt);
+            product.setUpdatedAt(changedAt);
             products.save(product);
-            changes.save(change);
         }
-        return new ProductVatResponse(productId, product.getSku(), rate);
+        return new ProductVatResponse(productId, product.getSku(), rate, product.getVatUpdatedAt());
     }
 
     private void requireEcommerce(UUID staffId) {
