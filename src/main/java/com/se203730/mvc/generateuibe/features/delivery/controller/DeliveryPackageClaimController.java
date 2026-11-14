@@ -27,6 +27,13 @@ import java.util.UUID;
 public class DeliveryPackageClaimController {
     private final DeliveryPackageClaimService service;
 
+    @GetMapping("/{packageId}")
+    public ResponseEntity<ResponseObject<ClaimedPackageResponse>> detail(
+            @CurrentUserUUID UUID staffId, @PathVariable UUID packageId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", service.detail(staffId, packageId)));
+    }
+
     @GetMapping("/mine")
     public ResponseEntity<ResponseObject<PageResponse<ClaimedPackageResponse>>> mine(
             @CurrentUserUUID UUID staffId,
@@ -42,5 +49,29 @@ public class DeliveryPackageClaimController {
             @PathVariable UUID packageId) {
         ClaimedPackageResponse data = service.claim(staffId, packageId);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new ResponseObject<>(200, "Success", data));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<ResponseObject<PageResponse<ClaimedPackageResponse>>> history(
+            @CurrentUserUUID
+            UUID staffId,
+            @RequestParam(defaultValue = "0")
+            int page,
+            @RequestParam(defaultValue = "10")
+            int size) {
+        PageResponse<ClaimedPackageResponse> data = PageResponse.from(service.history(staffId, page, size));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", data));
+    }
+
+    @PostMapping("/{packageId}/complete")
+    public ResponseEntity<ResponseObject<ClaimedPackageResponse>> complete(
+            @CurrentUserUUID
+            UUID staffId,
+            @PathVariable
+            UUID packageId) {
+        ClaimedPackageResponse data = service.complete(staffId, packageId);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", data));
     }
 }

@@ -10,5 +10,5 @@ public record ClaimedPackageResponse(UUID packageId, String packageNumber, Strin
                                      String deliveryTimeSlot, String address, String recipientName,
                                      String recipientPhone, String note, String city,
                                      BigDecimal latitude, BigDecimal longitude, Instant claimedAt,
-                                     boolean cancelled) {
+                                     boolean cancelled, Instant deliveredAt) {
 }
