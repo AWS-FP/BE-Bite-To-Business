@@ -164,13 +164,13 @@ public class HomePageRepository {
         if(combos.isEmpty()) return combos;
         List<UUID> ids=combos.stream().map(HomePageComboResponse::productId).toList();
         String marks=String.join(",",Collections.nCopies(ids.size(),"?"));
-        String itemSql="SELECT ci.combo_id,ci.product_id,p.sku,p.name_vi,p.unit_code,ci.quantity,p.image_url "
+        String itemSql="SELECT ci.combo_id,ci.product_id,p.sku,p.name_vi,p.name_en,p.unit_code,ci.quantity,p.image_url "
             +" FROM public.combo_items ci JOIN public.products p ON p.id=ci.product_id "
             +" WHERE ci.combo_id IN ("+marks+") ORDER BY ci.combo_id,p.name_vi,p.id";
         List<HomePageComboItemResponse> rows=jdbc.query(itemSql,(rs, i)->new HomePageComboItemResponse(
             rs.getObject("combo_id",UUID.class),rs.getObject("product_id",UUID.class),
-            rs.getString("sku"),rs.getString("name_vi"),rs.getString("unit_code"),
-            rs.getBigDecimal("quantity"),rs.getString("image_url")
+            rs.getString("sku"),rs.getString("name_vi"),rs.getString("name_en"),
+            rs.getString("unit_code"),rs.getBigDecimal("quantity"),rs.getString("image_url")
         ),ids.toArray());
         Map<UUID,List<HomePageComboItemResponse>> grouped=new HashMap<>();
         for(var item:rows) grouped.computeIfAbsent(item.comboId(),k->new ArrayList<>()).add(item);
