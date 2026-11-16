@@ -1,8 +1,8 @@
 package com.se203730.mvc.generateuibe.features.admin.enums;
 
 /**
- * Trạng thái xét duyệt hồ sơ: chờ duyệt, đã duyệt hoặc từ chối; chỉ được quyết định khi đang PENDING.
+ * Hồ sơ chuyển sang chờ kích hoạt sau khi admin xét duyệt, và chỉ APPROVED khi tạo mật khẩu thành công.
  */
 public enum RegistrationStatus {
-    PENDING, APPROVED, REJECTED
+    PENDING, AWAITING_ACTIVATION, APPROVED, REJECTED
 }
