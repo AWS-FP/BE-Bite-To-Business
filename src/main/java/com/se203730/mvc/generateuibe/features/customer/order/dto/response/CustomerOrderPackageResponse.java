@@ -4,13 +4,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 public record CustomerOrderPackageResponse(
-        UUID id,
-        String packageNumber,
-        String packageName,
-        LocalDate deliveryDate,
-        String deliveryAddress,
-        String recipientName,
-        String recipientPhone,
-        String deliveryTimeSlot,
-        boolean cancelled) {
-}
+        UUID packageId, String packageNumber, String packageName,
+        LocalDate deliveryDate, String deliveryAddress,
+        String recipientName, String recipientPhone, String deliveryTimeSlot,
+        boolean cancelled) {}
