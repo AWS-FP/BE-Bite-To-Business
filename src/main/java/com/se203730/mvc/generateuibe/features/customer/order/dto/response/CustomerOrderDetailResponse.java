@@ -5,5 +5,4 @@ import java.util.List;
 public record CustomerOrderDetailResponse(
         CustomerOrderSummaryResponse order,
         List<CustomerOrderItemResponse> items,
-        List<CustomerOrderPackageResponse> packages) {
-}
+        List<CustomerOrderPackageResponse> packages) {}

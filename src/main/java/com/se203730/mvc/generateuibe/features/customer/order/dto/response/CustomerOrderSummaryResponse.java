@@ -5,16 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record CustomerOrderSummaryResponse(
-        UUID id,
-        String orderNumber,
-        String status,
-        String paymentStatus,
-        BigDecimal itemsSubtotal,
-        BigDecimal vatAmount,
-        BigDecimal shippingFee,
-        BigDecimal totalAmount,
-        Instant confirmedAt,
-        Instant completedAt,
-        Instant cancelledAt,
-        Instant createdAt) {
-}
+        UUID orderId, String orderNumber, String status, String paymentStatus,
+        BigDecimal itemsSubtotal, BigDecimal vatAmount, BigDecimal shippingFee,
+        BigDecimal totalAmount, Instant confirmedAt, Instant completedAt,
+        Instant cancelledAt, Instant createdAt) {}
