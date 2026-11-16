@@ -70,7 +70,7 @@ public class AccountAccessService {
             throw new BusinessException(ErrorCode.ACCOUNT_BANNED);
         }
         if (user.getRole() != UserRole.CUSTOMER
-                || registration.getStatus() != RegistrationStatus.APPROVED) {
+                || registration.getStatus() != RegistrationStatus.AWAITING_ACTIVATION) {
             throw new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED);
         }
         if (registration.getActivatedAt() != null) {

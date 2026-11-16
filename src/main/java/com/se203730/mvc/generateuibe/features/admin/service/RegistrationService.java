@@ -178,6 +178,7 @@ public class RegistrationService {
                 throw new BusinessException(ErrorCode.UNAUTHORIZED);
             Instant activatedAt = clock.now();
             registration.setActivatedAt(activatedAt);
+            registration.setStatus(RegistrationStatus.APPROVED);
             registration.setUpdatedAt(activatedAt);
             registrations.saveAndFlush(registration);
         });
