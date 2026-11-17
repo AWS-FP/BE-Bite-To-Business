@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +26,7 @@ public class ProductRequestService {
     private final AccountAccessService accounts;
     private final DatabaseClock clock;
     private final ProductRequestResponseRepository responses;
+    private final ApplicationEventPublisher events;
 
     public record RequestView(UUID id, UUID customerId, String productName, String referenceUrl,
                               String customerNote, String status, Instant createdAt, Instant updatedAt) {}
@@ -102,6 +104,8 @@ public class ProductRequestService {
         response.setRecipientEmail(accounts.requireActiveUser(request.getCustomerId()).getEmail());
         response.setCreatedAt(now);
         response.setUpdatedAt(now);
+        response.setEmailStatus(request.isNotifyByEmail() ? "PENDING" : "SKIPPED");
+        response.setNextEmailAttemptAt(request.isNotifyByEmail() ? now : null);
         if (productId != null) {
             var product = responses.findProductSnapshot(productId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
@@ -113,6 +117,9 @@ public class ProductRequestService {
             response.setUnitCode(product.getUnit());
         }
         responses.save(response);
+        if (request.isNotifyByEmail()) {
+            events.publishEvent(new ProductRequestEmailQueued());
+        }
         request.setStatus(decision);
         request.setUpdatedAt(now);
         return view(request);
