@@ -29,4 +29,9 @@ public class ProductRequestResponse {
     private Instant notifiedAt;
     private Instant createdAt;
     private Instant updatedAt;
+    private String emailStatus;
+    private int emailAttempts;
+    private Instant nextEmailAttemptAt;
+    private UUID emailClaimToken;
+    private Instant emailClaimedUntil;
 }

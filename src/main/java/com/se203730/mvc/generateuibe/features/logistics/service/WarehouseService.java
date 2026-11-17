@@ -26,13 +26,15 @@ public class WarehouseService {
     private final AccountAccessService accounts;
     private final DatabaseClock clock;
 
-    public record StockResponse(UUID productId, BigDecimal onHand, BigDecimal reserved, BigDecimal available) {}
+    public record StockResponse(UUID productId, String sku, String name, String unit,
+                                BigDecimal onHand, BigDecimal reserved, BigDecimal available) {}
 
     @Transactional(readOnly = true)
     public Page<StockResponse> list(UUID userId, String keyword, int page, int size) {
         requireLogistics(userId);
         String search = keyword == null || keyword.isBlank() ? null : keyword.trim();
-        return stocks.search(search, PageRequest.of(page, size)).map(this::response);
+        return stocks.search(search, PageRequest.of(page, size)).map(item -> new StockResponse(item.getProductId(),
+                item.getSku(), item.getName(), item.getUnit(), item.getOnHand(), item.getReserved(), item.getAvailable()));
     }
 
     @Transactional
@@ -76,7 +78,7 @@ public class WarehouseService {
     }
 
     private StockResponse response(WarehouseStock stock) {
-        return new StockResponse(stock.getProductId(), stock.getOnHandQuantity(), stock.getReservedQuantity(),
+        return new StockResponse(stock.getProductId(), null, null, null, stock.getOnHandQuantity(), stock.getReservedQuantity(),
                 stock.getOnHandQuantity().subtract(stock.getReservedQuantity()));
     }
 
