@@ -1,0 +1,57 @@
+name: Deploy backend
+
+on:
+  push:
+    branches: [feat/prod]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: backend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Authenticate with AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::357646930356:role/btb-github-actions-be
+          aws-region: ap-southeast-1
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        env:
+          IMAGE: 357646930356.dkr.ecr.ap-southeast-1.amazonaws.com/generate-ui-be:${{ github.sha }}
+        run: |
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Update ECS service
+        env:
+          IMAGE: 357646930356.dkr.ecr.ap-southeast-1.amazonaws.com/generate-ui-be:${{ github.sha }}
+        run: |
+          TASK_DEFINITION=$(aws ecs describe-services --cluster btb-cluster --services btb-backend-service --query 'services[0].taskDefinition' --output text)
+          aws ecs describe-task-definition --task-definition "$TASK_DEFINITION" --query taskDefinition > task-definition.json
+          jq --arg image "$IMAGE" '
+            .containerDefinitions |= map(if .name == "btb-backend" then .image = $image else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+          ' task-definition.json > task-definition-new.json
+          jq -e --arg image "$IMAGE" '.containerDefinitions | any(.name == "btb-backend" and .image == $image)' task-definition-new.json > /dev/null
+          NEW_TASK=$(aws ecs register-task-definition --cli-input-json file://task-definition-new.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service --cluster btb-cluster --service btb-backend-service --task-definition "$NEW_TASK"
+          aws ecs wait services-stable --cluster btb-cluster --services btb-backend-service
+          DEPLOYED_TASK=$(aws ecs describe-services --cluster btb-cluster --services btb-backend-service --query 'services[0].taskDefinition' --output text)
+          if [ "$DEPLOYED_TASK" != "$NEW_TASK" ]; then
+            echo 'Deployment did not complete with the new task definition.'
+            exit 1
+          fi
