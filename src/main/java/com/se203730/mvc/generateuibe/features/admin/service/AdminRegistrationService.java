@@ -175,11 +175,13 @@ public class AdminRegistrationService {
                 return toResponse(registration);
             }
             Instant now = clock.now();
-            if (registration.getOtpSentAt() != null && now.isBefore(registration.getOtpSentAt()
+            Instant lastOtpAttempt = registration.getOtpGeneratedAt();
+            if (lastOtpAttempt != null && now.isBefore(lastOtpAttempt
                     .plus(properties.getOtpResendCooldown()))) {
                 throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
             }
             registration.setOtpSentAt(null);
+            registration.setOtpGeneratedAt(null);
             registration.setOtpDeliveryState("QUEUED");
             registration.setUpdatedAt(now);
             registrations.saveAndFlush(registration);
@@ -215,10 +217,10 @@ public class AdminRegistrationService {
     }
 
     private void sendQueuedOtp(UUID requestId) {
-        transaction.executeWithoutResult(transactionStatus -> {
+        QueuedOtp queuedOtp = transaction.execute(transactionStatus -> {
             RegistrationRequest registration = findLockedRegistration(requestId);
             if (!"QUEUED".equals(registration.getOtpDeliveryState())) {
-                return;
+                return null;
             }
             try {
                 User customer = accounts.requireApprovedCustomer(registration);
@@ -231,19 +233,45 @@ public class AdminRegistrationService {
                     throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
                 }
 
-                mail.sendOtp(customer.getEmail(), otp, properties.getOtpMaxAge().toMinutes());
+                Instant generatedAt = clock.now();
+                registration.setOtpGeneratedAt(generatedAt);
+                registration.setOtpDeliveryState("UNCONFIRMED");
+                registration.setUpdatedAt(generatedAt);
+                registrations.saveAndFlush(registration);
+                return new QueuedOtp(customer.getEmail(), otp, generatedAt);
+            } catch (BusinessException exception) {
+                log.warn("OTP generation failed for registration {} ({}).", requestId, exception.getErrorCode());
+                registration.setOtpDeliveryState("FAILED");
+                registration.setUpdatedAt(clock.now());
+                registrations.saveAndFlush(registration);
+                return null;
+            }
+        });
+        if (queuedOtp == null) {
+            return;
+        }
+
+        try {
+            mail.sendOtp(queuedOtp.email(), queuedOtp.otp(), properties.getOtpMaxAge().toMinutes());
+        } catch (BusinessException exception) {
+            log.warn("OTP delivery could not be confirmed for registration {} ({}).", requestId, exception.getErrorCode());
+            return;
+        }
+
+        transaction.executeWithoutResult(transactionStatus -> {
+            RegistrationRequest registration = findLockedRegistration(requestId);
+            if ("UNCONFIRMED".equals(registration.getOtpDeliveryState())
+                    && queuedOtp.generatedAt().equals(registration.getOtpGeneratedAt())) {
                 Instant sentAt = clock.now();
                 registration.setOtpSentAt(sentAt);
                 registration.setOtpDeliveryState("SENT");
                 registration.setUpdatedAt(sentAt);
-            } catch (BusinessException exception) {
-                log.warn("OTP delivery failed for registration {} ({}).", requestId, exception.getErrorCode());
-                registration.setOtpDeliveryState("FAILED");
-                registration.setUpdatedAt(clock.now());
+                registrations.saveAndFlush(registration);
             }
-            registrations.saveAndFlush(registration);
-
         });
+    }
+
+    private record QueuedOtp(String email, String otp, Instant generatedAt) {
     }
 
     private RegistrationRequest findLockedRegistration(UUID requestId) {
@@ -282,9 +310,9 @@ public class AdminRegistrationService {
                 registration.getReviewedAt(),
                 registration.getOtpSentAt(),
                 registration.getOtpDeliveryState(),
-                registration.getOtpSentAt() == null
+                registration.getOtpGeneratedAt() == null
                         ? null
-                        : registration.getOtpSentAt().plus(properties.getOtpResendCooldown()),
+                        : registration.getOtpGeneratedAt().plus(properties.getOtpResendCooldown()),
                 registration.getActivatedAt());
     }
 }

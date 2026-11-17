@@ -16,10 +16,11 @@ import java.util.UUID;
 @Setter
 public class WarehouseStock {
     @Id
+    @Column(name = "product_id")
     private UUID productId;
     private BigDecimal onHandQuantity;
     private BigDecimal reservedQuantity;
-    @Column(insertable = false, updatable = false)
+    @Column(name = "available_quantity", insertable = false, updatable = false)
     private BigDecimal availableQuantity;
     private UUID updatedBy;
     private Instant createdAt;
