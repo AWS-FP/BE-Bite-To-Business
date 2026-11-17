@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.MailException;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -73,6 +74,16 @@ public class RegistrationMailService {
             helper.setText(plainText, html);
             addBrandImages(helper);
             sender.send(message);
+        } catch (MailSendException ex) {
+            Throwable cause = ex;
+            if (!ex.getFailedMessages().isEmpty()) {
+                cause = ex.getFailedMessages().values().iterator().next();
+            }
+            while (cause.getCause() != null && cause.getCause() != cause) {
+                cause = cause.getCause();
+            }
+            log.warn("OTP email failed: errorType={}, causeType={}", ex.getClass().getSimpleName(), cause.getClass().getSimpleName());
+            throw new BusinessException(ErrorCode.EMAIL_DELIVERY_FAILED);
         } catch (MessagingException | MailException | TemplateEngineException
                 | UnsupportedEncodingException ex) {
             // Không đưa nội dung SMTP/template hoặc OTP vào thông báo lỗi trả cho frontend.
