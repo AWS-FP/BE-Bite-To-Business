@@ -40,7 +40,10 @@ public class RegistrationRequest {
     @Column(name = "otp_sent_at")
     private Instant otpSentAt;
 
-    @Column(name = "otp_delivery_state", length = 10)
+    @Column(name = "otp_generated_at")
+    private Instant otpGeneratedAt;
+
+    @Column(name = "otp_delivery_state", length = 20)
     private String otpDeliveryState;
 
     // Ghi cùng thời điểm hồ sơ chuyển sang APPROVED sau khi tạo mật khẩu.
