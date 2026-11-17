@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.exceptions.TemplateEngineException;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +24,7 @@ import java.util.Locale;
  * Gửi kết quả đăng ký và OTP qua Gmail SMTP; không tự tạo hoặc xác minh OTP.
  */
 @Service
+@Slf4j
 public class RegistrationMailService {
     private final ClassPathResource logo = new ClassPathResource("email/images/brand-logo.png");
     private final ClassPathResource produce = new ClassPathResource("email/images/fresh-produce.png");
@@ -55,14 +57,10 @@ public class RegistrationMailService {
         context.setVariable("verificationUrl", verificationUrl);
 
         // Email có cả bản text để ứng dụng đọc mail không hỗ trợ HTML vẫn xem được mã.
-        String plainText = "Bite to Business\n\nHồ sơ của bạn đã được duyệt. Mã OTP: " + otp
+        String plainText = "Bite to Business\n\nMã xác minh: " + otp
                 + "\nMã có hiệu lực " + minutes
                 + " phút. Không chia sẻ mã này. Sau khi xác minh, hãy tự tạo mật khẩu."
-                + "\nMở trang xác minh: " + verificationUrl
-                + "\n\nYour registration has been approved. Verification code: " + otp
-                + "\nValid for " + minutes
-                + " minutes. Do not share this code. Set your password after verification."
-                + "\nVerify your account: " + verificationUrl;
+                + "\nMở trang xác minh: " + verificationUrl;
 
         try {
             String html = templateEngine.process("email/registration-approved-otp", context);
@@ -71,13 +69,18 @@ public class RegistrationMailService {
                     StandardCharsets.UTF_8.name());
             helper.setFrom(from, "Bite to Business");
             helper.setTo(email);
-            helper.setSubject("Bite to Business - Xác minh tài khoản / Verify your account");
+            helper.setSubject("Bite to Business - Xác minh tài khoản");
             helper.setText(plainText, html);
             addBrandImages(helper);
             sender.send(message);
         } catch (MessagingException | MailException | TemplateEngineException
                 | UnsupportedEncodingException ex) {
             // Không đưa nội dung SMTP/template hoặc OTP vào thông báo lỗi trả cho frontend.
+            Throwable cause = ex;
+            while (cause.getCause() != null && cause.getCause() != cause) {
+                cause = cause.getCause();
+            }
+            log.warn("OTP email failed: errorType={}, causeType={}", ex.getClass().getSimpleName(), cause.getClass().getSimpleName());
             throw new BusinessException(ErrorCode.EMAIL_DELIVERY_FAILED);
         }
     }
@@ -92,10 +95,7 @@ public class RegistrationMailService {
         context.setVariable("reason", reason);
         String plainText = "Bite to Business\n\nHồ sơ đăng ký của bạn chưa được chấp thuận."
                 + "\nLý do từ chối: " + reason
-                + "\nTài khoản chưa được kích hoạt. Phản hồi email này để được hướng dẫn bổ sung thông tin."
-                + "\n\nYour registration was not approved.\nReason: " + reason
-                + "\nYour account has not been activated. Reply to this email for guidance."
-                + "\n\nLiên hệ hỗ trợ / Contact support: " + from;
+                + "\nLiên hệ hỗ trợ để được hướng dẫn: " + from;
 
         try {
             String html = templateEngine.process("email/registration-rejected", context);
@@ -104,7 +104,7 @@ public class RegistrationMailService {
                     StandardCharsets.UTF_8.name());
             helper.setFrom(from, "Bite to Business");
             helper.setTo(email);
-            helper.setSubject("Bite to Business - Kết quả đăng ký / Registration result");
+            helper.setSubject("Bite to Business - Kết quả đăng ký");
             helper.setText(plainText, html);
             addBrandImages(helper);
             sender.send(message);

@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -23,6 +24,7 @@ public interface RegistrationRequestRepository extends
     Optional<RegistrationRequest> findByCustomerId(UUID customerId);
     Page<RegistrationRequest> findByStatus(RegistrationStatus status, Pageable pageable);
     long countByStatus(RegistrationStatus status);
+    List<RegistrationRequest> findTop10ByOtpDeliveryStateOrderByUpdatedAtAsc(String otpDeliveryState);
 
     // Khóa ghi dòng yêu cầu theo ID; cần gọi bên trong transaction để tránh hai lần duyệt đồng thời.
     @Lock(LockModeType.PESSIMISTIC_WRITE)

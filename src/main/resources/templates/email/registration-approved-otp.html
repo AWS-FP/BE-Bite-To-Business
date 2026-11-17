@@ -17,7 +17,7 @@
 <body style="margin:0;padding:0;background-color:#f5f3ed;color:#17133a;font-family:'Be Vietnam Pro',Arial,Helvetica,sans-serif;">
 <!-- Dòng xem trước; không chứa OTP để tránh lộ mã ngay trên thông báo email. -->
 <div style="display:none;font-size:1px;line-height:1px;color:#f5f3ed;max-height:0;max-width:0;overflow:hidden;">
-    Hồ sơ của bạn đã được duyệt. Xác minh email để tự tạo mật khẩu. Your registration has been approved.
+    Xác minh email để tạo mật khẩu.
 </div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f3ed;">
     <tr>
@@ -27,7 +27,7 @@
                 <tr th:replace="~{email/fragments/brand :: header}"></tr>
                 <tr>
                     <td class="email-body" style="padding:28px 32px;background-color:#123b2e;">
-                        <p style="margin:0 0 12px;color:#ffe14d;font-size:11px;line-height:18px;font-weight:bold;letter-spacing:1.4px;">HỒ SƠ ĐÃ ĐƯỢC DUYỆT</p>
+                        <p style="margin:0 0 12px;color:#ffe14d;font-size:11px;line-height:18px;font-weight:bold;letter-spacing:1.4px;">XÁC MINH TÀI KHOẢN</p>
                         <h1 style="margin:0;color:#fff1e0;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:39px;font-weight:normal;">Chỉ còn một bước xác minh.</h1>
                     </td>
                 </tr>
@@ -35,8 +35,7 @@
                     <td class="email-body" style="padding:32px;">
                         <p style="margin:0 0 12px;font-size:15px;line-height:24px;">Xin chào bạn,</p>
                         <p style="margin:0 0 24px;font-size:15px;line-height:24px;">
-                            Admin đã duyệt hồ sơ đăng ký của bạn. Nhập mã bên dưới trên màn hình xác minh của Bite to Business,
-                            sau đó tự tạo và xác nhận mật khẩu để kích hoạt tài khoản.
+                            Nhập mã dưới đây để xác minh và tạo mật khẩu.
                         </p>
 
                         <!-- Thymeleaf thay hai biến bằng mã thật và số phút của cấu hình OTP. -->
@@ -44,7 +43,7 @@
                                style="background-color:#fff6df;border:1px solid #e1e3da;border-radius:8px;">
                             <tr>
                                 <td align="center" style="padding:24px 16px;">
-                                    <p style="margin:0 0 12px;color:#61695f;font-size:12px;font-weight:bold;">MÃ XÁC MINH · VERIFICATION CODE</p>
+                                    <p style="margin:0 0 12px;color:#61695f;font-size:12px;font-weight:bold;">MÃ XÁC MINH</p>
                                     <p class="otp-code" th:text="${otp}"
                                        style="margin:0;color:#123b2e;font-family:'Courier New',monospace;font-size:32px;line-height:44px;font-weight:bold;letter-spacing:5px;">123456</p>
                                     <p style="margin:12px 0 0;color:#61695f;font-size:13px;line-height:21px;">
@@ -56,35 +55,20 @@
                         <p style="margin:24px 0;text-align:center;">
                             <a th:href="${verificationUrl}" href="http://localhost:5173/verify-otp"
                                style="display:inline-block;padding:14px 22px;border-radius:6px;background-color:#ffe14d;color:#17133a;font-size:14px;font-weight:bold;line-height:22px;text-decoration:none;">
-                                Nhập mã kích hoạt / Verify your account
+                                Xác minh tài khoản
                             </a>
                         </p>
                         <p style="margin:20px 0 24px;color:#61695f;font-size:13px;line-height:21px;">
-                            Mã chỉ dùng một lần. Không chia sẻ OTP hoặc mật khẩu với người khác.
-                            Nếu mã hết hạn, hãy liên hệ bộ phận hỗ trợ để được gửi lại.
+                            Không chia sẻ mã. Liên hệ hỗ trợ nếu mã hết hạn.
                         </p>
 
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #e1e3da;">
-                            <tr>
-                                <td lang="en" style="padding-top:24px;">
-                                    <h2 style="margin:0 0 12px;color:#123b2e;font-size:18px;line-height:26px;">Your registration has been approved</h2>
-                                    <p style="margin:0 0 12px;color:#61695f;font-size:14px;line-height:23px;">
-                                        Enter the code above on the Bite to Business verification screen. Then create and confirm your own password to activate your account.
-                                    </p>
-                                    <p style="margin:0;color:#61695f;font-size:13px;line-height:21px;">
-                                        The code expires <strong th:text="|${expiresInMinutes} minutes|">10 minutes</strong> after it is sent and can be used once.
-                                        Never share your code or password. Contact support if you need a new code.
-                                    </p>
-                                </td>
-                            </tr>
-                        </table>
                     </td>
                 </tr>
                 <tr th:replace="~{email/fragments/brand :: stories}"></tr>
                 <tr th:replace="~{email/fragments/brand :: footer}"></tr>
                 <tr>
                     <td style="padding:20px 28px;background-color:#fff1e0;border-radius:0 0 16px 16px;text-align:center;">
-                        <p style="margin:0;color:#61695f;font-size:11px;line-height:19px;">Nếu bạn không đăng ký tài khoản, hãy bỏ qua email này.<br><span lang="en">If you did not register, please ignore this email.</span></p>
+                        <p style="margin:0;color:#61695f;font-size:11px;line-height:19px;">Nếu bạn không đăng ký, hãy bỏ qua email này.</p>
                     </td>
                 </tr>
             </table>
