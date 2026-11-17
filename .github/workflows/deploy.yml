@@ -1,0 +1,66 @@
+name: Deploy backend
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: btb-backend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ap-southeast-1
+      ECR_REPOSITORY: generate-ui-be
+      ECS_CLUSTER: btb-cluster
+      ECS_SERVICE: btb-backend-service
+      CONTAINER_NAME: btb-backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required production migrations
+        run: |
+          test -f src/main/resources/db/migration/V26__record_registration_otp_generation.sql
+          test -f src/main/resources/db/migration/V27__expand_registration_otp_delivery_state.sql
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::357646930356:role/btb-github-backend-deploy
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push image
+        id: image
+        env:
+          REGISTRY: 357646930356.dkr.ecr.ap-southeast-1.amazonaws.com
+        run: |
+          image="$REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
+          docker build -t "$image" .
+          docker push "$image"
+          echo "uri=$image" >> "$GITHUB_OUTPUT"
+      - name: Create task definition revision
+        id: task
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+        run: |
+          current=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" --query 'services[0].taskDefinition' --output text)
+          aws ecs describe-task-definition --task-definition "$current" --query taskDefinition > task.json
+          jq -e --arg name "$CONTAINER_NAME" 'any(.containerDefinitions[]; .name == $name)' task.json > /dev/null
+          jq --arg name "$CONTAINER_NAME" --arg image "$IMAGE_URI" '
+            .containerDefinitions |= map(if .name == $name then .image = $image else . end)
+            | {family, taskRoleArn, executionRoleArn, networkMode, containerDefinitions, volumes, placementConstraints, requiresCompatibilities, cpu, memory, runtimePlatform}
+            | with_entries(select(.value != null))
+          ' task.json > deploy-task.json
+          task=$(aws ecs register-task-definition --cli-input-json file://deploy-task.json --query taskDefinition.taskDefinitionArn --output text)
+          echo "arn=$task" >> "$GITHUB_OUTPUT"
+      - name: Deploy and wait for healthy service
+        env:
+          TASK_ARN: ${{ steps.task.outputs.arn }}
+        run: |
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --task-definition "$TASK_ARN" > /dev/null
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+          active=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" --query 'services[0].taskDefinition' --output text)
+          test "$active" = "$TASK_ARN"
