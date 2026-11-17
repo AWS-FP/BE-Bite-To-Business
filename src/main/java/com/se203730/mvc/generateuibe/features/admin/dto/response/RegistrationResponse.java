@@ -41,6 +41,7 @@ public record RegistrationResponse(
         Instant submittedAt,
         Instant reviewedAt,
         Instant otpSentAt,
+        String otpDeliveryState,
         Instant otpResendAvailableAt,
         Instant activatedAt
 ) {
