@@ -21,12 +21,14 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class AgentService {
     private final AccountAccessService accounts;
     private final BedrockClient bedrock;
+    private final AiRequestLimitService requestLimit;
     private final ThreadPoolTaskExecutor executor;
 
-    public AgentService(AccountAccessService accounts, BedrockClient bedrock,
+    public AgentService(AccountAccessService accounts, BedrockClient bedrock, AiRequestLimitService requestLimit,
             @Qualifier("agentExecutor") ThreadPoolTaskExecutor executor) {
         this.accounts = accounts;
         this.bedrock = bedrock;
+        this.requestLimit = requestLimit;
         this.executor = executor;
     }
 
@@ -39,10 +41,12 @@ public class AgentService {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
 
+        UUID requestId = requestLimit.reserve(userId);
         SseEmitter emitter = new SseEmitter(60_000L);
         try {
             executor.execute(() -> answer(input, message.content(), emitter));
         } catch (RejectedExecutionException exception) {
+            requestLimit.release(requestId);
             throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
         }
         return emitter;
