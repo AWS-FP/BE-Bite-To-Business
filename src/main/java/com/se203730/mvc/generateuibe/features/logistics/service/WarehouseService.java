@@ -26,7 +26,7 @@ public class WarehouseService {
     private final AccountAccessService accounts;
     private final DatabaseClock clock;
 
-    public record StockResponse(UUID productId, String sku, String name, String unit,
+    public record StockResponse(UUID productId, String sku, String name, String unit, String imageUrl,
                                 BigDecimal onHand, BigDecimal reserved, BigDecimal available) {}
 
     @Transactional(readOnly = true)
@@ -34,7 +34,7 @@ public class WarehouseService {
         requireLogistics(userId);
         String search = keyword == null || keyword.isBlank() ? null : keyword.trim();
         return stocks.search(search, PageRequest.of(page, size)).map(item -> new StockResponse(item.getProductId(),
-                item.getSku(), item.getName(), item.getUnit(), item.getOnHand(), item.getReserved(), item.getAvailable()));
+                item.getSku(), item.getName(), item.getUnit(), item.getImageUrl(), item.getOnHand(), item.getReserved(), item.getAvailable()));
     }
 
     @Transactional
@@ -44,7 +44,7 @@ public class WarehouseService {
         WarehouseStock stock = stocks.findForUpdate(productId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
         String cleanReason = reason == null || reason.isBlank() ? null : reason.trim();
-        if (("RECEIVE".equals(type) && quantity.signum() <= 0)
+        if (("RECEIVE".equals(type) && (quantity.signum() <= 0 || quantity.stripTrailingZeros().scale() > 0))
                 || ("ADJUST".equals(type) && (quantity.signum() == 0 || cleanReason == null))) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
@@ -77,8 +77,30 @@ public class WarehouseService {
         return response(stock);
     }
 
+    @Transactional
+    public StockResponse clearAvailable(UUID userId, UUID productId, UUID movementId) {
+        requireLogistics(userId);
+        stocks.createIfMissing(productId, userId, clock.now());
+        WarehouseStock stock = stocks.findForUpdate(productId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        InventoryMovement previous = movements.findById(movementId).orElse(null);
+        if (previous != null) {
+            if (!previous.getProductId().equals(productId) || !previous.getCreatedBy().equals(userId)
+                    || !"ADJUST".equals(previous.getMovementType())
+                    || !"Xóa tồn khả dụng".equals(previous.getReason())) {
+                throw new BusinessException(ErrorCode.CONFLICT);
+            }
+            return response(stock);
+        }
+        BigDecimal available = stock.getOnHandQuantity().subtract(stock.getReservedQuantity());
+        if (available.signum() == 0) {
+            return response(stock);
+        }
+        return change(userId, productId, movementId, "ADJUST", available.negate(), "Xóa tồn khả dụng");
+    }
+
     private StockResponse response(WarehouseStock stock) {
-        return new StockResponse(stock.getProductId(), null, null, null, stock.getOnHandQuantity(), stock.getReservedQuantity(),
+        return new StockResponse(stock.getProductId(), null, null, null, null, stock.getOnHandQuantity(), stock.getReservedQuantity(),
                 stock.getOnHandQuantity().subtract(stock.getReservedQuantity()));
     }
 
