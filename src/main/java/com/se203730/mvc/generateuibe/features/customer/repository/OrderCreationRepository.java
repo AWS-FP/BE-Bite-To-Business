@@ -73,9 +73,9 @@ public class OrderCreationRepository {
 
     public void insertPackageItems(UUID orderId, UUID packageId) {
         entityManager.createNativeQuery("""
-                insert into public.package_items (order_package_id, order_item_id, order_id, quantity)
-                select quote_package_id, quote_item_id, :orderId, quantity
+                insert into public.package_items (order_package_id, order_item_id, quantity)
+                select quote_package_id, quote_item_id, quantity
                 from public.quote_package_items where quote_package_id = :packageId
-                """).setParameter("orderId", orderId).setParameter("packageId", packageId).executeUpdate();
+                """).setParameter("packageId", packageId).executeUpdate();
     }
 }

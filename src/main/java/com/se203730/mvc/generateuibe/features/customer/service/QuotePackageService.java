@@ -106,7 +106,6 @@ public class QuotePackageService {
         for (QuotePackageRequest.Allocation allocation : request.items()) {
             QuotePackageItem row = new QuotePackageItem();
             row.setId(UUID.randomUUID());
-            row.setQuoteId(quoteId);
             row.setQuotePackageId(parcel.getId());
             row.setQuoteItemId(allocation.quoteItemId());
             row.setQuantity(allocation.quantity());

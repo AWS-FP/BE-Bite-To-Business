@@ -54,7 +54,8 @@ public record RegisterRequest(
         @Pattern(regexp = "(?i)[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@gmail\\.com")
         String invoiceEmail,
         @Size(max = 1000)
-        String invoiceAddress
+        String invoiceAddress,
+        Boolean newsletterConsent
 ) {
     // Chuẩn hóa form trước validation; bỏ khoảng trắng, đưa email về chữ thường và đổi chuỗi rỗng thành null.
     public RegisterRequest {

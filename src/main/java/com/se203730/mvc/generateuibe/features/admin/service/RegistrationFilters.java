@@ -22,7 +22,9 @@ final class RegistrationFilters {
             CustomerType type) {
         return (root, query, builder) -> {
             var conditions = new ArrayList<Predicate>();
-            if (status != null)
+            if (status == RegistrationStatus.PENDING)
+                conditions.add(root.get("status").in(RegistrationStatus.PENDING, RegistrationStatus.AWAITING_ACTIVATION));
+            else if (status != null)
                 conditions.add(builder.equal(root.get("status"), status));
 
             if (keyword != null && !keyword.isBlank()) {

@@ -80,37 +80,45 @@ public class ReviewRepository {
 
     public int countImages(UUID reviewId) {
         Integer count = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM public.review_images WHERE review_id = ?", Integer.class, reviewId);
+            "SELECT jsonb_array_length(images) FROM public.product_reviews WHERE id = ?", Integer.class, reviewId);
         return count == null ? 0 : count;
     }
 
     public int nextSortOrder(UUID reviewId) {
         Integer number = jdbc.queryForObject(
-            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM public.review_images WHERE review_id = ?",
+            "SELECT COALESCE(MAX((image->>'sort_order')::int), -1) + 1 FROM public.product_reviews r CROSS JOIN LATERAL jsonb_array_elements(r.images) image WHERE r.id = ?",
             Integer.class, reviewId);
         return number == null ? 0 : number;
     }
 
     public void insertImage(UUID reviewId, String url, String publicId, int sortOrder) {
         jdbc.update("""
-                INSERT INTO public.review_images(id, review_id, image_url, cloudinary_public_id, sort_order)
-                VALUES(gen_random_uuid(), ?, ?, ?, ?)
-                """, reviewId, url, publicId, sortOrder);
+                UPDATE public.product_reviews SET images = images || jsonb_build_array(jsonb_build_object(
+                    'id', gen_random_uuid(), 'image_url', CAST(? AS text), 'cloudinary_public_id', CAST(? AS text),
+                    'sort_order', CAST(? AS integer), 'created_at', now())) WHERE id = ?
+                """, url, publicId, sortOrder, reviewId);
     }
 
     public record ImageForDeletion(String publicId) {}
 
     public ImageForDeletion findImage(UUID reviewId, UUID imageId) {
         List<ImageForDeletion> values = jdbc.query("""
-                SELECT cloudinary_public_id FROM public.review_images
-                WHERE review_id = ? AND id = ?
+                SELECT image->>'cloudinary_public_id' AS cloudinary_public_id
+                FROM public.product_reviews r CROSS JOIN LATERAL jsonb_array_elements(r.images) image
+                WHERE r.id = ? AND image->>'id' = CAST(? AS text)
                 """, (rs, row) -> new ImageForDeletion(rs.getString("cloudinary_public_id")),
             reviewId, imageId);
         return values.isEmpty() ? null : values.getFirst();
     }
 
     public int deleteImage(UUID reviewId, UUID imageId) {
-        return jdbc.update("DELETE FROM public.review_images WHERE review_id = ? AND id = ?", reviewId, imageId);
+        return jdbc.update("""
+                UPDATE public.product_reviews r SET images = COALESCE(
+                    (SELECT jsonb_agg(image ORDER BY position) FROM jsonb_array_elements(r.images)
+                     WITH ORDINALITY AS entries(image, position) WHERE image->>'id' <> CAST(? AS text)), '[]'::jsonb)
+                WHERE r.id = ? AND EXISTS (SELECT 1 FROM jsonb_array_elements(r.images) image
+                                            WHERE image->>'id' = CAST(? AS text))
+                """, imageId, reviewId, imageId);
     }
 
     public ReviewResponse findReview(UUID reviewId) {
@@ -190,9 +198,11 @@ public class ReviewRepository {
         var args = new MapSqlParameterSource("ids", reviewIds);
         Map<UUID, List<ReviewImageResponse>> result = new LinkedHashMap<>();
         namedJdbc.query("""
-                SELECT review_id, id, image_url, sort_order
-                FROM public.review_images WHERE review_id IN (:ids)
-                ORDER BY review_id, sort_order, id
+                SELECT r.id AS review_id, (image->>'id')::uuid AS id, image->>'image_url' AS image_url,
+                       (image->>'sort_order')::integer AS sort_order
+                FROM public.product_reviews r CROSS JOIN LATERAL jsonb_array_elements(r.images) image
+                WHERE r.id IN (:ids)
+                ORDER BY r.id, (image->>'sort_order')::integer, (image->>'id')::uuid
                 """, args, rs -> {
             UUID id = rs.getObject("review_id", UUID.class);
             result.computeIfAbsent(id, key -> new ArrayList<>())

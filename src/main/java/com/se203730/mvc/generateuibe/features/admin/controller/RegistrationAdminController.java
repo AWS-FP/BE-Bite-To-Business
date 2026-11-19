@@ -98,8 +98,8 @@ public class RegistrationAdminController {
         String message = "Registration reviewed successfully.";
 
         // Chỉ chọn thông báo hiển thị; quyết định và xử lý gửi OTP nằm trong service.
-        if (data.registration().status() == RegistrationStatus.APPROVED && !data.otpSent()) {
-            message = "Approved, but OTP delivery failed. Use resend-otp to retry.";
+        if (data.registration().status() == RegistrationStatus.AWAITING_ACTIVATION) {
+            message = "Registration reviewed. OTP delivery queued.";
         } else if (data.registration().status() == RegistrationStatus.REJECTED
                 && !data.rejectionEmailSent()) {
             message = "Rejected, but the notification email could not be sent.";
@@ -116,7 +116,7 @@ public class RegistrationAdminController {
     UUID adminId, @PathVariable
     UUID id) {
         RegistrationResponse data = registrations.resendOtp(adminId, id);
-        ResponseObject<RegistrationResponse> response = new ResponseObject<>(200, "OTP sent.",
+        ResponseObject<RegistrationResponse> response = new ResponseObject<>(200, "OTP delivery queued.",
                 data);
 
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
