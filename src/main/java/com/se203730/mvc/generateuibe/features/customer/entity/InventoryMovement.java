@@ -19,6 +19,7 @@ public class InventoryMovement {
     private UUID id;
     private UUID productId;
     private UUID orderId;
+    private UUID orderPackageId;
     private String movementType;
     private BigDecimal quantity;
     private String reason;

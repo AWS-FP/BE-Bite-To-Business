@@ -19,6 +19,7 @@ public interface WarehouseStockRepository extends JpaRepository<WarehouseStock, 
         String getSku();
         String getName();
         String getUnit();
+        String getImageUrl();
         java.math.BigDecimal getOnHand();
         java.math.BigDecimal getReserved();
         java.math.BigDecimal getAvailable();
@@ -35,7 +36,7 @@ public interface WarehouseStockRepository extends JpaRepository<WarehouseStock, 
     Optional<WarehouseStock> findForUpdate(@Param("id") UUID id);
 
     @Query(value = """
-            select p.id as "productId", p.sku, p.name_vi as name, p.unit_code as unit,
+            select p.id as "productId", p.sku, p.name_vi as name, p.unit_code as unit, p.image_url as "imageUrl",
                    coalesce(s.on_hand_quantity, 0) as "onHand", coalesce(s.reserved_quantity, 0) as reserved,
                    coalesce(s.available_quantity, 0) as available
             from public.products p left join public.inventory s on p.id = s.product_id
