@@ -8,35 +8,19 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class NewsletterRepository {
     private final JdbcTemplate jdbc;
-    public boolean isReady() {
-        return Boolean.TRUE.equals(jdbc.queryForObject(
-                "SELECT to_regclass('public.newsletter_subscriptions') IS NOT NULL", Boolean.class));
-    }
-    /** Idempotent by normalized email; never sends or reveals other users' data. */
-    public boolean subscribe(String email) {
-        return !jdbc.query("""
-                INSERT INTO public.newsletter_subscriptions (email,is_active,consented_at)
-                VALUES (?,TRUE,CURRENT_TIMESTAMP)
-                ON CONFLICT (email) DO UPDATE SET
-                    is_active=TRUE, consented_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
-                WHERE newsletter_subscriptions.is_active = FALSE
-                RETURNING id
-                """, (rs, row) -> rs.getObject("id", java.util.UUID.class), email).isEmpty();
-    }
-
     public record PromotionDelivery(java.util.UUID deliveryId, String email, String title, String content,
                                     String imageUrl) {}
 
     /** Queue only newly published, currently active campaigns, and only for subscribers who opted in earlier. */
     public int queueNewCampaigns() {
         return jdbc.update("""
-                INSERT INTO public.newsletter_promotion_deliveries(subscription_id,promotion_id)
-                SELECT s.id, p.id FROM public.newsletter_subscriptions s
+                INSERT INTO public.promotion_email_deliveries(customer_id,promotion_id)
+                SELECT s.id, p.id FROM public.users s
                 CROSS JOIN public.promotions p
-                WHERE s.is_active = TRUE AND p.status = 'PUBLISHED'
-                  AND p.published_at IS NOT NULL AND p.published_at >= s.consented_at
+                WHERE s.role = 'CUSTOMER' AND s.newsletter_subscribed = TRUE AND s.is_email_verified = TRUE AND s.is_banned = FALSE AND p.status = 'PUBLISHED'
+                  AND p.published_at IS NOT NULL AND p.published_at >= s.newsletter_consented_at
                   AND p.starts_at <= CURRENT_TIMESTAMP AND p.ends_at > CURRENT_TIMESTAMP
-                ON CONFLICT (subscription_id,promotion_id) DO NOTHING
+                ON CONFLICT (customer_id,promotion_id) DO NOTHING
                 """);
     }
 
@@ -44,10 +28,10 @@ public class NewsletterRepository {
     public PromotionDelivery claimOne() {
         var rows = jdbc.query("""
                 WITH picked AS (
-                    SELECT d.id FROM public.newsletter_promotion_deliveries d
-                    JOIN public.newsletter_subscriptions s ON s.id=d.subscription_id
+                    SELECT d.id FROM public.promotion_email_deliveries d
+                    JOIN public.users s ON s.id=d.customer_id
                     JOIN public.promotions p ON p.id=d.promotion_id
-                    WHERE s.is_active = TRUE AND p.status='PUBLISHED'
+                    WHERE s.role='CUSTOMER' AND s.newsletter_subscribed = TRUE AND s.is_email_verified = TRUE AND s.is_banned = FALSE AND p.status='PUBLISHED'
                       AND p.starts_at<=CURRENT_TIMESTAMP AND p.ends_at>CURRENT_TIMESTAMP
                       AND d.attempts < 3 AND d.next_attempt_at <= CURRENT_TIMESTAMP
                       AND (d.status='PENDING' OR
@@ -55,14 +39,14 @@ public class NewsletterRepository {
                     ORDER BY d.next_attempt_at, d.created_at, d.id
                     FOR UPDATE OF d SKIP LOCKED LIMIT 1
                 ), claimed AS (
-                    UPDATE public.newsletter_promotion_deliveries d
+                    UPDATE public.promotion_email_deliveries d
                     SET status='SENDING', attempts=d.attempts+1, claimed_at=CURRENT_TIMESTAMP
                     FROM picked WHERE d.id=picked.id
-                    RETURNING d.id, d.subscription_id, d.promotion_id
+                    RETURNING d.id, d.customer_id, d.promotion_id
                 )
                 SELECT c.id,s.email,p.name_vi,p.content_vi,p.image_url
                 FROM claimed c
-                JOIN public.newsletter_subscriptions s ON s.id=c.subscription_id
+                JOIN public.users s ON s.id=c.customer_id
                 JOIN public.promotions p ON p.id=c.promotion_id
                 """, (rs, row) -> new PromotionDelivery(
                 rs.getObject("id", java.util.UUID.class), rs.getString("email"),
@@ -72,14 +56,14 @@ public class NewsletterRepository {
 
     public void markSent(java.util.UUID id) {
         jdbc.update("""
-                UPDATE public.newsletter_promotion_deliveries
+                UPDATE public.promotion_email_deliveries
                 SET status='SENT', sent_at=CURRENT_TIMESTAMP WHERE id=? AND status='SENDING'
                 """, id);
     }
 
     public void retryLater(java.util.UUID id) {
         jdbc.update("""
-                UPDATE public.newsletter_promotion_deliveries
+                UPDATE public.promotion_email_deliveries
                 SET status='PENDING', next_attempt_at=CURRENT_TIMESTAMP + INTERVAL '1 hour'
                 WHERE id=? AND status='SENDING'
                 """, id);
