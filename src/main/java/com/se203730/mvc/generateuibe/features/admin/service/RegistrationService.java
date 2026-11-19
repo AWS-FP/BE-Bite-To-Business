@@ -76,6 +76,8 @@ public class RegistrationService {
                 user.setRole(UserRole.CUSTOMER);
                 user.setEmailVerified(false);
                 user.setBanned(false);
+                user.setNewsletterSubscribed(Boolean.TRUE.equals(request.newsletterConsent()));
+                user.setNewsletterConsentedAt(Boolean.TRUE.equals(request.newsletterConsent()) ? now : null);
                 user.setCreatedAt(now);
                 user.setUpdatedAt(now);
                 users.saveAndFlush(user);
@@ -132,9 +134,10 @@ public class RegistrationService {
             RegistrationRequest registration = registrations.findByCustomerIdForUpdate(user.getId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED));
             accounts.requireApprovedCustomer(registration);
-            if (registration.getOtpSentAt() == null)
+            Instant generatedAt = registration.getOtpGeneratedAt();
+            if (generatedAt == null)
                 throw new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED);
-            if (clock.now().isAfter(registration.getOtpSentAt().plus(properties.getOtpMaxAge())))
+            if (clock.now().isAfter(generatedAt.plus(properties.getOtpMaxAge())))
                 throw new BusinessException(ErrorCode.OTP_EXPIRED);
             // Backend kiểm tra điều kiện nghiệp vụ; Supabase kiểm tra OTP có đúng và còn dùng được hay không.
             var session = supabase.verifyOtp(user.getEmail(), request.otp());
@@ -146,6 +149,9 @@ public class RegistrationService {
             if (session.user() == null || !user.getId().equals(session.user().id())
                     || session.user().emailConfirmedAt() == null)
                 throw new BusinessException(ErrorCode.UNAUTHORIZED);
+            registration.setOtpDeliveryState("VERIFIED");
+            registration.setUpdatedAt(clock.now());
+            registrations.saveAndFlush(registration);
             user.setEmailVerified(true);
             user.setUpdatedAt(clock.now());
             users.saveAndFlush(user);
@@ -165,11 +171,11 @@ public class RegistrationService {
             RegistrationRequest registration = registrations.findByCustomerIdForUpdate(id)
                     .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED));
             User user = accounts.requireApprovedCustomer(registration);
-            if (!user.isEmailVerified() || registration.getOtpSentAt() == null)
+            if (!user.isEmailVerified() || registration.getOtpGeneratedAt() == null)
                 throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
             // Giới hạn tuổi phiên tạo mật khẩu; chấp nhận lệch một giây do thời gian JWT chỉ chính xác tới giây.
             if (jwt.getIssuedAt() == null
-                    || jwt.getIssuedAt().plusSeconds(1).isBefore(registration.getOtpSentAt())
+                    || jwt.getIssuedAt().plusSeconds(1).isBefore(registration.getOtpGeneratedAt())
                     || clock.now()
                             .isAfter(jwt.getIssuedAt().plus(properties.getPasswordSetupTtl())))
                 throw new BusinessException(ErrorCode.SETUP_SESSION_EXPIRED);
@@ -178,6 +184,7 @@ public class RegistrationService {
                 throw new BusinessException(ErrorCode.UNAUTHORIZED);
             Instant activatedAt = clock.now();
             registration.setActivatedAt(activatedAt);
+            registration.setStatus(RegistrationStatus.APPROVED);
             registration.setUpdatedAt(activatedAt);
             registrations.saveAndFlush(registration);
         });

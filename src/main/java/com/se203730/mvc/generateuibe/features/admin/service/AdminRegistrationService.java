@@ -28,6 +28,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -90,7 +93,8 @@ public class AdminRegistrationService {
     @Transactional(readOnly = true)
     public RegistrationStatsResponse stats(UUID adminId) {
         accounts.requireAdmin(adminId);
-        long pending = registrations.countByStatus(RegistrationStatus.PENDING);
+        long pending = registrations.countByStatus(RegistrationStatus.PENDING)
+                + registrations.countByStatus(RegistrationStatus.AWAITING_ACTIVATION);
         long approved = registrations.countByStatus(RegistrationStatus.APPROVED);
         long rejected = registrations.countByStatus(RegistrationStatus.REJECTED);
         return new RegistrationStatsResponse(pending + approved + rejected, pending, approved,
@@ -130,7 +134,8 @@ public class AdminRegistrationService {
                     }
 
                     if (request.decision() == ReviewRegistrationRequest.Decision.APPROVE) {
-                        registration.setStatus(RegistrationStatus.APPROVED);
+                        registration.setStatus(RegistrationStatus.AWAITING_ACTIVATION);
+                        registration.setOtpDeliveryState("QUEUED");
                     } else {
                         registration.setStatus(RegistrationStatus.REJECTED);
                     }
@@ -157,76 +162,122 @@ public class AdminRegistrationService {
             }
         }
 
-        try {
-            RegistrationResponse registrationWithOtp = sendOtp(requestId);
-            return new RegistrationReviewResponse(registrationWithOtp, true, false);
-        } catch (BusinessException exception) {
-            ErrorCode errorCode = exception.getErrorCode();
-            if (!isOtpDeliveryFailure(errorCode)) {
-                throw exception;
-            }
+        return new RegistrationReviewResponse(reviewedRegistration, false, false);
+    }
 
-            // Hồ sơ vẫn APPROVED nếu gửi OTP lỗi; Admin có thể dùng API gửi lại mà không duyệt lại.
-            log.warn("Registration {} approved; OTP delivery needs retry ({})", requestId,
-                    errorCode);
-            return new RegistrationReviewResponse(reviewedRegistration, false, false);
+    /** Đưa yêu cầu gửi lại OTP vào hàng đợi cho hồ sơ chờ kích hoạt. */
+    public RegistrationResponse resendOtp(UUID adminId, UUID requestId) {
+        accounts.requireAdmin(adminId);
+        return Objects.requireNonNull(transaction.execute(status -> {
+            RegistrationRequest registration = findLockedRegistration(requestId);
+            accounts.requireApprovedCustomer(registration);
+            if ("QUEUED".equals(registration.getOtpDeliveryState())) {
+                return toResponse(registration);
+            }
+            Instant now = clock.now();
+            Instant lastOtpAttempt = registration.getOtpGeneratedAt();
+            if (lastOtpAttempt != null && now.isBefore(lastOtpAttempt
+                    .plus(properties.getOtpResendCooldown()))) {
+                throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
+            }
+            registration.setOtpSentAt(null);
+            registration.setOtpGeneratedAt(null);
+            registration.setOtpDeliveryState("QUEUED");
+            registration.setUpdatedAt(now);
+            registrations.saveAndFlush(registration);
+            return toResponse(registration);
+        }));
+    }
+
+    @Bean("registrationOtpScheduler")
+    public ThreadPoolTaskScheduler registrationOtpScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(1);
+        scheduler.setThreadNamePrefix("registration-otp-");
+        return scheduler;
+    }
+
+    @Bean("taskScheduler")
+    public ThreadPoolTaskScheduler taskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(2);
+        scheduler.setThreadNamePrefix("scheduled-task-");
+        return scheduler;
+    }
+
+    @Scheduled(fixedDelayString = "${app.registration-otp.poll-ms:3000}", scheduler = "registrationOtpScheduler")
+    public void processQueuedOtp() {
+        for (RegistrationRequest registration : registrations.findTop10ByOtpDeliveryStateOrderByUpdatedAtAsc("QUEUED")) {
+            try {
+                sendQueuedOtp(registration.getId());
+            } catch (Exception exception) {
+                log.warn("OTP queue processing failed for registration {} ({}).", registration.getId(), exception.getClass().getSimpleName());
+            }
         }
     }
 
-    /** Admin gửi lại OTP cho hồ sơ đã duyệt nhưng chưa hoàn tất kích hoạt. */
-    public RegistrationResponse resendOtp(UUID adminId, UUID requestId) {
-        accounts.requireAdmin(adminId);
-        return sendOtp(requestId);
+    private void sendQueuedOtp(UUID requestId) {
+        QueuedOtp queuedOtp = transaction.execute(transactionStatus -> {
+            RegistrationRequest registration = findLockedRegistration(requestId);
+            if (!"QUEUED".equals(registration.getOtpDeliveryState())) {
+                return null;
+            }
+            try {
+                User customer = accounts.requireApprovedCustomer(registration);
+                SupabaseAuthClient.GeneratedOtp generatedOtp = supabase.generateOtp(customer.getEmail());
+                boolean sameCustomer = customer.getId().equals(generatedOtp.id());
+                boolean sameEmail = customer.getEmail().equalsIgnoreCase(generatedOtp.email());
+                String otp = generatedOtp.emailOtp();
+
+                if (!sameCustomer || !sameEmail || otp == null || !otp.matches("[0-9]{6,10}")) {
+                    throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+                }
+
+                Instant generatedAt = clock.now();
+                registration.setOtpGeneratedAt(generatedAt);
+                registration.setOtpDeliveryState("UNCONFIRMED");
+                registration.setUpdatedAt(generatedAt);
+                registrations.saveAndFlush(registration);
+                return new QueuedOtp(customer.getEmail(), otp, generatedAt);
+            } catch (BusinessException exception) {
+                log.warn("OTP generation failed for registration {} ({}).", requestId, exception.getErrorCode());
+                registration.setOtpDeliveryState("FAILED");
+                registration.setUpdatedAt(clock.now());
+                registrations.saveAndFlush(registration);
+                return null;
+            }
+        });
+        if (queuedOtp == null) {
+            return;
+        }
+
+        try {
+            mail.sendOtp(queuedOtp.email(), queuedOtp.otp(), properties.getOtpMaxAge().toMinutes());
+        } catch (BusinessException exception) {
+            log.warn("OTP delivery could not be confirmed for registration {} ({}).", requestId, exception.getErrorCode());
+            return;
+        }
+
+        transaction.executeWithoutResult(transactionStatus -> {
+            RegistrationRequest registration = findLockedRegistration(requestId);
+            if ("UNCONFIRMED".equals(registration.getOtpDeliveryState())
+                    && queuedOtp.generatedAt().equals(registration.getOtpGeneratedAt())) {
+                Instant sentAt = clock.now();
+                registration.setOtpSentAt(sentAt);
+                registration.setOtpDeliveryState("SENT");
+                registration.setUpdatedAt(sentAt);
+                registrations.saveAndFlush(registration);
+            }
+        });
     }
 
-    private RegistrationResponse sendOtp(UUID requestId) {
-        return Objects.requireNonNull(transaction.execute(transactionStatus -> {
-            RegistrationRequest registration = findLockedRegistration(requestId);
-            User customer = accounts.requireApprovedCustomer(registration);
-
-            // Chặn gửi lại quá nhanh; thời gian chờ được lấy từ app.auth.otp-resend-cooldown.
-            Instant now = clock.now();
-            if (registration.getOtpSentAt() != null) {
-                Instant nextAllowedSendAt = registration.getOtpSentAt()
-                        .plus(properties.getOtpResendCooldown());
-                if (now.isBefore(nextAllowedSendAt)) {
-                    throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
-                }
-            }
-
-            SupabaseAuthClient.GeneratedOtp generatedOtp = supabase
-                    .generateOtp(customer.getEmail());
-            boolean sameCustomer = customer.getId().equals(generatedOtp.id());
-            boolean sameEmail = customer.getEmail().equalsIgnoreCase(generatedOtp.email());
-            String otp = generatedOtp.emailOtp();
-
-            if (!sameCustomer || !sameEmail || otp == null || !otp.matches("[0-9]{6,10}")) {
-                throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
-            }
-
-            // Gửi tới email tài khoản đã đăng ký; chỉ lưu otpSentAt sau khi SMTP chấp nhận gửi thư.
-            mail.sendOtp(customer.getEmail(), otp, properties.getOtpMaxAge().toMinutes());
-            Instant sentAt = clock.now();
-            registration.setOtpSentAt(sentAt);
-            registration.setUpdatedAt(sentAt);
-            registrations.saveAndFlush(registration);
-
-            return toResponse(registration);
-        }));
+    private record QueuedOtp(String email, String otp, Instant generatedAt) {
     }
 
     private RegistrationRequest findLockedRegistration(UUID requestId) {
         // Khóa ghi trong transaction để hai request không cùng thay đổi quyết định hoặc gửi OTP.
         return registrations.findForUpdate(requestId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-    }
-
-    private boolean isOtpDeliveryFailure(ErrorCode errorCode) {
-        return errorCode == ErrorCode.EMAIL_DELIVERY_FAILED
-                || errorCode == ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE
-                || errorCode == ErrorCode.AUTH_NOT_CONFIGURED
-                // Quyết định APPROVED đã commit; bị giới hạn gửi mã không có nghĩa duyệt thất bại.
-                || errorCode == ErrorCode.TOO_MANY_REQUESTS;
     }
 
     /** DTO trả đầy đủ form để Admin xem, không trả entity trực tiếp hoặc lộ OTP/token/mật khẩu. */
@@ -258,9 +309,10 @@ public class AdminRegistrationService {
                 registration.getSubmittedAt(),
                 registration.getReviewedAt(),
                 registration.getOtpSentAt(),
-                registration.getOtpSentAt() == null
+                registration.getOtpDeliveryState(),
+                registration.getOtpGeneratedAt() == null
                         ? null
-                        : registration.getOtpSentAt().plus(properties.getOtpResendCooldown()),
+                        : registration.getOtpGeneratedAt().plus(properties.getOtpResendCooldown()),
                 registration.getActivatedAt());
     }
 }

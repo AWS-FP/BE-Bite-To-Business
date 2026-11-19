@@ -10,5 +10,6 @@ import java.util.UUID;
 public interface PackageRefundRepository extends JpaRepository<PackageRefund, UUID> {
     boolean existsByOrderPackageIdInAndStatusIn(Collection<UUID> packageIds, Collection<String> statuses);
 
-    List<PackageRefund> findByOrderIdAndRequestedByOrderByCreatedAtDesc(UUID orderId, UUID customerId);
+    @org.springframework.data.jpa.repository.Query("select r from PackageRefund r, OrderPackage p where r.orderPackageId = p.id and p.orderId = :orderId and r.requestedBy = :customerId order by r.createdAt desc")
+    List<PackageRefund> findForOrder(UUID orderId, UUID customerId);
 }

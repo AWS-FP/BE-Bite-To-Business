@@ -50,6 +50,12 @@ public class User {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
+    @Column(name = "newsletter_subscribed", nullable = false)
+    private boolean newsletterSubscribed;
+
+    @Column(name = "newsletter_consented_at")
+    private Instant newsletterConsentedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
