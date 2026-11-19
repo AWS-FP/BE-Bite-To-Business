@@ -19,7 +19,6 @@ import java.util.UUID;
 public class QuotePackageItem {
     @Id
     private UUID id;
-    private UUID quoteId;
     private UUID quotePackageId;
     private UUID quoteItemId;
     private BigDecimal quantity;

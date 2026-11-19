@@ -16,7 +16,6 @@ import java.util.UUID;
 public class PackageRefund {
     @Id
     private UUID id;
-    private UUID orderId;
     private UUID orderPackageId;
     private UUID paymentId;
     private UUID requestedBy;
