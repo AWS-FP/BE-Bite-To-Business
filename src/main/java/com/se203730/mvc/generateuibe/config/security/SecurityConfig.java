@@ -111,12 +111,6 @@ public class SecurityConfig {
                 "/api/homepage/**"
             ).permitAll();
 
-            // [MARKETING] Public newsletter signup (consent is validated by the service).
-            authorize.requestMatchers(
-                HttpMethod.POST,
-                "/api/newsletter/subscriptions"
-            ).permitAll();
-
             authorize.requestMatchers(
                 HttpMethod.POST,
                 "/api/auth/register",

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sản phẩm đã được bổ sung</title></head>
+<body style="margin:0;background:#f5f3ed;color:#17133a;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ed;">
+    <tr><td align="center" style="padding:32px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#fff;border:1px solid #e1e3da;border-radius:16px;overflow:hidden;">
+            <tr th:replace="~{email/fragments/brand :: header}"></tr>
+            <tr><td style="padding:28px 32px;background:#123b2e;">
+                <p style="color:#ffe14d;font-size:12px;font-weight:bold;letter-spacing:1px;">YÊU CẦU SẢN PHẨM</p>
+                <h1 style="margin:0;color:#fff1e0;font-family:Georgia,serif;font-size:30px;font-weight:normal;">Sản phẩm đã có trên website</h1>
+            </td></tr>
+            <tr><td style="padding:32px;font-size:15px;line-height:24px;">
+                <p>Xin chào bạn,</p>
+                <p>Sản phẩm bạn yêu cầu đã được bổ sung:</p>
+                <p style="padding:16px;background:#fff6df;border-radius:8px;font-weight:bold;" th:text="${productName}">Tên sản phẩm</p>
+                <p style="margin:28px 0;"><a th:href="${productUrl}" style="display:inline-block;padding:12px 22px;background:#123b2e;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Xem chi tiết sản phẩm</a></p>
+                <p>Giá và tình trạng hàng có thể thay đổi. Vui lòng kiểm tra trên website trước khi mua.</p>
+            </td></tr>
+            <tr th:replace="~{email/fragments/brand :: footer}"></tr>
+        </table>
+    </td></tr>
+</table>
+</body>
+</html>
