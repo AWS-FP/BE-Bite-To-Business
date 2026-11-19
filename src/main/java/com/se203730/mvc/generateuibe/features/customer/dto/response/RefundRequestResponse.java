@@ -7,8 +7,8 @@ import java.util.UUID;
 
 public record RefundRequestResponse(UUID id, UUID requestGroupId, UUID orderId, UUID packageId,
                                     String packageName, String status, String reason, Instant createdAt) {
-    public static RefundRequestResponse from(PackageRefund refund, String packageName) {
-        return new RefundRequestResponse(refund.getId(), refund.getRequestGroupId(), refund.getOrderId(),
+    public static RefundRequestResponse from(PackageRefund refund, UUID orderId, String packageName) {
+        return new RefundRequestResponse(refund.getId(), refund.getRequestGroupId(), orderId,
                 refund.getOrderPackageId(), packageName, refund.getStatus(), refund.getReason(), refund.getCreatedAt());
     }
 }

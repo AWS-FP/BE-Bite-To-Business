@@ -78,7 +78,6 @@ public class CustomerRefundService {
         for (OrderPackage parcel : selected) {
             PackageRefund refund = new PackageRefund();
             refund.setId(UUID.randomUUID());
-            refund.setOrderId(orderId);
             refund.setOrderPackageId(parcel.getId());
             refund.setPaymentId(payment.getId());
             refund.setRequestedBy(customerId);
@@ -91,7 +90,7 @@ public class CustomerRefundService {
             refund.setCreatedAt(now);
             refund.setUpdatedAt(now);
             refunds.save(refund);
-            result.add(RefundRequestResponse.from(refund, parcel.getPackageName()));
+            result.add(RefundRequestResponse.from(refund, orderId, parcel.getPackageName()));
         }
         refunds.flush();
         return result;
@@ -107,8 +106,8 @@ public class CustomerRefundService {
             names.put(item.getId(), item.getPackageName());
         }
         List<RefundRequestResponse> result = new ArrayList<>();
-        for (PackageRefund refund : refunds.findByOrderIdAndRequestedByOrderByCreatedAtDesc(orderId, customerId)) {
-            result.add(RefundRequestResponse.from(refund, names.get(refund.getOrderPackageId())));
+        for (PackageRefund refund : refunds.findForOrder(orderId, customerId)) {
+            result.add(RefundRequestResponse.from(refund, orderId, names.get(refund.getOrderPackageId())));
         }
         return result;
     }
