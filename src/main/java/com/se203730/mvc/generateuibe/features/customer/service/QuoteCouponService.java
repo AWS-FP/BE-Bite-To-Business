@@ -40,6 +40,8 @@ public class QuoteCouponService {
     private QuoteItemRepository items;
     @Autowired
     private DatabaseClock clock;
+    @Autowired
+    private QuoteResponseFactory responses;
 
     @Transactional
     public QuoteDraftResponse select(UUID customerId, UUID quoteId, QuoteCouponsRequest request) {
@@ -64,7 +66,7 @@ public class QuoteCouponService {
         quote.setRevision(quote.getRevision() + 1);
         quote.setUpdatedAt(now);
         quotes.saveAndFlush(quote);
-        return QuoteDraftResponse.from(quote, items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId));
+        return responses.create(quote, items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId));
     }
 
     void apply(Quote quote, Instant now) {

@@ -6,10 +6,22 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface QuoteItemRepository extends JpaRepository<QuoteItem, UUID> {
+    interface QuantityStep {
+        UUID getProductId();
+        BigDecimal getQuantityStep();
+    }
+
+    @Query(value = """
+        select p.id as "productId", p.quantity_step as "quantityStep"
+        from public.quote_items qi join public.products p on p.id = qi.product_id
+        where qi.quote_id = :quoteId
+        """, nativeQuery = true)
+    List<QuantityStep> findQuantitySteps(@Param("quoteId") UUID quoteId);
     List<QuoteItem> findAllByQuoteIdOrderByCreatedAtAsc(UUID quoteId);
     Optional<QuoteItem> findByQuoteIdAndProductId(UUID quoteId, UUID productId);
     Optional<QuoteItem> findByIdAndQuoteId(UUID id, UUID quoteId);
