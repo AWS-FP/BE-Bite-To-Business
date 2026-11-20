@@ -6,6 +6,7 @@ import com.se203730.mvc.generateuibe.features.ai.service.AgentService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,11 +24,12 @@ public class AgentController {
 
     @PostMapping(value = "/agent", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter run(
-            @CurrentUserUUID
+            @CurrentUserUUID(required = false)
             UUID userId,
+            Authentication authentication,
             @Valid
             @RequestBody
             RunAgentInput input) {
-        return agent.run(userId, input);
+        return agent.run(userId, authentication, input);
     }
 }
