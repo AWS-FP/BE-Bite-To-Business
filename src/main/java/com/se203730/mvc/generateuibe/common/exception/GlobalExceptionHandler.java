@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ElementKind;
 import jakarta.validation.Path;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.connector.ClientAbortException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.ConcurrencyFailureException;
@@ -127,6 +128,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpHeaders headers,
             HttpStatusCode status,
             WebRequest request) {
+        if (isClientAbort(ex)) {
+            log.debug("Client disconnected while receiving {}", requestPath(request));
+            return null;
+        }
         ErrorCode code = ErrorCode.fromHttpStatus(status);
         List<ErrorResponse.ValidationError> errors = List.of();
 
@@ -200,5 +205,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             return servletRequest.getRequest().getRequestURI();
         }
         return "";
+    }
+
+    private static boolean isClientAbort(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ClientAbortException) {
+                return true;
+            }
+        }
+        return false;
     }
 }

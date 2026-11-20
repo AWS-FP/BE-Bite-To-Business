@@ -37,6 +37,13 @@ public class VietmapGeocodingService {
                 .queryParam("focus", focus).queryParam("display_type", 1));
         String refId = results.path(0).path("ref_id").asText("");
         if (refId.isBlank()) throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+        return place(refId);
+    }
+
+    public Location place(String refId) {
+        if (refId == null || refId.isBlank() || refId.length() > 1000) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
         JsonNode place = get(UriComponentsBuilder.fromUriString("https://maps.vietmap.vn/api/place/v4")
                 .queryParam("apikey", apiKey).queryParam("refid", refId));
         if (!place.path("lat").isNumber() || !place.path("lng").isNumber()) {

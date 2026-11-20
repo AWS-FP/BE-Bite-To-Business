@@ -25,8 +25,8 @@ public record QuotePackageRequest(
         @NotBlank @Size(max = 1000) String address,
         @Size(max = 1000) String note,
         @NotBlank @Pattern(regexp = "HCM|HANOI") String city,
-        @NotNull @DecimalMin("-90") @DecimalMax("90") @Digits(integer = 3, fraction = 6) BigDecimal latitude,
-        @NotNull @DecimalMin("-180") @DecimalMax("180") @Digits(integer = 3, fraction = 6) BigDecimal longitude,
+        @NotNull @DecimalMin("-90") @DecimalMax("90") BigDecimal latitude,
+        @NotNull @DecimalMin("-180") @DecimalMax("180") BigDecimal longitude,
         @NotEmpty @Size(max = 200) List<@NotNull @Valid Allocation> items
 ) {
     public record Allocation(@NotNull UUID quoteItemId,

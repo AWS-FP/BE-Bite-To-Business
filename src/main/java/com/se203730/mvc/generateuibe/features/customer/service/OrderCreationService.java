@@ -11,13 +11,11 @@ import com.se203730.mvc.generateuibe.features.customer.entity.Order;
 import com.se203730.mvc.generateuibe.features.customer.entity.Quote;
 import com.se203730.mvc.generateuibe.features.customer.entity.QuoteItem;
 import com.se203730.mvc.generateuibe.features.customer.entity.QuotePackage;
-import com.se203730.mvc.generateuibe.features.customer.entity.QuotePackageItem;
 import com.se203730.mvc.generateuibe.features.customer.repository.CouponRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.InventoryMovementRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.OrderCreationRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.OrderRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
-import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductInventoryRepository;
@@ -27,12 +25,10 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,7 +40,6 @@ public class OrderCreationService {
     private final QuoteRepository quotes;
     private final QuoteItemRepository items;
     private final QuotePackageRepository packages;
-    private final QuotePackageItemRepository allocations;
     private final CouponRepository coupons;
     private final QuoteWorkflowService workflow;
     private final ProductInventoryRepository inventory;
@@ -52,6 +47,7 @@ public class OrderCreationService {
     private final OrderCreationRepository creation;
     private final OrderRepository orders;
     private final DatabaseClock clock;
+    private final QuotePackageAmounts packageAmountsCalculator;
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public CreatedOrderResponse create(UUID customerId, UUID quoteId, int revision) {
@@ -87,16 +83,16 @@ public class OrderCreationService {
         if (quote.getTotalAmount() == null || quote.getTotalAmount().signum() <= 0) {
             throw new BusinessException(ErrorCode.PAYMENT_INVALID_STATE);
         }
-        Map<UUID, Amounts> packageAmounts = calculatePackageAmounts(quote, lines, parcels);
+        Map<UUID, QuotePackageAmounts.Amount> packageAmounts = packageAmountsCalculator.calculate(quote, lines, parcels);
         UUID orderId = UUID.randomUUID();
         creation.insertOrder(orderId, quoteId, now);
         creation.insertItems(orderId, quoteId);
 
         reserveProducts(lines, orderId, customerId, now);
         for (QuotePackage parcel : parcels) {
-            Amounts amount = packageAmounts.get(parcel.getId());
-            creation.insertPackage(orderId, parcel.getId(), amount.merchandise, amount.productCoupon,
-                    amount.vat, amount.shippingCoupon);
+            QuotePackageAmounts.Amount amount = packageAmounts.get(parcel.getId());
+            creation.insertPackage(orderId, parcel.getId(), amount.merchandise(), amount.productCoupon(),
+                    amount.vat(), amount.shippingCoupon());
             creation.insertPackageItems(orderId, parcel.getId());
         }
         quote.setStatus("ACCEPTED");
@@ -141,69 +137,9 @@ public class OrderCreationService {
         }
     }
 
-    private Map<UUID, Amounts> calculatePackageAmounts(Quote quote, List<QuoteItem> lines, List<QuotePackage> parcels) {
-        Map<UUID, Amounts> result = new HashMap<>();
-        Map<UUID, List<QuotePackageItem>> assigned = new HashMap<>();
-        for (QuotePackage parcel : parcels) {
-            result.put(parcel.getId(), new Amounts());
-            for (QuotePackageItem allocation : allocations.findAllByQuotePackageId(parcel.getId())) {
-                UUID itemId = allocation.getQuoteItemId();
-                if (!assigned.containsKey(itemId)) {
-                    assigned.put(itemId, new ArrayList<>());
-                }
-                assigned.get(itemId).add(allocation);
-            }
-        }
-        for (QuoteItem line : lines) {
-            // Chia số tiền còn lại lần lượt theo số lượng; phần làm tròn được giữ cho các gói sau.
-            BigDecimal quantityLeft = line.getQuantity();
-            BigDecimal merchandiseLeft = line.getQuantity().multiply(line.getSaleUnitPrice()).setScale(0, RoundingMode.HALF_UP);
-            BigDecimal couponLeft = line.getCouponDiscountAmount();
-            BigDecimal vatLeft = merchandiseLeft.subtract(couponLeft).multiply(line.getVatRate())
-                    .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
-            List<QuotePackageItem> parts = new ArrayList<>(assigned.getOrDefault(line.getId(), List.of()));
-            parts.sort(Comparator.comparing(QuotePackageItem::getQuotePackageId));
-            for (QuotePackageItem part : parts) {
-                BigDecimal merchandise = portion(merchandiseLeft, part.getQuantity(), quantityLeft);
-                BigDecimal coupon = portion(couponLeft, merchandise, merchandiseLeft);
-                BigDecimal vat = portion(vatLeft, merchandise.subtract(coupon), merchandiseLeft.subtract(couponLeft));
-                Amounts amount = result.get(part.getQuotePackageId());
-                amount.merchandise = amount.merchandise.add(merchandise);
-                amount.productCoupon = amount.productCoupon.add(coupon);
-                amount.vat = amount.vat.add(vat);
-                quantityLeft = quantityLeft.subtract(part.getQuantity());
-                merchandiseLeft = merchandiseLeft.subtract(merchandise);
-                couponLeft = couponLeft.subtract(coupon);
-                vatLeft = vatLeft.subtract(vat);
-            }
-        }
-        BigDecimal shippingLeft = quote.getShippingFee();
-        BigDecimal discountLeft = quote.getShippingCouponDiscountAmount();
-        for (QuotePackage parcel : parcels) {
-            BigDecimal discount = portion(discountLeft, parcel.getShippingFee(), shippingLeft);
-            result.get(parcel.getId()).shippingCoupon = discount;
-            shippingLeft = shippingLeft.subtract(parcel.getShippingFee());
-            discountLeft = discountLeft.subtract(discount);
-        }
-        return result;
-    }
-
-    private BigDecimal portion(BigDecimal amount, BigDecimal part, BigDecimal total) {
-        if (amount.signum() == 0 || total.signum() == 0) {
-            return BigDecimal.ZERO;
-        }
-        return amount.multiply(part).divide(total, 0, RoundingMode.HALF_UP).min(amount);
-    }
-
     private CreatedOrderResponse response(Order order) {
         return new CreatedOrderResponse(order.getId(), order.getOrderNumber(), order.getStatus().name(),
                 order.getTotalAmount(), order.getReservationExpiresAt());
     }
 
-    private static class Amounts {
-        private BigDecimal merchandise = BigDecimal.ZERO;
-        private BigDecimal productCoupon = BigDecimal.ZERO;
-        private BigDecimal vat = BigDecimal.ZERO;
-        private BigDecimal shippingCoupon = BigDecimal.ZERO;
-    }
 }
