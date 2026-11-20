@@ -119,6 +119,11 @@ public class SecurityConfig {
                 "/api/auth/refresh"
             ).permitAll();
 
+            authorize.requestMatchers(
+                HttpMethod.POST,
+                "/api/ai/agent"
+            ).permitAll();
+
             // Webhook dùng chữ ký HMAC của SePay
             // thay cho JWT của khách hàng.
             authorize.requestMatchers(

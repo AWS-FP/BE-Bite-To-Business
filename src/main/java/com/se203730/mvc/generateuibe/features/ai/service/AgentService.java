@@ -13,6 +13,8 @@ import java.util.concurrent.RejectedExecutionException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -32,21 +34,32 @@ public class AgentService {
         this.executor = executor;
     }
 
-    public SseEmitter run(UUID userId, RunAgentInput input) {
-        if (accounts.requireActiveUser(userId).getRole() == UserRole.ADMIN) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+    public SseEmitter run(UUID userId, Authentication authentication, RunAgentInput input) {
+        if (userId != null) {
+            if (!(authentication instanceof JwtAuthenticationToken)) {
+                throw new BusinessException(ErrorCode.UNAUTHORIZED);
+            }
+            JwtAuthenticationToken token = (JwtAuthenticationToken) authentication;
+            AccountAccessService.requirePasswordLogin(token.getToken());
+            if (accounts.requireActiveUser(userId).getRole() != UserRole.CUSTOMER) {
+                throw new BusinessException(ErrorCode.ACCESS_DENIED);
+            }
         }
         RunAgentInput.ChatMessage message = input.messages().get(input.messages().size() - 1);
         if (!"user".equals(message.role()) || message.content() == null || message.content().isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
 
-        UUID requestId = requestLimit.reserve(userId);
+        UUID requestId = userId == null ? requestLimit.reserveGuest() : requestLimit.reserve(userId);
         SseEmitter emitter = new SseEmitter(60_000L);
         try {
             executor.execute(() -> answer(input, message.content(), emitter));
         } catch (RejectedExecutionException exception) {
-            requestLimit.release(requestId);
+            if (userId == null) {
+                requestLimit.releaseGuest(requestId);
+            } else {
+                requestLimit.release(requestId);
+            }
             throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
         }
         return emitter;
