@@ -2,6 +2,7 @@ package com.se203730.mvc.generateuibe.features.customer.service;
 
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
+import com.se203730.mvc.generateuibe.common.outbox.service.OutboxEventService;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
@@ -48,6 +49,7 @@ public class OrderCreationService {
     private final OrderRepository orders;
     private final DatabaseClock clock;
     private final QuotePackageAmounts packageAmountsCalculator;
+    private final OutboxEventService outbox;
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public CreatedOrderResponse create(UUID customerId, UUID quoteId, int revision) {
@@ -99,7 +101,13 @@ public class OrderCreationService {
         quote.setUpdatedAt(now);
         quotes.saveAndFlush(quote);
         movements.flush();
-        return response(orders.findById(orderId).orElseThrow());
+        Order order = orders.findById(orderId).orElseThrow();
+        outbox.record("order.created", "ORDER", orderId, Map.of(
+                "customerId", customerId,
+                "quoteId", quoteId,
+                "totalAmount", order.getTotalAmount(),
+                "reservationExpiresAt", String.valueOf(order.getReservationExpiresAt())));
+        return response(order);
     }
 
     private void lockCoupons(Quote quote) {

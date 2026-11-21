@@ -2,6 +2,7 @@ package com.se203730.mvc.generateuibe.features.customer.service;
 
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
+import com.se203730.mvc.generateuibe.common.outbox.service.OutboxEventService;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.SepayWebhookRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.BankPaymentResponse;
@@ -23,6 +24,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -42,6 +44,9 @@ public class BankPaymentService {
 
     @Autowired
     private DatabaseClock clock;
+
+    @Autowired
+    private OutboxEventService outbox;
 
     @Value("${app.sepay.bank-account:}")
     private String bankAccount;
@@ -183,6 +188,12 @@ public class BankPaymentService {
         }
         event.setResult("MATCHED");
         event.setReviewReason(null);
+        outbox.record("payment.succeeded", "PAYMENT", payment.getId(), Map.of(
+                "orderId", orderId,
+                "customerId", order.getCustomerId(),
+                "paymentNumber", payment.getPaymentNumber(),
+                "amount", payment.getAmount(),
+                "paidAt", now));
     }
 
     public void checkWebhookConfiguration() {
