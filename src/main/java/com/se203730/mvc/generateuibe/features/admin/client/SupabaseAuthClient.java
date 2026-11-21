@@ -279,6 +279,22 @@ public class SupabaseAuthClient {
         }
     }
 
+    /** Thu hồi mọi refresh token của tài khoản; dùng sau khi đặt lại mật khẩu để đóng các phiên cũ. */
+    public void logoutAllSessions(String accessToken) {
+        try {
+            RestClient.RequestBodySpec request = client.post().uri("/logout?scope=global");
+            addPublicHeaders(request);
+            request.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
+
+            RestClient.ResponseSpec response = request.retrieve();
+            response.toBodilessEntity();
+        } catch (RestClientResponseException exception) {
+            throw convertResponseError(exception, ErrorCode.UNAUTHORIZED);
+        } catch (RestClientException exception) {
+            throw convertClientError("logoutAllSessions", exception);
+        }
+    }
+
     /** Gắn API secret key cho API quản trị; key này chỉ được giữ ở backend. */
     private void addAdminHeaders(RestClient.RequestHeadersSpec<?> request) {
         String key = properties.getSecretKey();

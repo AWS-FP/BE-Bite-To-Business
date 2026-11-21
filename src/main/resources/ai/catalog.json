@@ -1,0 +1,85 @@
+{
+  "contractVersion": "btb-genui-product-search-1",
+  "a2uiVersion": "v0.9",
+  "catalogId": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
+  "catalogSchema": "classpath:a2ui/catalog/bite-to-business.catalog.json",
+  "useCase": "PRODUCT_SEARCH",
+  "roles": ["GUEST", "CUSTOMER"],
+  "surface": {
+    "idPattern": "^chat-[a-z0-9-]{1,40}$",
+    "modelGenerates": ["updateComponents"],
+    "backendGenerates": ["createSurface", "updateDataModel", "deleteSurface"]
+  },
+  "limits": {
+    "maxComponents": 25,
+    "maxDepth": 6,
+    "maxTextLength": 300,
+    "maxProducts": 20
+  },
+  "dataModel": {
+    "description": "Backend ghi toàn bộ data model sau khi gọi ProductService và ProductPricingService. AI không ghi data model và không chép số từ đây vào literal.",
+    "bindablePaths": [
+      "/query/text",
+      "/query/sort",
+      "/resultCount",
+      "/products",
+      "/products/{index}"
+    ],
+    "shape": {
+      "query": {
+        "text": "string | null — từ khóa đã dùng cho GET /api/catalog/products?q=",
+        "sort": "name_asc | name_desc | newest | oldest"
+      },
+      "resultCount": "integer — số phần tử trong /products",
+      "products": [
+        {
+          "productId": "UUID",
+          "sku": "string",
+          "name": "string — nameVi hoặc nameEn theo locale",
+          "spec": "string | null — packageSpecVi/En",
+          "origin": "string | null",
+          "unitCode": "KG | BOTTLE | PIECE | PACK | TRAY | BOX | BAG | CAN | TIN | TUB | CASE",
+          "imageUrl": "string | null",
+          "currency": "VND",
+          "priceAvailable": "boolean",
+          "listPrice": "number | null — chưa gồm VAT",
+          "salePrice": "number | null",
+          "saleActive": "boolean",
+          "minOrderQuantity": "number",
+          "quantityStep": "number",
+          "priceTiers": [{ "minQuantity": "number", "maxQuantity": "number | null", "unitPrice": "number" }],
+          "inventoryAvailable": "boolean",
+          "availableQuantity": "number | null"
+        }
+      ]
+    }
+  },
+  "components": {
+    "Text": "Văn bản; text là literal ngắn hoặc {path:'/query/text'}. variant: h1–h5, caption, body.",
+    "Row": "Xếp ngang; children là mảng id.",
+    "Column": "Xếp dọc; children là mảng id. Thường dùng làm root.",
+    "Card": "Khung bao một child.",
+    "Divider": "Đường phân cách.",
+    "Button": "Nút; child là id của Text; action chỉ trong danh sách actions.",
+    "ProductGrid": "Lưới thẻ sản phẩm từ items={path:'/products'}; columns 2|3|4; density; showPriceTiers; showAddToCart.",
+    "ProductTable": "Bảng so sánh từ items={path:'/products'}; columns chọn trong image,name,spec,price,priceTiers,moq,stock; highlight none|lowestPrice|inStock.",
+    "ProductCard": "Một sản phẩm nổi bật, product={path:'/products/0'}.",
+    "PriceTiers": "Bảng giá theo bậc số lượng của một sản phẩm.",
+    "InventoryBadge": "Nhãn còn hàng/hết hàng của một sản phẩm (renderer tính từ availableQuantity).",
+    "Notice": "Thông báo info|success|warning|empty; không chứa số liệu tự bịa.",
+    "ClarifyQuestion": "Câu hỏi làm rõ kèm tối đa 6 lựa chọn.",
+    "SuggestedPrompts": "1–4 câu gợi ý bước tiếp theo."
+  },
+  "actions": {
+    "view_product": "Mở /products/:productId. context.productId phải bind tới sản phẩm trong /products.",
+    "add_to_cart": "Thêm vào giỏ local (cartStore), mặc định số lượng = MOQ. Giá và tồn được kiểm tra lại khi tạo Quote.",
+    "refine_search": "Tìm lại với q/sort mới; backend gọi lại API và ghi data model mới.",
+    "send_prompt": "Gửi một câu như tin nhắn mới của người dùng.",
+    "open_page": "Điều hướng: catalog | cart | orders | favorites | profile | brands."
+  },
+  "fallback": {
+    "onModelError": "Gửi RUN_ERROR và để FE hiển thị trang /products với từ khóa đã nhận.",
+    "onValidationError": "Thử lại tối đa 1 lần kèm danh sách lỗi đã lọc; sau đó dùng bố cục mặc định ProductGrid.",
+    "defaultLayout": "Column[root] → Text(h3, tiêu đề) + ProductGrid(/products) + SuggestedPrompts"
+  }
+}
