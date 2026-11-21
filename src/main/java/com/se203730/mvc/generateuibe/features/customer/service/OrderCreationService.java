@@ -55,16 +55,21 @@ public class OrderCreationService {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
         Quote quote = quotes.findOwnedForUpdate(quoteId, customerId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+            .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
         if (quote.getRevision() != revision) {
             throw new BusinessException(ErrorCode.QUOTE_REVISION_CONFLICT);
         }
         if ("ACCEPTED".equals(quote.getStatus())) {
             UUID orderId = orders.findIdByQuoteAndCustomer(quoteId, customerId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.CONFLICT));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONFLICT));
             return response(orders.findById(orderId).orElseThrow());
         }
-        if (!"DRAFT".equals(quote.getStatus())) {
+        boolean approved = "APPROVED".equals(quote.getStatus())
+            && Integer.valueOf(revision).equals(quote.getReviewedRevision());
+        if (approved && quote.getExpiresAt() != null && !quote.getExpiresAt().isAfter(clock.now())) {
+            throw new BusinessException(ErrorCode.CONFLICT);
+        }
+        if (!"DRAFT".equals(quote.getStatus()) && !approved) {
             throw new BusinessException(ErrorCode.CONFLICT);
         }
         lockCoupons(quote);
@@ -76,7 +81,7 @@ public class OrderCreationService {
             }
         }
         List<QuotePackage> parcels = new ArrayList<>(
-                packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId));
+            packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId));
         parcels.sort(Comparator.comparing(QuotePackage::getId));
         Instant now = clock.now();
         workflow.validateQuote(quote, lines, parcels, now);
@@ -92,7 +97,7 @@ public class OrderCreationService {
         for (QuotePackage parcel : parcels) {
             QuotePackageAmounts.Amount amount = packageAmounts.get(parcel.getId());
             creation.insertPackage(orderId, parcel.getId(), amount.merchandise(), amount.productCoupon(),
-                    amount.vat(), amount.shippingCoupon());
+                amount.vat(), amount.shippingCoupon());
             creation.insertPackageItems(orderId, parcel.getId());
         }
         quote.setStatus("ACCEPTED");
@@ -114,7 +119,7 @@ public class OrderCreationService {
         Collections.sort(couponIds);
         for (UUID couponId : couponIds) {
             coupons.findForUpdate(couponId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.QUOTE_PRICING_STALE));
+                .orElseThrow(() -> new BusinessException(ErrorCode.QUOTE_PRICING_STALE));
         }
     }
 
@@ -139,7 +144,7 @@ public class OrderCreationService {
 
     private CreatedOrderResponse response(Order order) {
         return new CreatedOrderResponse(order.getId(), order.getOrderNumber(), order.getStatus().name(),
-                order.getTotalAmount(), order.getReservationExpiresAt());
+            order.getTotalAmount(), order.getReservationExpiresAt());
     }
 
 }
