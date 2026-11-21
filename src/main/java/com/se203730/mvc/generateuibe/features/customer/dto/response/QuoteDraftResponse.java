@@ -6,6 +6,7 @@ import com.se203730.mvc.generateuibe.features.customer.entity.QuoteItem;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public record QuoteDraftResponse(
@@ -18,12 +19,12 @@ public record QuoteDraftResponse(
         BigDecimal totalAmount, BigDecimal estimatedTotalAmount, List<Item> items
 ) {
     public record Item(UUID id, UUID productId, String sku, String nameVi, String nameEn,
-                       String unitCode, BigDecimal quantity, BigDecimal listUnitPrice,
+                       String unitCode, BigDecimal quantity, BigDecimal quantityStep, BigDecimal listUnitPrice,
                        BigDecimal volumeUnitPrice, BigDecimal saleUnitPrice,
                        BigDecimal vatRate, BigDecimal productVatAmount) {
-        public static Item from(QuoteItem item) {
+        public static Item from(QuoteItem item, BigDecimal quantityStep) {
             return new Item(item.getId(), item.getProductId(), item.getSku(), item.getNameVi(),
-                    item.getNameEn(), item.getUnitCode(), item.getQuantity(), item.getListUnitPrice(),
+                    item.getNameEn(), item.getUnitCode(), item.getQuantity(), quantityStep, item.getListUnitPrice(),
                     item.getVolumeUnitPrice(), item.getSaleUnitPrice(),
                     item.isVatRateConfigured() ? item.getVatRate() : null,
                     item.isVatRateConfigured() ? item.getQuantity().multiply(item.getSaleUnitPrice())
@@ -32,7 +33,7 @@ public record QuoteDraftResponse(
         }
     }
 
-    public static QuoteDraftResponse from(Quote quote, List<QuoteItem> items) {
+    public static QuoteDraftResponse from(Quote quote, List<QuoteItem> items, Map<UUID, BigDecimal> quantitySteps) {
         boolean vatComplete = !items.isEmpty() && items.stream().allMatch(QuoteItem::isVatRateConfigured);
         BigDecimal total = quote.getItemsSubtotal().subtract(quote.getVolumeDiscountAmount())
                 .subtract(quote.getSaleDiscountAmount()).subtract(quote.getCouponDiscountAmount())
@@ -46,6 +47,6 @@ public record QuoteDraftResponse(
                 quote.getCouponDiscountAmount(), quote.getShippingFee(), quote.getShippingCouponDiscountAmount(),
                 vatComplete ? quote.getVatAmount() : null, quote.getVatAmount(),
                 vatComplete ? "COMPLETE" : "PRODUCT_RATES_MISSING",
-                null, total, items.stream().map(Item::from).toList());
+                null, total, items.stream().map(item -> Item.from(item, quantitySteps.get(item.getProductId()))).toList());
     }
 }

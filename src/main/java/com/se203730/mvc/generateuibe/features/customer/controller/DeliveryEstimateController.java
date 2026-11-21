@@ -43,6 +43,13 @@ public class DeliveryEstimateController {
         return new ResponseObject<>(200, "Success", geocoding.coordinatesToAddress(lat, lng));
     }
 
+    @GetMapping("/place")
+    public ResponseObject<VietmapGeocodingService.Location> place(
+            @RequestParam
+            String refId) {
+        return new ResponseObject<>(200, "Success", geocoding.place(refId));
+    }
+
     @GetMapping("/coordinates")
     public ResponseObject<DeliveryEstimateService.Estimate> estimateCoordinates(@RequestParam double lat, @RequestParam double lng, @RequestParam(defaultValue = "hcm") String city) {
         return new ResponseObject<>(200, "Success", service.estimateCoordinates(lat, lng, city, ""));
