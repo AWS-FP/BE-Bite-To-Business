@@ -19,9 +19,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.UUID;
 
@@ -43,6 +46,10 @@ public class QuotePackageService {
     private DatabaseClock clock;
     @Autowired
     private QuoteCouponService couponService;
+    @Autowired
+    private QuotePackageAmounts packageAmounts;
+    @Autowired
+    private DeliveryAddressMatcher addressMatcher;
 
     @Transactional(readOnly = true)
     public List<QuotePackageResponse> list(UUID customerId, UUID quoteId) {
@@ -51,10 +58,28 @@ public class QuotePackageService {
                 .map(this::response).toList();
     }
 
+    @Transactional(readOnly = true)
+    public Map<UUID, QuotePackageAmounts.Amount> totals(UUID customerId, UUID quoteId) {
+        drafts.get(customerId, quoteId);
+        Quote quote = quotes.findById(quoteId).orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        List<QuoteItem> lines = items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId);
+        List<QuotePackage> parcels = packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId);
+        if (lines.isEmpty() || parcels.isEmpty() || lines.stream().anyMatch(line -> !line.isVatRateConfigured())) return Map.of();
+        Map<UUID, BigDecimal> quantities = new HashMap<>();
+        for (QuotePackage parcel : parcels) {
+            for (QuotePackageItem part : allocations.findAllByQuotePackageId(parcel.getId())) {
+                quantities.merge(part.getQuoteItemId(), part.getQuantity(), BigDecimal::add);
+            }
+        }
+        if (lines.stream().anyMatch(line -> quantities.getOrDefault(line.getId(), BigDecimal.ZERO).compareTo(line.getQuantity()) != 0)) return Map.of();
+        return packageAmounts.calculate(quote, lines, parcels);
+    }
+
     @Transactional
     public QuotePackageResponse save(UUID customerId, UUID quoteId, UUID packageId, QuotePackageRequest request,
                                      DeliveryEstimateService.Estimate estimate) {
         Quote quote = drafts.editableQuote(customerId, quoteId);
+        requireUniqueAddress(quoteId, packageId, request);
         QuotePackage parcel;
         Instant now = clock.now();
         if (packageId == null) {
@@ -93,8 +118,8 @@ public class QuotePackageService {
         parcel.setDeliveryAddress(request.address().trim());
         parcel.setDeliveryNote(request.note() == null ? null : request.note().trim());
         parcel.setCity(request.city());
-        parcel.setLatitude(request.latitude());
-        parcel.setLongitude(request.longitude());
+        parcel.setLatitude(request.latitude().setScale(6, RoundingMode.HALF_UP));
+        parcel.setLongitude(request.longitude().setScale(6, RoundingMode.HALF_UP));
         parcel.setDistanceMetres((int) Math.round(estimate.distanceMetres()));
         parcel.setShippingFee(BigDecimal.valueOf(estimate.fee()));
         // A routable coordinate alone does not verify the typed address or service area.
@@ -106,7 +131,6 @@ public class QuotePackageService {
         for (QuotePackageRequest.Allocation allocation : request.items()) {
             QuotePackageItem row = new QuotePackageItem();
             row.setId(UUID.randomUUID());
-            row.setQuoteId(quoteId);
             row.setQuotePackageId(parcel.getId());
             row.setQuoteItemId(allocation.quoteItemId());
             row.setQuantity(allocation.quantity());
@@ -117,6 +141,19 @@ public class QuotePackageService {
         allocations.flush();
         updateShipping(quote, now);
         return response(parcel);
+    }
+
+    @Transactional(readOnly = true)
+    public void checkAddress(UUID customerId, UUID quoteId, UUID packageId, QuotePackageRequest request) {
+        drafts.get(customerId, quoteId);
+        requireUniqueAddress(quoteId, packageId, request);
+    }
+
+    private void requireUniqueAddress(UUID quoteId, UUID packageId, QuotePackageRequest request) {
+        boolean duplicateAddress = packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId)
+                .stream().anyMatch(existing -> !existing.getId().equals(packageId)
+                        && addressMatcher.matches(request.city(), request.address(), existing));
+        if (duplicateAddress) throw new BusinessException(ErrorCode.QUOTE_DUPLICATE_DELIVERY_ADDRESS);
     }
 
     @Transactional

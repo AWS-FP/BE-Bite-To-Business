@@ -41,3 +41,5 @@ src/main/resources/application-local.properties
 /docs/
 *.md
 HELP.md
+# Prompt AI cần đóng gói cùng ứng dụng.
+!src/main/resources/ai/**/*.md

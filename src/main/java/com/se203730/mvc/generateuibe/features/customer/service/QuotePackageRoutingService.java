@@ -6,20 +6,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
+import java.math.RoundingMode;
 
 @Service
 public class QuotePackageRoutingService {
-    @Autowired
-    private QuoteDraftService drafts;
     @Autowired
     private QuotePackageService packages;
     @Autowired
     private DeliveryEstimateService delivery;
 
     public QuotePackageResponse save(UUID customerId, UUID quoteId, UUID packageId, QuotePackageRequest request) {
-        drafts.get(customerId, quoteId);
+        packages.checkAddress(customerId, quoteId, packageId, request);
         DeliveryEstimateService.Estimate estimate = delivery.estimateCoordinates(
-                request.latitude().doubleValue(), request.longitude().doubleValue(),
+                request.latitude().setScale(6, RoundingMode.HALF_UP).doubleValue(),
+                request.longitude().setScale(6, RoundingMode.HALF_UP).doubleValue(),
                 request.city().equals("HCM") ? "hcm" : "hanoi", request.address());
         return packages.save(customerId, quoteId, packageId, request, estimate);
     }
