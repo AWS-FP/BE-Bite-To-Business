@@ -4,6 +4,7 @@ import com.se203730.mvc.generateuibe.common.annotation.CurrentUserUUID;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
 import com.se203730.mvc.generateuibe.common.api.PageResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.UpdateQuoteItemRequest;
+import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteCartRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteContactRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuotePackageRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteCouponsRequest;
@@ -16,6 +17,7 @@ import com.se203730.mvc.generateuibe.features.customer.dto.response.CreatedOrder
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteDraftService;
 import com.se203730.mvc.generateuibe.features.customer.service.QuotePackageService;
 import com.se203730.mvc.generateuibe.features.customer.service.QuotePackageRoutingService;
+import com.se203730.mvc.generateuibe.features.customer.service.QuotePackageAmounts;
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteCouponService;
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteWorkflowService;
 import com.se203730.mvc.generateuibe.features.customer.service.OrderCreationService;
@@ -40,6 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/customer/quotes")
@@ -86,6 +89,12 @@ public class CustomerQuoteController {
         return ok(service.getOrCreate(customerId));
     }
 
+    @PostMapping("/draft/from-cart")
+    public ResponseEntity<ResponseObject<QuoteDraftResponse>> fromCart(@CurrentUserUUID UUID customerId,
+                                                                        @Valid @RequestBody QuoteCartRequest request) {
+        return ok(service.fromCart(customerId, request));
+    }
+
     @GetMapping("/{quoteId}")
     public ResponseEntity<ResponseObject<QuoteDraftResponse>> get(@CurrentUserUUID UUID customerId,
                                                                   @PathVariable UUID quoteId) {
@@ -100,6 +109,16 @@ public class CustomerQuoteController {
             UUID quoteId) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(new ResponseObject<>(200, "Success", workflow.availability(customerId, quoteId)));
+    }
+
+    @GetMapping("/{quoteId}/package-totals")
+    public ResponseEntity<ResponseObject<Map<UUID, QuotePackageAmounts.Amount>>> packageTotals(
+            @CurrentUserUUID
+            UUID customerId,
+            @PathVariable
+            UUID quoteId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", packages.totals(customerId, quoteId)));
     }
 
     @PutMapping("/{quoteId}/items")

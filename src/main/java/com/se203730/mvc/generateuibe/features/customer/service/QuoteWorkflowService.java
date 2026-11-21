@@ -46,6 +46,10 @@ public class QuoteWorkflowService {
     private DatabaseClock clock;
     @Autowired
     private ProductInventoryRepository inventory;
+    @Autowired
+    private QuoteResponseFactory responses;
+    @Autowired
+    private DeliveryAddressMatcher addressMatcher;
 
     @Transactional(readOnly = true)
     public QuoteAvailabilityResponse availability(UUID customerId, UUID quoteId) {
@@ -82,7 +86,7 @@ public class QuoteWorkflowService {
         List<QuotePackage> parcels = packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId);
         validateQuote(quote, lines, parcels, clock.now());
         checkStock(lines);
-        return QuoteDraftResponse.from(quote, lines);
+        return responses.create(quote, lines);
     }
 
     private void checkStock(List<QuoteItem> lines) {
@@ -114,6 +118,13 @@ public class QuoteWorkflowService {
             throw new BusinessException(ErrorCode.QUOTE_INCOMPLETE);
         }
         if (lines.isEmpty() || parcels.isEmpty()) throw new BusinessException(ErrorCode.QUOTE_INCOMPLETE);
+        for (int i = 0; i < parcels.size(); i++) {
+            for (int j = 0; j < i; j++) {
+                if (addressMatcher.matches(parcels.get(i).getCity(), parcels.get(i).getDeliveryAddress(), parcels.get(j))) {
+                    throw new BusinessException(ErrorCode.QUOTE_DUPLICATE_DELIVERY_ADDRESS);
+                }
+            }
+        }
         Map<UUID, BigDecimal> quantities = new HashMap<>();
         BigDecimal shipping = BigDecimal.ZERO;
         for (QuotePackage parcel : parcels) {
