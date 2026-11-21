@@ -92,6 +92,7 @@ public class ReviewService {
     @Transactional
     public ReviewResponse removeImage(UUID customerId, UUID reviewId, UUID imageId) {
         requireOwner(customerId, reviewId);
+        reviews.lockOwnedReview(reviewId, customerId);
         var image = reviews.findImage(reviewId, imageId);
         if (image == null || reviews.deleteImage(reviewId, imageId) != 1) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);

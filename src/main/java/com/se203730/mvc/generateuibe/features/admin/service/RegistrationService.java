@@ -76,6 +76,8 @@ public class RegistrationService {
                 user.setRole(UserRole.CUSTOMER);
                 user.setEmailVerified(false);
                 user.setBanned(false);
+                user.setNewsletterSubscribed(Boolean.TRUE.equals(request.newsletterConsent()));
+                user.setNewsletterConsentedAt(Boolean.TRUE.equals(request.newsletterConsent()) ? now : null);
                 user.setCreatedAt(now);
                 user.setUpdatedAt(now);
                 users.saveAndFlush(user);

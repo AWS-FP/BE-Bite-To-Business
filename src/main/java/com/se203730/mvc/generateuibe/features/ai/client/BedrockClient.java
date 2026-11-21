@@ -35,6 +35,11 @@ public class BedrockClient {
         String instructions = "Bạn là trợ lý của Bite to Business. Trả lời ngắn gọn, rõ ràng bằng tiếng Việt. "
                 + "Bạn chưa được cung cấp dữ liệu sản phẩm, giá, tồn kho, đơn hàng hay chính sách thực tế. "
                 + "Không tự bịa các thông tin đó; hãy nói chưa có dữ liệu và hỏi thêm nếu cần.";
+        return complete(instructions, prompt, 512, 0.4F);
+    }
+
+    /** Gọi model một lượt với system prompt riêng; trả toàn bộ text model sinh ra. */
+    public String complete(String instructions, String prompt, int maxTokens, float temperature) {
         Message message = Message.builder()
                 .role(ConversationRole.USER)
                 .content(ContentBlock.fromText(prompt))
@@ -43,7 +48,7 @@ public class BedrockClient {
                 .modelId(modelId)
                 .system(SystemContentBlock.fromText(instructions))
                 .messages(message)
-                .inferenceConfig(config -> config.maxTokens(512).temperature(0.4F)));
+                .inferenceConfig(config -> config.maxTokens(maxTokens).temperature(temperature)));
 
         if (response.output() == null || response.output().message() == null) {
             throw new IllegalStateException("Bedrock returned no message");

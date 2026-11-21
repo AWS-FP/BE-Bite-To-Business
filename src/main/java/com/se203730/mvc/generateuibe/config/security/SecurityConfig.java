@@ -111,18 +111,19 @@ public class SecurityConfig {
                 "/api/homepage/**"
             ).permitAll();
 
-            // [MARKETING] Public newsletter signup (consent is validated by the service).
-            authorize.requestMatchers(
-                HttpMethod.POST,
-                "/api/newsletter/subscriptions"
-            ).permitAll();
-
             authorize.requestMatchers(
                 HttpMethod.POST,
                 "/api/auth/register",
                 "/api/auth/login",
                 "/api/auth/verify-otp",
-                "/api/auth/refresh"
+                "/api/auth/refresh",
+                "/api/auth/forgot-password",
+                "/api/auth/forgot-password/verify-otp"
+            ).permitAll();
+
+            authorize.requestMatchers(
+                HttpMethod.POST,
+                "/api/ai/agent"
             ).permitAll();
 
             // Webhook dùng chữ ký HMAC của SePay
@@ -136,7 +137,8 @@ public class SecurityConfig {
             // đi vào bước tạo mật khẩu.
             authorize.requestMatchers(
                 HttpMethod.POST,
-                "/api/auth/activate"
+                "/api/auth/activate",
+                "/api/auth/reset-password"
             ).authenticated();
 
             // Chỉ mở Swagger khi cấu hình môi trường cho phép.

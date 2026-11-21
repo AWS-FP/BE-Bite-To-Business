@@ -35,7 +35,7 @@ public class ProductRequestEmailService {
 
     @Value("${spring.mail.username:}")
     private String from;
-    @Value("${app.frontend-base-url:http://localhost:5173}")
+    @Value("${app.frontend-base-url:${app.frontend.base-url:http://localhost:5173}}")
     private String websiteUrl;
 
     public ProductRequestEmailService(ProductRequestResponseRepository responses, TransactionTemplate transactions,
@@ -112,12 +112,16 @@ public class ProductRequestEmailService {
         context.setVariable("productAddedDate", response.getProductAddedAt());
         context.setVariable("sellingPrice", response.getSellingPrice());
         context.setVariable("availableQuantity", response.getAvailableQuantity());
+        boolean added = response.getAddedProductId() != null;
+        if (added) {
+            context.setVariable("productUrl", websiteUrl.replaceAll("/+$", "") + "/products/" + response.getAddedProductId());
+        }
         var message = mail.createMimeMessage();
         var helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
         helper.setFrom(from, "Bite to Business");
         helper.setTo(response.getRecipientEmail());
-        helper.setSubject("Bite to Business - Phản hồi yêu cầu sản phẩm");
-        helper.setText(templates.process("email/product-request-response", context), true);
+        helper.setSubject(added ? "Bite to Business - Sản phẩm đã được bổ sung" : "Bite to Business - Phản hồi yêu cầu sản phẩm");
+        helper.setText(templates.process(added ? "email/product-request-added" : "email/product-request-response", context), true);
         helper.addInline("btb-logo", new ClassPathResource("email/images/brand-logo.png"), "image/png");
         mail.send(message);
     }

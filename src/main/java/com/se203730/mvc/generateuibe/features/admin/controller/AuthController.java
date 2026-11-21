@@ -4,6 +4,7 @@ import com.se203730.mvc.generateuibe.common.annotation.CurrentUserUUID;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
 import com.se203730.mvc.generateuibe.features.admin.entity.User;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.UserResponse;
+import com.se203730.mvc.generateuibe.features.admin.dto.request.ForgotPasswordRequest;
 import com.se203730.mvc.generateuibe.features.admin.dto.request.LoginRequest;
 import com.se203730.mvc.generateuibe.features.admin.dto.request.RefreshTokenRequest;
 import com.se203730.mvc.generateuibe.features.admin.dto.request.RegisterRequest;
@@ -14,6 +15,7 @@ import com.se203730.mvc.generateuibe.features.admin.dto.response.OtpVerification
 import com.se203730.mvc.generateuibe.features.admin.dto.response.RegistrationReceipt;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.admin.service.AuthService;
+import com.se203730.mvc.generateuibe.features.admin.service.PasswordResetService;
 import com.se203730.mvc.generateuibe.features.admin.service.RegistrationService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -51,6 +53,9 @@ public class AuthController {
 
     @Autowired
     private AccountAccessService accountAccessService;
+
+    @Autowired
+    private PasswordResetService passwordResetService;
 
     /** Guest gửi form chờ Admin duyệt; HTTP 201 chỉ báo đã tạo yêu cầu, chưa kích hoạt tài khoản. */
     @PostMapping("/register")
@@ -130,6 +135,66 @@ public class AuthController {
         ResponseObject<Void> response = new ResponseObject<>(
                 200,
                 "Account activated. Please sign in with your email and password.",
+                null);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setCacheControl("no-store");
+
+        return new ResponseEntity<>(response, headers, HttpStatus.OK);
+    }
+
+    /** Gửi OTP đặt lại mật khẩu tới Gmail; luôn trả cùng một thông báo dù Gmail có tồn tại hay không. */
+    @PostMapping("/forgot-password")
+    @SecurityRequirements
+    public ResponseEntity<ResponseObject<Void>> forgotPassword(
+            @Valid
+            @RequestBody
+            ForgotPasswordRequest request) {
+        passwordResetService.requestReset(request);
+
+        ResponseObject<Void> response = new ResponseObject<>(
+                200,
+                "If the email belongs to an active account, a verification code has been sent.",
+                null);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setCacheControl("no-store");
+
+        return new ResponseEntity<>(response, headers, HttpStatus.OK);
+    }
+
+    /** Xác minh OTP quên mật khẩu; trả token ngắn hạn chỉ dùng cho bước đặt mật khẩu mới. */
+    @PostMapping("/forgot-password/verify-otp")
+    @SecurityRequirements
+    public ResponseEntity<ResponseObject<OtpVerificationResponse>> verifyPasswordResetOtp(
+            @Valid
+            @RequestBody
+            VerifyOtpRequest request) {
+        OtpVerificationResponse data = passwordResetService.verifyOtp(request);
+
+        ResponseObject<OtpVerificationResponse> response = new ResponseObject<>(
+                200,
+                "Code verified. Please set a new password.",
+                data);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setCacheControl("no-store");
+
+        return new ResponseEntity<>(response, headers, HttpStatus.OK);
+    }
+
+    /** Dùng Bearer token sau OTP để đặt mật khẩu mới; mọi phiên cũ bị thu hồi sau khi thành công. */
+    @PostMapping("/reset-password")
+    public ResponseEntity<ResponseObject<Void>> resetPassword(@AuthenticationPrincipal
+    Jwt jwt,
+            @Valid
+            @RequestBody
+            SetPasswordRequest request) {
+        passwordResetService.resetPassword(jwt, request);
+
+        ResponseObject<Void> response = new ResponseObject<>(
+                200,
+                "Password updated. Please sign in with your new password.",
                 null);
 
         HttpHeaders headers = new HttpHeaders();

@@ -7,6 +7,7 @@ import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.repository.UserRepository;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.UpdateQuoteItemRequest;
+import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteCartRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteContactRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteDraftResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteSummaryResponse;
@@ -24,6 +25,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
+import java.util.HashSet;
 import java.util.UUID;
 
 @Service
@@ -42,6 +44,8 @@ public class QuoteDraftService {
     private DatabaseClock clock;
     @Autowired
     private QuoteCouponService couponService;
+    @Autowired
+    private QuoteResponseFactory responses;
 
     @Transactional(readOnly = true)
     public Page<QuoteSummaryResponse> list(UUID customerId, int page, int size) {
@@ -56,6 +60,29 @@ public class QuoteDraftService {
         requireCustomer(customerId);
         Quote quote = quotes.findFirstByCustomerIdAndStatusOrderByUpdatedAtDesc(customerId, "DRAFT")
                 .orElseGet(() -> newDraft(customerId));
+        return response(quote);
+    }
+
+    @Transactional
+    public QuoteDraftResponse fromCart(UUID customerId, QuoteCartRequest request) {
+        users.findByIdForUpdate(customerId).orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        requireCustomer(customerId);
+        var productIds = new HashSet<UUID>();
+        for (UpdateQuoteItemRequest line : request.items()) {
+            if (!productIds.add(line.productId())) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        Quote quote = quotes.findFirstByCustomerIdAndStatusOrderByUpdatedAtDesc(customerId, "DRAFT")
+                .orElse(null);
+        List<QuoteItem> existing = quote == null ? List.of() : items.findAllByQuoteIdOrderByCreatedAtAsc(quote.getId());
+        boolean same = existing.size() == request.items().size() && existing.stream().allMatch(item ->
+                request.items().stream().anyMatch(line -> line.productId().equals(item.getProductId())
+                        && line.quantity().compareTo(item.getQuantity()) == 0));
+        if (!same) {
+            quote = newDraft(customerId);
+            for (UpdateQuoteItemRequest line : request.items()) putItem(customerId, quote.getId(), line);
+        } else {
+            return refreshPrices(customerId, quote.getId());
+        }
         return response(quote);
     }
 
@@ -215,7 +242,7 @@ public class QuoteDraftService {
     }
 
     private QuoteDraftResponse response(Quote quote) {
-        return QuoteDraftResponse.from(quote, items.findAllByQuoteIdOrderByCreatedAtAsc(quote.getId()));
+        return responses.create(quote, items.findAllByQuoteIdOrderByCreatedAtAsc(quote.getId()));
     }
 
     private void requireCustomer(UUID customerId) {
