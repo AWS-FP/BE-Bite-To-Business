@@ -8,6 +8,7 @@ import com.se203730.mvc.generateuibe.features.ecommerce.pricing.dto.response.Pro
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Product;
 import com.se203730.mvc.generateuibe.features.ecommerce.pricing.entity.ProductInventory;
 import com.se203730.mvc.generateuibe.features.ecommerce.pricing.entity.ProductPrice;
+import com.se203730.mvc.generateuibe.features.ecommerce.pricing.entity.ProductPriceTier;
 import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductInventoryRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductPriceRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductPriceTierRepository;
@@ -17,8 +18,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +33,9 @@ import java.util.UUID;
 public class ProductPricingService {
 
     private static final String PUBLISHED = "PUBLISHED";
+
+    // Đủ cho một trang danh mục; chặn request quá lớn.
+    private static final int MAX_BATCH_SIZE = 100;
 
     private final ProductRepository products;
     private final ProductPriceRepository prices;
@@ -56,6 +66,73 @@ public class ProductPricingService {
             && price.getSalePrice() != null
             && prices.hasActiveSalePromotion(productId);
 
+        return toResponse(product, price, inventory, tiers, saleActive);
+    }
+
+    /**
+     * Giá và tồn kho của nhiều sản phẩm trong một lần gọi cho trang danh mục.
+     * Bỏ qua sản phẩm không tồn tại hoặc chưa PUBLISHED; giữ thứ tự id đầu vào.
+     */
+    public List<ProductPricingResponse> getPricingBatch(List<UUID> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return List.of();
+        }
+        if (productIds.size() > MAX_BATCH_SIZE) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        Set<UUID> ids = new LinkedHashSet<>(productIds);
+
+        Map<UUID, Product> productById = products.findAllById(ids)
+            .stream()
+            .filter(p -> PUBLISHED.equals(p.getStatus()))
+            .collect(Collectors.toMap(Product::getId, Function.identity()));
+        if (productById.isEmpty()) {
+            return List.of();
+        }
+        Set<UUID> publishedIds = productById.keySet();
+
+        Map<UUID, ProductPrice> priceById = prices.findAllById(publishedIds)
+            .stream()
+            .collect(Collectors.toMap(ProductPrice::getProductId, Function.identity()));
+        Map<UUID, ProductInventory> inventoryById = inventories.findAllById(publishedIds)
+            .stream()
+            .collect(Collectors.toMap(ProductInventory::getProductId, Function.identity()));
+        Map<UUID, List<ProductPriceTierResponse>> tiersById = priceTiers
+            .findByProductIdInOrderByMinQuantityAscIdAsc(publishedIds)
+            .stream()
+            .collect(Collectors.groupingBy(
+                ProductPriceTier::getProductId,
+                Collectors.mapping(ProductPriceTierResponse::from, Collectors.toList())
+            ));
+        Set<UUID> activeSaleIds = new HashSet<>(
+            prices.findIdsWithActiveSalePromotion(publishedIds)
+        );
+
+        return ids.stream()
+            .filter(productById::containsKey)
+            .map(id -> {
+                ProductPrice price = priceById.get(id);
+                boolean saleActive = price != null
+                    && price.getSalePrice() != null
+                    && activeSaleIds.contains(id);
+                return toResponse(
+                    productById.get(id),
+                    price,
+                    inventoryById.get(id),
+                    tiersById.getOrDefault(id, List.of()),
+                    saleActive
+                );
+            })
+            .toList();
+    }
+
+    private ProductPricingResponse toResponse(
+        Product product,
+        ProductPrice price,
+        ProductInventory inventory,
+        List<ProductPriceTierResponse> tiers,
+        boolean saleActive
+    ) {
         BigDecimal effectiveSalePrice = saleActive
             ? price.getSalePrice()
             : null;

@@ -4,8 +4,8 @@ import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
-import com.se203730.mvc.generateuibe.features.ai.client.BedrockClient;
 import com.se203730.mvc.generateuibe.features.ai.dto.RunAgentInput;
+import com.se203730.mvc.generateuibe.features.ai.service.orchestration.GenerativeUiService;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -22,14 +22,14 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Slf4j
 public class AgentService {
     private final AccountAccessService accounts;
-    private final BedrockClient bedrock;
+    private final GenerativeUiService pipeline;
     private final AiRequestLimitService requestLimit;
     private final ThreadPoolTaskExecutor executor;
 
-    public AgentService(AccountAccessService accounts, BedrockClient bedrock, AiRequestLimitService requestLimit,
-            @Qualifier("agentExecutor") ThreadPoolTaskExecutor executor) {
+    public AgentService(AccountAccessService accounts, GenerativeUiService pipeline,
+            AiRequestLimitService requestLimit, @Qualifier("agentExecutor") ThreadPoolTaskExecutor executor) {
         this.accounts = accounts;
-        this.bedrock = bedrock;
+        this.pipeline = pipeline;
         this.requestLimit = requestLimit;
         this.executor = executor;
     }
@@ -51,7 +51,8 @@ public class AgentService {
         }
 
         UUID requestId = userId == null ? requestLimit.reserveGuest() : requestLimit.reserve(userId);
-        SseEmitter emitter = new SseEmitter(60_000L);
+        // Pipeline gọi model tối đa 3 lượt (ý định, UI, thử lại UI), mỗi lượt timeout 40 giây.
+        SseEmitter emitter = new SseEmitter(150_000L);
         try {
             executor.execute(() -> answer(input, message.content(), emitter));
         } catch (RejectedExecutionException exception) {
@@ -68,17 +69,13 @@ public class AgentService {
     private void answer(RunAgentInput input, String prompt, SseEmitter emitter) {
         try {
             send(emitter, Map.of("type", "RUN_STARTED", "threadId", input.threadId(), "runId", input.runId()));
-            String reply = bedrock.reply(prompt);
-            String messageId = UUID.randomUUID().toString();
-            send(emitter, Map.of("type", "TEXT_MESSAGE_START", "messageId", messageId, "role", "assistant"));
-            send(emitter, Map.of("type", "TEXT_MESSAGE_CONTENT", "messageId", messageId, "delta", reply));
-            send(emitter, Map.of("type", "TEXT_MESSAGE_END", "messageId", messageId));
+            pipeline.run(input, event -> send(emitter, event));
             send(emitter, Map.of("type", "RUN_FINISHED", "threadId", input.threadId(), "runId", input.runId()));
             emitter.complete();
         } catch (IOException exception) {
             emitter.completeWithError(exception);
         } catch (Exception exception) {
-            log.warn("Bedrock request failed: {}", exception.getClass().getSimpleName());
+            log.warn("AI pipeline failed: {}", exception.getClass().getSimpleName());
             try {
                 send(emitter, Map.of("type", "RUN_ERROR", "code", "AI_UNAVAILABLE",
                         "message", "Trợ lý hiện chưa thể phản hồi. Vui lòng thử lại."));
@@ -89,7 +86,7 @@ public class AgentService {
         }
     }
 
-    private void send(SseEmitter emitter, Map<String, String> event) throws IOException {
+    private void send(SseEmitter emitter, Map<String, ?> event) throws IOException {
         emitter.send(SseEmitter.event().data(event));
     }
 }

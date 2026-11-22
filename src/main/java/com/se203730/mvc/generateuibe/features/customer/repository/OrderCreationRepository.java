@@ -29,7 +29,7 @@ public class OrderCreationRepository {
                     q.contact_name, q.contact_phone, q.contact_email, q.company_name, q.note, q.customer_po_reference,
                     q.items_subtotal, q.volume_discount_amount, q.sale_discount_amount, q.coupon_discount_amount,
                     q.vat_amount, q.shipping_fee, q.shipping_coupon_discount_amount,
-                    :now, cast(:now as timestamptz) + interval '1 hour', true, :now, :now, :now
+                    :now, cast(:now as timestamptz) + interval '6 hours', true, :now, :now, :now
                 from public.quotes q
                 left join public.coupons c on c.id = q.coupon_id
                 left join public.coupons s on s.id = q.shipping_coupon_id

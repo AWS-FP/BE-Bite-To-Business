@@ -116,7 +116,9 @@ public class SecurityConfig {
                 "/api/auth/register",
                 "/api/auth/login",
                 "/api/auth/verify-otp",
-                "/api/auth/refresh"
+                "/api/auth/refresh",
+                "/api/auth/forgot-password",
+                "/api/auth/forgot-password/verify-otp"
             ).permitAll();
 
             authorize.requestMatchers(
@@ -135,7 +137,8 @@ public class SecurityConfig {
             // đi vào bước tạo mật khẩu.
             authorize.requestMatchers(
                 HttpMethod.POST,
-                "/api/auth/activate"
+                "/api/auth/activate",
+                "/api/auth/reset-password"
             ).authenticated();
 
             // Chỉ mở Swagger khi cấu hình môi trường cho phép.

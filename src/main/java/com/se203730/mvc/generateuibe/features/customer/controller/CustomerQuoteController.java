@@ -8,6 +8,7 @@ import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteCartRequ
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteContactRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuotePackageRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteCouponsRequest;
+import com.se203730.mvc.generateuibe.features.customer.dto.response.AvailableCouponResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteRevisionRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteDraftResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteAvailabilityResponse;
@@ -177,6 +178,16 @@ public class CustomerQuoteController {
                                                                          @PathVariable UUID quoteId,
                                                                          @PathVariable UUID itemId) {
         return ok(service.removeItem(customerId, quoteId, itemId));
+    }
+
+    @GetMapping("/{quoteId}/coupons/available")
+    public ResponseEntity<ResponseObject<List<AvailableCouponResponse>>> availableCoupons(
+            @CurrentUserUUID
+            UUID customerId,
+            @PathVariable
+            UUID quoteId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", coupons.available(customerId, quoteId)));
     }
 
     @PutMapping("/{quoteId}/coupons")

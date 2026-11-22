@@ -45,32 +45,52 @@ public class RegistrationMailService {
     private String frontendBaseUrl;
 
     public void sendOtp(String email, String otp, long minutes) {
-        if (from.isBlank()) {
-            throw new BusinessException(ErrorCode.EMAIL_DELIVERY_FAILED);
-        }
-
-        // Thay các biến trong template bằng OTP thật và thời hạn do luồng đăng ký cung cấp.
-        Context context = new Context(Locale.forLanguageTag("vi"));
-        prepareBrandContext(context);
-        context.setVariable("otp", otp);
-        context.setVariable("expiresInMinutes", minutes);
-        String verificationUrl = frontendBaseUrl.strip().replaceAll("/+$", "") + "/verify-otp";
-        context.setVariable("verificationUrl", verificationUrl);
-
+        String verificationUrl = frontendUrl("/verify-otp");
         // Email có cả bản text để ứng dụng đọc mail không hỗ trợ HTML vẫn xem được mã.
         String plainText = "Bite to Business\n\nMã xác minh: " + otp
                 + "\nMã có hiệu lực " + minutes
                 + " phút. Không chia sẻ mã này. Sau khi xác minh, hãy tự tạo mật khẩu."
                 + "\nMở trang xác minh: " + verificationUrl;
+        sendOtpMail(email, otp, minutes, verificationUrl, "email/registration-approved-otp",
+                "Bite to Business - Xác minh tài khoản", plainText);
+    }
+
+    /** Gửi mã đặt lại mật khẩu; link chỉ mở trang nhập mã, không chứa OTP hoặc token. */
+    public void sendPasswordResetOtp(String email, String otp, long minutes) {
+        String resetUrl = frontendUrl("/forgot-password");
+        String plainText = "Bite to Business\n\nMã đặt lại mật khẩu: " + otp
+                + "\nMã có hiệu lực " + minutes
+                + " phút. Không chia sẻ mã này. Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email."
+                + "\nMở trang đặt lại mật khẩu: " + resetUrl;
+        sendOtpMail(email, otp, minutes, resetUrl, "email/password-reset-otp",
+                "Bite to Business - Đặt lại mật khẩu", plainText);
+    }
+
+    private String frontendUrl(String path) {
+        return frontendBaseUrl.strip().replaceAll("/+$", "") + path;
+    }
+
+    private void sendOtpMail(String email, String otp, long minutes, String actionUrl, String template,
+            String subject, String plainText) {
+        if (from.isBlank()) {
+            throw new BusinessException(ErrorCode.EMAIL_DELIVERY_FAILED);
+        }
+
+        // Thay các biến trong template bằng OTP thật và thời hạn do luồng gọi cung cấp.
+        Context context = new Context(Locale.forLanguageTag("vi"));
+        prepareBrandContext(context);
+        context.setVariable("otp", otp);
+        context.setVariable("expiresInMinutes", minutes);
+        context.setVariable("verificationUrl", actionUrl);
 
         try {
-            String html = templateEngine.process("email/registration-approved-otp", context);
+            String html = templateEngine.process(template, context);
             MimeMessage message = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true,
                     StandardCharsets.UTF_8.name());
             helper.setFrom(from, "Bite to Business");
             helper.setTo(email);
-            helper.setSubject("Bite to Business - Xác minh tài khoản");
+            helper.setSubject(subject);
             helper.setText(plainText, html);
             addBrandImages(helper);
             sender.send(message);
