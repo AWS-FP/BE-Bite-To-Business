@@ -114,11 +114,17 @@ public class ExecutiveMarketingService {
     }
 
     @Transactional(readOnly=true)
-    public EcommercePageResponse<Map<String,Object>> promotions(String status,int page,int size) {
+    public EcommercePageResponse<Map<String,Object>> promotions(String status,String q,int page,int size) {
         if (status!=null && !Set.of("DRAFT","PUBLISHED","DISABLED","ARCHIVED").contains(status))
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
-        var p = new MapSqlParameterSource("status",status);
-        String where = status==null ? "" : " where p.status=:status";
+        String query=q==null ? "" : q.strip();
+        if (query.length()>100) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        var p = new MapSqlParameterSource("status",status)
+            .addValue("search", query.isEmpty()?"%%":"%"+EcommerceExecutiveRepository.find(query,100)+"%");
+        String where = " where 1=1";
+        if(status!=null) where += " and p.status=:status";
+        if(!query.isEmpty()) where += " and (p.name_vi ILIKE :search ESCAPE '\\' " +
+            "or p.name_en ILIKE :search ESCAPE '\\')";
         return db.page("select p.id,p.name_vi,p.name_en,p.content_vi,p.content_en,p.status," +
                 "p.starts_at,p.ends_at,p.promotion_type,p.image_url,p.created_by,p.published_at,p.created_at,p.updated_at " +
                 "from public.promotions p" + where + " order by p.created_at desc,p.id",
@@ -130,6 +136,26 @@ public class ExecutiveMarketingService {
                 "promotion_type,image_url,created_by,published_at,created_at,updated_at from public.promotions where id=:id",
             new MapSqlParameterSource("id",id));
     }
+    /** Delete only campaigns never published, preserving customers' historical promotions. */
+    @Transactional
+    public void deletePromotion(UUID id) {
+        var params=new MapSqlParameterSource("id",id);
+        var campaign=db.one("select status,published_at from public.promotions " +
+            "where id=:id for update",params);
+        if (!Set.of("DRAFT","ARCHIVED").contains(campaign.get("status")) ||
+            campaign.get("publishedAt")!=null) throw new BusinessException(ErrorCode.CONFLICT);
+        Boolean hasHistory=db.queryForObject("select exists(select 1 from " +
+            "public.promotion_email_deliveries where promotion_id=:id)",params,Boolean.class);
+        if(Boolean.TRUE.equals(hasHistory)) throw new BusinessException(ErrorCode.CONFLICT);
+        // Legacy products.promotion_id has ON DELETE RESTRICT. Detach, never delete products.
+        db.update("update public.products set promotion_id=null,updated_at=now() " +
+            "where promotion_id=:id",params);
+        // promotion_products (new join table) is ON DELETE CASCADE.
+        int deleted=db.update("delete from public.promotions where id=:id " +
+            "and published_at is null and status in ('DRAFT','ARCHIVED')",params);
+        if(deleted!=1) throw new BusinessException(ErrorCode.CONFLICT);
+    }
+
     private static String promotionType(ExecutivePromotionRequest r) {
         return r.promotionType() == null ? "STANDARD" : r.promotionType();
     }

@@ -3,6 +3,7 @@ package com.se203730.mvc.generateuibe.features.delivery.service;
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
+import com.se203730.mvc.generateuibe.features.customer.notification.service.NotificationEventPublisher;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.delivery.dto.response.DeliveryItemResponse;
 import com.se203730.mvc.generateuibe.features.delivery.dto.response.DeliveryStopResponse;
@@ -46,7 +47,7 @@ public class DeliveryTripService {
     private static final int SPEED_KM_PER_HOUR = 40;
 
     private static final List<DeliveryTripStatus> ACTIVE_STATUSES = List.of(
-            DeliveryTripStatus.PREPARING, DeliveryTripStatus.READY, DeliveryTripStatus.IN_DELIVERY);
+        DeliveryTripStatus.PREPARING, DeliveryTripStatus.READY, DeliveryTripStatus.IN_DELIVERY);
 
     private final DeliveryTripRepository trips;
 
@@ -59,12 +60,13 @@ public class DeliveryTripService {
     private final AccountAccessService accounts;
 
     private final DatabaseClock clock;
+    private final NotificationEventPublisher notificationEvents;
 
     public Page<DeliveryTripSummaryResponse> list(
-            UUID staffId,
-            DeliveryTripStatus status,
-            int page,
-            int size) {
+        UUID staffId,
+        DeliveryTripStatus status,
+        int page,
+        int size) {
         requireShipper(staffId);
         if (page < 0 || size < 1 || size > 100) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
@@ -74,28 +76,28 @@ public class DeliveryTripService {
         Page<DeliveryTrip> result = trips.findAll((root, query, builder) -> {
             var assigned = builder.equal(root.get("deliveryStaffId"), staffId);
             return status == null
-                    ? assigned
-                    : builder.and(assigned, builder.equal(root.get("status"), status));
+                ? assigned
+                : builder.and(assigned, builder.equal(root.get("status"), status));
         }, PageRequest.of(page, size, sort));
 
         List<UUID> orderIds = result.stream().map(DeliveryTrip::getOrderId).toList();
         Map<UUID, Order> orderMap = orders.findAllById(orderIds).stream()
-                .collect(Collectors.toMap(Order::getId, Function.identity()));
+            .collect(Collectors.toMap(Order::getId, Function.identity()));
         return result.map(trip -> DeliveryTripSummaryResponse.from(trip,
-                requireOrder(orderMap.get(trip.getOrderId()))));
+            requireOrder(orderMap.get(trip.getOrderId()))));
     }
 
     public DeliveryTripResponse current(UUID staffId) {
         requireShipper(staffId);
         DeliveryTrip trip = trips.findByDeliveryStaffIdAndStatusIn(staffId, ACTIVE_STATUSES)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_TRIP_NOT_FOUND));
+            .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_TRIP_NOT_FOUND));
         return response(loadData(trip, findOrder(trip.getOrderId())));
     }
 
     public DeliveryTripResponse detail(UUID staffId, UUID tripId) {
         requireShipper(staffId);
         DeliveryTrip trip = trips.findByIdAndDeliveryStaffId(tripId, staffId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_TRIP_NOT_FOUND));
+            .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_TRIP_NOT_FOUND));
         return response(loadData(trip, findOrder(trip.getOrderId())));
     }
 
@@ -128,15 +130,28 @@ public class DeliveryTripService {
         trip.setStartedAt(now);
         trip.setUpdatedAt(now);
         trips.save(trip);
-        return response(data);
+        DeliveryTripResponse updated = response(data);
+        // Include ETA only when the route contains enough measured distances to calculate it.
+        String etaText = updated.estimatedCompletionAt() == null ? null :
+            java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+                .withZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))
+                .format(updated.estimatedCompletionAt());
+        notificationEvents.publish(data.order().getCustomerId(), "DELIVERY_ETA", trip.getId(), "DELIVERY",
+            "Đơn hàng đang được giao", "Your order is out for delivery",
+            "Đơn hàng " + data.order().getOrderNumber() + " đang được giao." +
+                (etaText == null ? "" : " Dự kiến hoàn tất: " + etaText + " (giờ Việt Nam)."),
+            "Order " + data.order().getOrderNumber() + " is on its way." +
+                (etaText == null ? "" : " Estimated completion: " + etaText + " (Vietnam time)."),
+            "/orders");
+        return updated;
     }
 
     @Transactional
     public DeliveryTripResponse confirmStop(UUID staffId, UUID tripId, UUID stopId) {
         TripData data = lockAssignedTrip(staffId, tripId);
         DeliveryStop stop = data.stops().stream().filter(item -> item.getId().equals(stopId))
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_STOP_NOT_FOUND));
+            .findFirst()
+            .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_STOP_NOT_FOUND));
         requireNotCancelled(data.order());
         OrderPackage parcel = data.packages().get(stop.getOrderPackageId());
         if (parcel.getCancelledAt() != null) {
@@ -198,12 +213,12 @@ public class DeliveryTripService {
     private TripData lockAssignedTrip(UUID staffId, UUID tripId) {
         requireShipper(staffId);
         UUID orderId = trips.findAssignedOrderId(tripId, staffId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_TRIP_NOT_FOUND));
+            .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_TRIP_NOT_FOUND));
         // Mọi command giao hàng khóa Order trước rồi Trip để tránh cập nhật chéo và deadlock.
         Order order = orders.findForUpdate(orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_DATA_INVALID));
+            .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_DATA_INVALID));
         DeliveryTrip trip = trips.findAssignedForUpdate(tripId, staffId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_TRIP_NOT_FOUND));
+            .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_TRIP_NOT_FOUND));
         if (!orderId.equals(trip.getOrderId())) {
             throw new BusinessException(ErrorCode.DELIVERY_DATA_INVALID);
         }
@@ -212,7 +227,7 @@ public class DeliveryTripService {
 
     private Order findOrder(UUID id) {
         return orders.findById(id)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_DATA_INVALID));
+            .orElseThrow(() -> new BusinessException(ErrorCode.DELIVERY_DATA_INVALID));
     }
 
     private Order requireOrder(Order order) {
@@ -224,14 +239,14 @@ public class DeliveryTripService {
 
     private TripData loadData(DeliveryTrip trip, Order order) {
         Map<UUID, OrderPackage> parcels = packages.findByOrderIdOrderByIdAsc(order.getId()).stream()
-                .collect(Collectors.toMap(OrderPackage::getId, Function.identity()));
+            .collect(Collectors.toMap(OrderPackage::getId, Function.identity()));
         List<DeliveryStop> tripStops = stops.findByTripIdOrderByStopOrderAsc(trip.getId());
         for (DeliveryStop stop : tripStops) {
             if (!parcels.containsKey(stop.getOrderPackageId())) {
                 throw new BusinessException(ErrorCode.DELIVERY_DATA_INVALID);
             }
             if (stop.getDeliveredAt() != null && (trip.getStartedAt() == null
-                    || stop.getDeliveredAt().isBefore(trip.getStartedAt()))) {
+                || stop.getDeliveredAt().isBefore(trip.getStartedAt()))) {
                 throw new BusinessException(ErrorCode.DELIVERY_DATA_INVALID);
             }
         }
@@ -240,12 +255,12 @@ public class DeliveryTripService {
 
     private List<OrderPackage> activePackages(TripData data) {
         return data.packages().values().stream().filter(parcel -> parcel.getCancelledAt() == null)
-                .toList();
+            .toList();
     }
 
     private Map<UUID, DeliveryStop> stopsByPackage(TripData data) {
         return data.stops().stream()
-                .collect(Collectors.toMap(DeliveryStop::getOrderPackageId, Function.identity()));
+            .collect(Collectors.toMap(DeliveryStop::getOrderPackageId, Function.identity()));
     }
 
     private void requireActivePackages(List<OrderPackage> active) {
@@ -259,13 +274,13 @@ public class DeliveryTripService {
         requireActivePackages(active);
         Map<UUID, DeliveryStop> stopMap = stopsByPackage(data);
         var packagesWithItems = packages.findItems(data.order().getId()).stream()
-                .map(item -> item.getPackageId()).collect(Collectors.toSet());
+            .map(item -> item.getPackageId()).collect(Collectors.toSet());
         for (OrderPackage parcel : active) {
             DeliveryStop stop = stopMap.get(parcel.getId());
             if (stop == null || stop.getDestinationLatitude() == null
-                    || stop.getDestinationLongitude() == null || stop.getLegDistanceKm() == null
-                    || stop.getLegDistanceKm().signum() < 0 || stop.getDeliveredAt() != null
-                    || !packagesWithItems.contains(parcel.getId())) {
+                || stop.getDestinationLongitude() == null || stop.getLegDistanceKm() == null
+                || stop.getLegDistanceKm().signum() < 0 || stop.getDeliveredAt() != null
+                || !packagesWithItems.contains(parcel.getId())) {
                 throw new BusinessException(ErrorCode.DELIVERY_ROUTE_NOT_READY);
             }
         }
@@ -285,7 +300,7 @@ public class DeliveryTripService {
 
     private void requireInDelivery(TripData data) {
         if (data.trip().getStatus() != DeliveryTripStatus.IN_DELIVERY
-                || data.trip().getStartedAt() == null) {
+            || data.trip().getStartedAt() == null) {
             throw new BusinessException(ErrorCode.DELIVERY_TRIP_INVALID_STATE);
         }
         requireProcessingOrder(data.order());
@@ -295,12 +310,12 @@ public class DeliveryTripService {
         Map<UUID, List<DeliveryItemResponse>> items = deliveryItems(data.order().getId());
         List<DeliveryStopResponse> result = new ArrayList<>();
         Instant departure = data.trip().getStartedAt() != null
-                ? data.trip().getStartedAt()
-                : data.trip().getPlannedDepartureAt();
+            ? data.trip().getStartedAt()
+            : data.trip().getPlannedDepartureAt();
         BigDecimal distance = BigDecimal.ZERO;
         List<OrderPackage> active = activePackages(data);
         boolean distanceKnown = !active.isEmpty() && stopsByPackage(data).keySet()
-                .containsAll(active.stream().map(OrderPackage::getId).toList());
+            .containsAll(active.stream().map(OrderPackage::getId).toList());
         int delivered = 0;
         for (DeliveryStop stop : data.stops()) {
             OrderPackage parcel = data.packages().get(stop.getOrderPackageId());
@@ -319,59 +334,59 @@ public class DeliveryTripService {
                 }
             }
             result.add(new DeliveryStopResponse(stop.getId(), parcel.getId(),
-                    parcel.getPackageNumber(), parcel.getPackageName(), parcel.getDeliveryDate(),
-                    parcel.getDeliveryAddress(), stop.getStopOrder(), stop.getDestinationLatitude(),
-                    stop.getDestinationLongitude(), stop.getLegDistanceKm(), eta,
-                    stop.getDeliveredAt(), parcel.getCancelledAt(),
-                    items.getOrDefault(parcel.getId(), List.of())));
+                parcel.getPackageNumber(), parcel.getPackageName(), parcel.getDeliveryDate(),
+                parcel.getDeliveryAddress(), stop.getStopOrder(), stop.getDestinationLatitude(),
+                stop.getDestinationLongitude(), stop.getLegDistanceKm(), eta,
+                stop.getDeliveredAt(), parcel.getCancelledAt(),
+                items.getOrDefault(parcel.getId(), List.of())));
         }
 
         Long duration = distanceKnown ? durationSeconds(distance) : null;
         Instant arrival = duration != null && departure != null
-                ? departure.plusSeconds(duration)
-                : null;
+            ? departure.plusSeconds(duration)
+            : null;
         return new DeliveryTripResponse(DeliveryTripSummaryResponse.from(data.trip(), data.order()),
-                data.order().getContactName(), data.order().getContactPhone(),
-                data.order().getNote(),
-                new DeliveryTripResponse.Origin(data.trip().getOriginLatitude(),
-                        data.trip().getOriginLongitude()),
-                data.trip().getRoutePolyline(), SPEED_KM_PER_HOUR, distanceKnown ? distance : null,
-                duration, arrival, active.size(), delivered, List.copyOf(result));
+            data.order().getContactName(), data.order().getContactPhone(),
+            data.order().getNote(),
+            new DeliveryTripResponse.Origin(data.trip().getOriginLatitude(),
+                data.trip().getOriginLongitude()),
+            data.trip().getRoutePolyline(), SPEED_KM_PER_HOUR, distanceKnown ? distance : null,
+            duration, arrival, active.size(), delivered, List.copyOf(result));
     }
 
     private Map<UUID, List<DeliveryItemResponse>> deliveryItems(UUID orderId) {
         Map<UUID, Map<UUID, List<DeliveryItemResponse.ComboComponent>>> components = new HashMap<>();
         for (PackageComboItemView item : packages.findComboItems(orderId)) {
             components.computeIfAbsent(item.getPackageId(), key -> new HashMap<>())
-                    .computeIfAbsent(item.getOrderItemId(), key -> new ArrayList<>())
-                    .add(new DeliveryItemResponse.ComboComponent(item.getSku(), item.getNameVi(),
-                            item.getNameEn(), item.getUnitCode(), item.getQuantity()));
+                .computeIfAbsent(item.getOrderItemId(), key -> new ArrayList<>())
+                .add(new DeliveryItemResponse.ComboComponent(item.getSku(), item.getNameVi(),
+                    item.getNameEn(), item.getUnitCode(), item.getQuantity()));
         }
         Map<UUID, List<DeliveryItemResponse>> result = new HashMap<>();
         for (var item : packages.findItems(orderId)) {
             List<DeliveryItemResponse.ComboComponent> comboItems = components
-                    .getOrDefault(item.getPackageId(), Map.of())
-                    .getOrDefault(item.getOrderItemId(), List.of());
+                .getOrDefault(item.getPackageId(), Map.of())
+                .getOrDefault(item.getOrderItemId(), List.of());
             result.computeIfAbsent(item.getPackageId(), key -> new ArrayList<>())
-                    .add(new DeliveryItemResponse(item.getOrderItemId(), item.getSku(),
-                            item.getNameVi(), item.getNameEn(), item.getUnitCode(),
-                            item.getQuantity(),
-                            item.getCustomerNote(), List.copyOf(comboItems)));
+                .add(new DeliveryItemResponse(item.getOrderItemId(), item.getSku(),
+                    item.getNameVi(), item.getNameEn(), item.getUnitCode(),
+                    item.getQuantity(),
+                    item.getCustomerNote(), List.copyOf(comboItems)));
         }
         return result;
     }
 
     private long durationSeconds(BigDecimal distanceKm) {
         return distanceKm.multiply(BigDecimal.valueOf(3600))
-                .divide(BigDecimal.valueOf(SPEED_KM_PER_HOUR), 0, RoundingMode.CEILING)
-                .longValueExact();
+            .divide(BigDecimal.valueOf(SPEED_KM_PER_HOUR), 0, RoundingMode.CEILING)
+            .longValueExact();
     }
 
     private record TripData(
-            DeliveryTrip trip,
-            Order order,
-            Map<UUID, OrderPackage> packages,
-            List<DeliveryStop> stops
+        DeliveryTrip trip,
+        Order order,
+        Map<UUID, OrderPackage> packages,
+        List<DeliveryStop> stops
     ) {
     }
 }
