@@ -29,6 +29,11 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.RequestHeader;
+import com.se203730.mvc.generateuibe.common.exception.BusinessException;
+import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
+import com.se203730.mvc.generateuibe.config.security.RefreshTokenCookies;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -56,6 +61,9 @@ public class AuthController {
 
     @Autowired
     private PasswordResetService passwordResetService;
+
+    @Autowired
+    private RefreshTokenCookies refreshCookies;
 
     /** Guest gửi form chờ Admin duyệt; HTTP 201 chỉ báo đã tạo yêu cầu, chưa kích hoạt tài khoản. */
     @PostMapping("/register")
@@ -97,6 +105,9 @@ public class AuthController {
         // data chứa access token và refresh token, nên yêu cầu không lưu response vào cache.
         HttpHeaders headers = new HttpHeaders();
         headers.setCacheControl("no-store");
+        // Refresh token cũng đi trong cookie HttpOnly để FE không phải lưu nó vào storage.
+        // (Body vẫn còn refreshToken trong giai đoạn chuyển đổi cho FE cũ; sẽ bỏ khi FE mới đã chạy.)
+        headers.add(HttpHeaders.SET_COOKIE, refreshCookies.issue(data.refreshToken()));
 
         return new ResponseEntity<>(response, headers, HttpStatus.OK);
     }
@@ -208,9 +219,25 @@ public class AuthController {
     @SecurityRequirements
     public ResponseEntity<ResponseObject<AuthResponse>> refresh(
             @Valid
-            @RequestBody
-            RefreshTokenRequest request) {
-        String refreshToken = request.refreshToken();
+            @RequestBody(required = false)
+            RefreshTokenRequest request,
+            @CookieValue(name = RefreshTokenCookies.NAME, required = false)
+            String cookieToken,
+            @RequestHeader(value = HttpHeaders.ORIGIN, required = false)
+            String origin) {
+        String refreshToken;
+        if (cookieToken != null && !cookieToken.isBlank()) {
+            // Cookie được trình duyệt tự gửi, nên chỉ nhận khi request đến từ FE của mình (chống CSRF).
+            if (!refreshCookies.isAllowedOrigin(origin)) {
+                throw new BusinessException(ErrorCode.ACCESS_DENIED);
+            }
+            refreshToken = cookieToken;
+        } else if (request != null && request.refreshToken() != null) {
+            // FE cũ gửi refresh token trong body; giữ trong giai đoạn chuyển đổi.
+            refreshToken = request.refreshToken();
+        } else {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
         AuthResponse data = authService.refresh(refreshToken);
 
         ResponseObject<AuthResponse> response = new ResponseObject<>(
@@ -220,6 +247,8 @@ public class AuthController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setCacheControl("no-store");
+        // Supabase xoay vòng refresh token: đặt lại cookie để phiên kéo dài thêm maxAge kể từ lần dùng này.
+        headers.add(HttpHeaders.SET_COOKIE, refreshCookies.issue(data.refreshToken()));
 
         return new ResponseEntity<>(response, headers, HttpStatus.OK);
     }
@@ -238,6 +267,7 @@ public class AuthController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setCacheControl("no-store");
+        headers.add(HttpHeaders.SET_COOKIE, refreshCookies.clear());
 
         return new ResponseEntity<>(response, headers, HttpStatus.OK);
     }
