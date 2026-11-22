@@ -16,6 +16,10 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     @Modifying
     @Query(value = "update public.payments set status = 'EXPIRED', updated_at = :now where order_id = :orderId and status = 'PENDING'", nativeQuery = true)
     int expirePending(@Param("orderId") UUID orderId, @Param("now") Instant now);
+
+    @Modifying
+    @Query(value = "update public.payments set status = 'CANCELLED', updated_at = :now where order_id = :orderId and status = 'PENDING'", nativeQuery = true)
+    int cancelPending(@Param("orderId") UUID orderId, @Param("now") Instant now);
     Optional<Payment> findByOrderIdAndStatus(UUID orderId, String status);
 
     @Query("select p.orderId from Payment p where p.paymentNumber = :number")
