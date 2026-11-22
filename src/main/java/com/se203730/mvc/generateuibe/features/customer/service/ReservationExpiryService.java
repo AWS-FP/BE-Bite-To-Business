@@ -1,5 +1,6 @@
 package com.se203730.mvc.generateuibe.features.customer.service;
 
+import com.se203730.mvc.generateuibe.common.outbox.service.OutboxEventService;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.customer.entity.InventoryMovement;
 import com.se203730.mvc.generateuibe.features.customer.entity.Order;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -25,6 +27,7 @@ public class ReservationExpiryService {
     private final ProductInventoryRepository inventory;
     private final InventoryMovementRepository movements;
     private final DatabaseClock clock;
+    private final OutboxEventService outbox;
 
     @Transactional
     public void expire(UUID orderId) {
@@ -66,5 +69,8 @@ public class ReservationExpiryService {
         if (orders.expireReservation(orderId, now) != 1) {
             throw new IllegalStateException("Could not expire reservation: " + orderId);
         }
+        outbox.record("order.reservation_expired", "ORDER", orderId, Map.of(
+                "customerId", order.getCustomerId(),
+                "expiredAt", now));
     }
 }

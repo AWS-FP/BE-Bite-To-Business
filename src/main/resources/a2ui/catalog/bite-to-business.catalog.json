@@ -1,0 +1,902 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
+  "title": "Bite to Business A2UI Catalog",
+  "description": "Catalog A2UI v0.9 cho POC Generate UI tìm sản phẩm. AI chỉ sinh updateComponents; backend ghi updateDataModel (/query, /products, /resultCount). Component cơ bản lấy nguyên từ basic catalog của @a2ui/web_core 0.12.",
+  "catalogId": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
+  "components": {
+    "Text": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Text"
+            },
+            "text": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The text content to display. While simple Markdown formatting is supported (i.e. without HTML, images, or links), utilizing dedicated UI components is generally preferred for a richer and more structured presentation."
+            },
+            "variant": {
+              "type": "string",
+              "description": "A hint for the base text style.",
+              "enum": [
+                "h1",
+                "h2",
+                "h3",
+                "h4",
+                "h5",
+                "caption",
+                "body"
+              ],
+              "default": "body"
+            }
+          },
+          "required": [
+            "component",
+            "text"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Row": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "A layout component that arranges its children horizontally. To create a grid layout, nest Columns within this Row.",
+          "properties": {
+            "component": {
+              "const": "Row"
+            },
+            "children": {
+              "description": "Defines the children. Use an array of strings for a fixed set of children, or a template object to generate children from a data list. Children cannot be defined inline, they must be referred to by ID.",
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ChildList"
+            },
+            "justify": {
+              "type": "string",
+              "description": "Defines the arrangement of children along the main axis (horizontally). Use 'spaceBetween' to push items to the edges, or 'start'/'end'/'center' to pack them together.",
+              "enum": [
+                "center",
+                "end",
+                "spaceAround",
+                "spaceBetween",
+                "spaceEvenly",
+                "start",
+                "stretch"
+              ],
+              "default": "start"
+            },
+            "align": {
+              "type": "string",
+              "description": "Defines the alignment of children along the cross axis (vertically). This is similar to the CSS 'align-items' property, but uses camelCase values (e.g., 'start').",
+              "enum": [
+                "start",
+                "center",
+                "end",
+                "stretch"
+              ],
+              "default": "stretch"
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Column": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "A layout component that arranges its children vertically. To create a grid layout, nest Rows within this Column.",
+          "properties": {
+            "component": {
+              "const": "Column"
+            },
+            "children": {
+              "description": "Defines the children. Use an array of strings for a fixed set of children, or a template object to generate children from a data list. Children cannot be defined inline, they must be referred to by ID.",
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ChildList"
+            },
+            "justify": {
+              "type": "string",
+              "description": "Defines the arrangement of children along the main axis (vertically). Use 'spaceBetween' to push items to the edges (e.g. header at top, footer at bottom), or 'start'/'end'/'center' to pack them together.",
+              "enum": [
+                "start",
+                "center",
+                "end",
+                "spaceBetween",
+                "spaceAround",
+                "spaceEvenly",
+                "stretch"
+              ],
+              "default": "start"
+            },
+            "align": {
+              "type": "string",
+              "description": "Defines the alignment of children along the cross axis (horizontally). This is similar to the CSS 'align-items' property.",
+              "enum": [
+                "center",
+                "end",
+                "start",
+                "stretch"
+              ],
+              "default": "stretch"
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Card": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Card"
+            },
+            "child": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentId",
+              "description": "The ID of the single child component to be rendered inside the card. To display multiple elements, you MUST wrap them in a layout component (like Column or Row) and pass that container's ID here. Do NOT pass multiple IDs or a non-existent ID."
+            }
+          },
+          "required": [
+            "component",
+            "child"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Divider": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Divider"
+            },
+            "axis": {
+              "type": "string",
+              "description": "The orientation of the divider.",
+              "enum": [
+                "horizontal",
+                "vertical"
+              ],
+              "default": "horizontal"
+            }
+          },
+          "required": [
+            "component"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Button": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/Checkable"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Button"
+            },
+            "child": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentId",
+              "description": "The ID of the child component. Use a 'Text' component for a labeled button. Only use an 'Icon' if the requirements explicitly ask for an icon-only button."
+            },
+            "variant": {
+              "type": "string",
+              "description": "A hint for the button style. If omitted, a default button style is used. 'primary' indicates this is the main call-to-action button. 'borderless' means the button has no visual border or background, making its child content appear like a clickable link.",
+              "enum": [
+                "default",
+                "primary",
+                "borderless"
+              ],
+              "default": "default"
+            },
+            "action": {
+              "$ref": "#/$defs/BtbAction",
+              "description": "Chỉ dùng các action trong danh sách cho phép của Bite to Business."
+            }
+          },
+          "required": [
+            "component",
+            "child",
+            "action"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ProductGrid": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ProductGrid"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Danh sách sản phẩm do backend ghi vào data model. Luôn là {\"path\": \"/products\"}; không tự liệt kê sản phẩm hay giá."
+            },
+            "columns": {
+              "type": "integer",
+              "enum": [
+                2,
+                3,
+                4
+              ],
+              "default": 3,
+              "description": "Số cột trên desktop; mobile luôn 1–2 cột."
+            },
+            "density": {
+              "type": "string",
+              "enum": [
+                "compact",
+                "comfortable"
+              ],
+              "default": "comfortable",
+              "description": "compact: ảnh nhỏ, nhiều sản phẩm hơn; comfortable: ảnh lớn."
+            },
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 12
+            },
+            "showPriceTiers": {
+              "type": "boolean",
+              "default": false,
+              "description": "Hiện bảng giá theo bậc số lượng trên từng thẻ."
+            },
+            "showAddToCart": {
+              "type": "boolean",
+              "default": true,
+              "description": "Hiện nút thêm vào giỏ (action add_to_cart do renderer gắn sẵn)."
+            },
+            "emptyText": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Nội dung khi danh sách rỗng."
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ProductTable": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ProductTable"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Danh sách sản phẩm do backend ghi vào data model. Luôn là {\"path\": \"/products\"}; không tự liệt kê sản phẩm hay giá."
+            },
+            "columns": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 7,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "image",
+                  "name",
+                  "spec",
+                  "price",
+                  "priceTiers",
+                  "moq",
+                  "stock"
+                ]
+              },
+              "description": "Các cột hiển thị, theo thứ tự. Giá trị trong ô do renderer lấy từ dữ liệu backend."
+            },
+            "highlight": {
+              "type": "string",
+              "enum": [
+                "none",
+                "lowestPrice",
+                "inStock"
+              ],
+              "default": "none",
+              "description": "Renderer tự tính dòng cần làm nổi bật từ dữ liệu thật; AI không tự chọn sản phẩm rẻ nhất."
+            },
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 12
+            },
+            "showAddToCart": {
+              "type": "boolean",
+              "default": true
+            },
+            "emptyText": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "items",
+            "columns"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ProductCard": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ProductCard"
+            },
+            "product": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Một sản phẩm trong danh sách backend đã cấp, dạng {\"path\": \"/products/<chỉ số>\"}. Chỉ số phải nhỏ hơn /resultCount."
+            },
+            "variant": {
+              "type": "string",
+              "enum": [
+                "compact",
+                "detailed"
+              ],
+              "default": "detailed"
+            },
+            "showPriceTiers": {
+              "type": "boolean",
+              "default": true
+            },
+            "showAddToCart": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "required": [
+            "component",
+            "product"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "PriceTiers": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "PriceTiers"
+            },
+            "product": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Một sản phẩm trong danh sách backend đã cấp, dạng {\"path\": \"/products/<chỉ số>\"}. Chỉ số phải nhỏ hơn /resultCount."
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "product"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "InventoryBadge": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "InventoryBadge"
+            },
+            "product": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Một sản phẩm trong danh sách backend đã cấp, dạng {\"path\": \"/products/<chỉ số>\"}. Chỉ số phải nhỏ hơn /resultCount."
+            }
+          },
+          "required": [
+            "component",
+            "product"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Notice": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Notice"
+            },
+            "tone": {
+              "type": "string",
+              "enum": [
+                "info",
+                "success",
+                "warning",
+                "empty"
+              ],
+              "default": "info"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "text": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Không chứa giá, số tồn, mã đơn hay cam kết chưa được backend xác nhận."
+            }
+          },
+          "required": [
+            "component",
+            "text"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ClarifyQuestion": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ClarifyQuestion"
+            },
+            "question": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "options": {
+              "type": "array",
+              "maxItems": 6,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "description": "Lựa chọn gợi ý; bấm vào sẽ gửi lại đúng câu đó như tin nhắn mới (send_prompt)."
+            },
+            "allowFreeText": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "required": [
+            "component",
+            "question"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "SuggestedPrompts": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "SuggestedPrompts"
+            },
+            "prompts": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "description": "Câu gợi ý tiếp theo; bấm vào gửi như tin nhắn mới (send_prompt)."
+            }
+          },
+          "required": [
+            "component",
+            "prompts"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    }
+  },
+  "functions": {},
+  "$defs": {
+    "CatalogComponentCommon": {
+      "type": "object",
+      "properties": {
+        "weight": {
+          "type": "number",
+          "description": "The relative weight of this component within a Row or Column. This is similar to the CSS 'flex-grow' property. Note: this may ONLY be set when the component is a direct descendant of a Row or Column."
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "properties": {
+        "primaryColor": {
+          "type": "string",
+          "description": "The primary brand color used for highlights (e.g., primary buttons, active borders). Renderers may generate variants of this color for different contexts. Format: Hexadecimal code (e.g., '#00BFFF').",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "iconUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "A URL for an image that identifies the agent or tool associated with the surface."
+        },
+        "agentDisplayName": {
+          "type": "string",
+          "description": "Text to be displayed next to the surface to identify the agent or tool that created it."
+        }
+      },
+      "additionalProperties": true
+    },
+    "BtbAction": {
+      "description": "Action được phép. FE xử lý; mọi thay đổi giỏ/quote vẫn qua API có kiểm tra quyền.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "event": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "const": "view_product"
+                },
+                "context": {
+                  "type": "object",
+                  "properties": {
+                    "productId": {
+                      "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                    }
+                  },
+                  "required": [
+                    "productId"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "name",
+                "context"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "event"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "const": "add_to_cart"
+                },
+                "context": {
+                  "type": "object",
+                  "properties": {
+                    "productId": {
+                      "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                    },
+                    "quantity": {
+                      "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicNumber"
+                    }
+                  },
+                  "required": [
+                    "productId"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "name",
+                "context"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "event"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "const": "refine_search"
+                },
+                "context": {
+                  "type": "object",
+                  "properties": {
+                    "q": {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    "sort": {
+                      "type": "string",
+                      "enum": [
+                        "name_asc",
+                        "name_desc",
+                        "newest",
+                        "oldest"
+                      ]
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "event"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "const": "send_prompt"
+                },
+                "context": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "name",
+                "context"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "event"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "const": "open_page"
+                },
+                "context": {
+                  "type": "object",
+                  "properties": {
+                    "page": {
+                      "type": "string",
+                      "enum": [
+                        "catalog",
+                        "cart",
+                        "orders",
+                        "favorites",
+                        "profile",
+                        "brands"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "page"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "name",
+                "context"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "event"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "anyComponent": {
+      "oneOf": [
+        {
+          "$ref": "#/components/Text"
+        },
+        {
+          "$ref": "#/components/Row"
+        },
+        {
+          "$ref": "#/components/Column"
+        },
+        {
+          "$ref": "#/components/Card"
+        },
+        {
+          "$ref": "#/components/Divider"
+        },
+        {
+          "$ref": "#/components/Button"
+        },
+        {
+          "$ref": "#/components/ProductGrid"
+        },
+        {
+          "$ref": "#/components/ProductTable"
+        },
+        {
+          "$ref": "#/components/ProductCard"
+        },
+        {
+          "$ref": "#/components/PriceTiers"
+        },
+        {
+          "$ref": "#/components/InventoryBadge"
+        },
+        {
+          "$ref": "#/components/Notice"
+        },
+        {
+          "$ref": "#/components/ClarifyQuestion"
+        },
+        {
+          "$ref": "#/components/SuggestedPrompts"
+        }
+      ],
+      "discriminator": {
+        "propertyName": "component"
+      }
+    },
+    "anyFunction": {
+      "oneOf": []
+    }
+  }
+}

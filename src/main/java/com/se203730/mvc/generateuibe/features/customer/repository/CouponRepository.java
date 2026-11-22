@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.Lock;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
+import java.time.Instant;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
@@ -13,6 +15,13 @@ import java.util.UUID;
 
 public interface CouponRepository extends JpaRepository<Coupon, UUID> {
     Optional<Coupon> findByCode(String code);
+
+    @Query("""
+        select c from Coupon c
+        where c.isActive = true and c.startsAt <= :now and c.endsAt > :now
+        order by c.endsAt asc, c.code asc
+        """)
+    List<Coupon> findLiveAt(@Param("now") Instant now, Pageable page);
 
     @Query(value = "select product_id from public.coupon_products where coupon_id = :couponId", nativeQuery = true)
     List<UUID> findProductIds(@Param("couponId") UUID couponId);
