@@ -6,6 +6,7 @@ import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteCouponsRequest;
+import com.se203730.mvc.generateuibe.features.customer.dto.response.AvailableCouponResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteDraftResponse;
 import com.se203730.mvc.generateuibe.features.customer.entity.Coupon;
 import com.se203730.mvc.generateuibe.features.customer.entity.Quote;
@@ -14,6 +15,7 @@ import com.se203730.mvc.generateuibe.features.customer.repository.CouponReposito
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,9 @@ import java.util.UUID;
 
 @Service
 public class QuoteCouponService {
+    // Đủ cho danh sách chọn mã; tránh đếm lượt dùng cho quá nhiều coupon trong một request.
+    private static final int MAX_AVAILABLE_COUPONS = 50;
+
     @Autowired
     private AccountAccessService accounts;
     @Autowired
@@ -67,6 +72,47 @@ public class QuoteCouponService {
         quote.setUpdatedAt(now);
         quotes.saveAndFlush(quote);
         return responses.create(quote, items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId));
+    }
+
+    /**
+     * Live coupons the customer could pick for this quote. Coupons that are used up for this customer are
+     * left out; coupons the quote does not meet yet are kept with applicable=false so the customer sees why.
+     */
+    @Transactional(readOnly = true)
+    public List<AvailableCouponResponse> available(UUID customerId, UUID quoteId) {
+        if (accounts.requireActiveUser(customerId).getRole() != UserRole.CUSTOMER) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        Quote quote = quotes.findById(quoteId)
+                .filter(q -> q.getCustomerId().equals(customerId))
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        Instant now = clock.now();
+        BigDecimal merchandise = merchandise(quote);
+        List<QuoteItem> lines = items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId);
+        return coupons.findLiveAt(now, PageRequest.of(0, MAX_AVAILABLE_COUPONS)).stream()
+                .filter(coupon -> withinUsageLimits(coupon, coupon.getAppliesTo(), customerId))
+                .map(coupon -> toAvailable(coupon, quote, merchandise, lines))
+                .toList();
+    }
+
+    private AvailableCouponResponse toAvailable(Coupon coupon, Quote quote, BigDecimal merchandise,
+                                                List<QuoteItem> lines) {
+        boolean product = "PRODUCT".equals(coupon.getAppliesTo());
+        String reason = null;
+        BigDecimal estimate = BigDecimal.ZERO;
+        if (merchandise.compareTo(coupon.getMinOrderAmount()) < 0) {
+            reason = "MIN_ORDER_NOT_MET";
+        } else if (product) {
+            BigDecimal base = eligibleBase(coupon, lines);
+            if (base.signum() <= 0) reason = "NO_ELIGIBLE_PRODUCT";
+            else estimate = discount(coupon, base);
+        } else {
+            estimate = discount(coupon, quote.getShippingFee());
+        }
+        return new AvailableCouponResponse(coupon.getId(), coupon.getCode(), coupon.getAppliesTo(),
+                coupon.getProductScope(), coupon.getDiscountType(), coupon.getDiscountValue(),
+                coupon.getMinOrderAmount(), coupon.getMaxDiscountAmount(), coupon.getEndsAt(),
+                reason == null, reason, estimate);
     }
 
     void apply(Quote quote, Instant now) {
@@ -141,7 +187,10 @@ public class QuoteCouponService {
         boolean valid = coupon.isActive() && scope.equals(coupon.getAppliesTo())
                 && !now.isBefore(coupon.getStartsAt()) && now.isBefore(coupon.getEndsAt())
                 && merchandise.compareTo(coupon.getMinOrderAmount()) >= 0;
-        if (!valid) return false;
+        return valid && withinUsageLimits(coupon, scope, customerId);
+    }
+
+    private boolean withinUsageLimits(Coupon coupon, String scope, UUID customerId) {
         if (coupon.getUsageLimit() != null
                 && coupons.countUsedOrReserved(coupon.getId(), scope, null) >= coupon.getUsageLimit()) return false;
         return coupon.getUsageLimitPerUser() == null
