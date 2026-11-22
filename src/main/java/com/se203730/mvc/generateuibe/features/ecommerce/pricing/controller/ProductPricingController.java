@@ -12,8 +12,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -24,6 +26,17 @@ import java.util.UUID;
 public class ProductPricingController {
 
     private final ProductPricingService pricingService;
+
+    @GetMapping("/pricing")
+    @Operation(summary = "Get pricing and available stock for up to 100 products in one call")
+    public ResponseEntity<ResponseObject<List<ProductPricingResponse>>> getPricingBatch(
+        @RequestParam
+        List<UUID> ids
+    ) {
+        return ResponseEntity.ok(
+            new ResponseObject<>(200, "Success", pricingService.getPricingBatch(ids))
+        );
+    }
 
     @GetMapping("/{id}/pricing")
     @Operation(summary = "Get current sale, B2B price tiers and available stock")

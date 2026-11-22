@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 public interface ProductPriceRepository extends JpaRepository<ProductPrice, UUID> {
@@ -23,4 +25,16 @@ public interface ProductPriceRepository extends JpaRepository<ProductPrice, UUID
             )
             """, nativeQuery = true)
     boolean hasActiveSalePromotion(@Param("productId") UUID productId);
+
+    // Bản theo lô của hasActiveSalePromotion cho trang danh mục.
+    @Query(value = """
+            SELECT p.id
+            FROM public.products p
+            JOIN public.promotions promo ON promo.id = p.promotion_id
+            WHERE p.id IN (:productIds)
+              AND promo.status = 'PUBLISHED'
+              AND promo.starts_at <= CURRENT_TIMESTAMP
+              AND promo.ends_at > CURRENT_TIMESTAMP
+            """, nativeQuery = true)
+    List<UUID> findIdsWithActiveSalePromotion(@Param("productIds") Collection<UUID> productIds);
 }
