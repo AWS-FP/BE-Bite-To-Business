@@ -4,6 +4,7 @@ import com.se203730.mvc.generateuibe.common.api.PageResponse;
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.features.customer.notification.dto.response.*;
+import com.se203730.mvc.generateuibe.features.customer.notification.dto.request.NotificationPreferencesRequest;
 import com.se203730.mvc.generateuibe.features.customer.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,17 @@ public class NotificationService {
     @Transactional(readOnly=true)
     public NotificationUnreadResponse count(UUID id) {
         return new NotificationUnreadResponse(repository.unreadCount(id));
+    }
+    @Transactional(readOnly=true)
+    public NotificationPreferencesResponse preferences(UUID id) {
+        return repository.preferences(id);
+    }
+    @Transactional
+    public NotificationPreferencesResponse updatePreferences(UUID id,NotificationPreferencesRequest request) {
+        if (request.quoteApproval()==null || request.quoteExpiry()==null ||
+            request.deliveryEta()==null || request.sourcingReply()==null)
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        return repository.updatePreferences(id,request);
     }
     @Transactional
     public NotificationMarkResponse markRead(UUID id,UUID notificationId) {
