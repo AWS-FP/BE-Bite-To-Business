@@ -4,6 +4,7 @@ import com.se203730.mvc.generateuibe.common.annotation.CurrentUserUUID;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
 import com.se203730.mvc.generateuibe.features.customer.order.dto.response.*;
 import com.se203730.mvc.generateuibe.features.customer.order.service.CustomerOrderQueryService;
+import com.se203730.mvc.generateuibe.features.customer.service.CustomerOrderCancellationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -21,15 +22,26 @@ import java.util.UUID;
 @Tag(name = "Customer - My Orders")
 public class CustomerOrderController {
     private final CustomerOrderQueryService service;
+    private final CustomerOrderCancellationService cancellation;
 
     @GetMapping
     @Operation(summary = "List only the authenticated customer's orders, newest first")
     public ResponseEntity<ResponseObject<CustomerOrdersPageResponse>> list(
             @CurrentUserUUID UUID customerId,
+            @RequestParam(defaultValue = "ALL") String group,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(new ResponseObject<>(200, "Success", service.list(customerId, page, size)));
+                .body(new ResponseObject<>(200, "Success", service.list(customerId, group, page, size)));
+    }
+
+    @PostMapping("/{orderId}/cancel")
+    @Operation(summary = "Cancel my order while it is still unpaid; reserved stock is returned")
+    public ResponseEntity<ResponseObject<CustomerOrderDetailResponse>> cancel(
+            @CurrentUserUUID UUID customerId, @PathVariable UUID orderId) {
+        cancellation.cancel(customerId, orderId);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Order cancelled.", service.get(customerId, orderId)));
     }
 
     @GetMapping("/{orderId}")
