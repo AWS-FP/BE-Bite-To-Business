@@ -33,6 +33,20 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             where id = :orderId and reservation_managed = true and status = 'CONFIRMED' and reservation_released_at is null
             """, nativeQuery = true)
     int expireReservation(@Param("orderId") UUID orderId, @Param("now") Instant now);
+
+    // Khách tự hủy đơn chưa thanh toán; giữ hàng (nếu có) được đánh dấu đã trả cùng lúc.
+    @Modifying
+    @Query(value = """
+            update public.orders set status = 'CANCELLED', cancelled_at = :now, cancelled_by = :customerId,
+                cancellation_reason = 'Customer cancelled before payment',
+                reservation_released_at = case
+                    when reservation_started_at is not null and reservation_released_at is null then :now
+                    else reservation_released_at end,
+                updated_at = :now
+            where id = :orderId and customer_id = :customerId and status = 'CONFIRMED'
+            """, nativeQuery = true)
+    int cancelByCustomer(@Param("orderId") UUID orderId, @Param("customerId") UUID customerId,
+                         @Param("now") Instant now);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Order o where o.id = :id")
     Optional<Order> findForUpdate(@Param("id")
