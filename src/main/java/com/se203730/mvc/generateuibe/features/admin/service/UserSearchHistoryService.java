@@ -37,9 +37,24 @@ public class UserSearchHistoryService {
         return readRecentHistory(userId);
     }
 
+    /** Each deletion is scoped to the authenticated account, never to a FE-supplied userId. */
+    @Transactional
+    public List<SearchHistoryResponse> deleteSearch(UUID userId, UUID historyId) {
+        accountAccessService.requireActiveUser(userId);
+        historyRepository.deleteOwnedKeyword(userId, historyId);
+        return readRecentHistory(userId);
+    }
+
+    @Transactional
+    public List<SearchHistoryResponse> clearHistory(UUID userId) {
+        accountAccessService.requireActiveUser(userId);
+        historyRepository.deleteAllOwnedKeywords(userId);
+        return List.of();
+    }
+
     private List<SearchHistoryResponse> readRecentHistory(UUID userId) {
         List<UserSearchHistory> historyList = historyRepository
-                .findTop5ByUserIdOrderBySearchedAtDescIdDesc(userId);
+            .findTop5ByUserIdOrderBySearchedAtDescIdDesc(userId);
         List<SearchHistoryResponse> responses = new ArrayList<>();
 
         for (UserSearchHistory history : historyList) {

@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,11 +30,11 @@ public class UserSearchHistoryController {
 
     @GetMapping
     public ResponseEntity<ResponseObject<List<SearchHistoryResponse>>> getRecentHistory(
-            @CurrentUserUUID
-            UUID userId) {
+        @CurrentUserUUID
+        UUID userId) {
         List<SearchHistoryResponse> data = historyService.getRecentHistory(userId);
         ResponseObject<List<SearchHistoryResponse>> response = new ResponseObject<>(200, "Success",
-                data);
+            data);
 
         // Không để trình duyệt/proxy cache lịch sử cá nhân rồi hiển thị cho tài khoản khác.
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
@@ -40,15 +42,30 @@ public class UserSearchHistoryController {
 
     @PostMapping
     public ResponseEntity<ResponseObject<List<SearchHistoryResponse>>> saveSearch(
-            @CurrentUserUUID
-            UUID userId,
-            @Valid
-            @RequestBody
-            SaveSearchHistoryRequest request) {
+        @CurrentUserUUID
+        UUID userId,
+        @Valid
+        @RequestBody
+        SaveSearchHistoryRequest request) {
         List<SearchHistoryResponse> data = historyService.saveSearch(userId, request);
         ResponseObject<List<SearchHistoryResponse>> response = new ResponseObject<>(200,
-                "Search saved.", data);
+            "Search saved.", data);
 
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
+    }
+    @DeleteMapping("/{historyId}")
+    public ResponseEntity<ResponseObject<List<SearchHistoryResponse>>> deleteOne(
+        @CurrentUserUUID UUID userId, @PathVariable UUID historyId) {
+        var data = historyService.deleteSearch(userId, historyId);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+            .body(new ResponseObject<>(200, "Search history entry deleted.", data));
+    }
+
+    @DeleteMapping
+    public ResponseEntity<ResponseObject<List<SearchHistoryResponse>>> clearAll(
+        @CurrentUserUUID UUID userId) {
+        var data = historyService.clearHistory(userId);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+            .body(new ResponseObject<>(200, "Search history cleared.", data));
     }
 }
