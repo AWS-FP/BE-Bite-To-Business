@@ -4,63 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light">
-    <title>Kết quả hồ sơ đăng ký | Bite to Business</title>
-    <style>
-        @media only screen and (max-width: 620px) {
-            .email-card { width: 100% !important; }
-            .email-body, .email-header { padding: 28px 22px !important; }
-        }
-    </style>
+    <title>Kết quả đăng ký | Bite to Business</title>
 </head>
-<body style="margin:0;padding:0;background-color:#f5f3ed;color:#17133a;font-family:'Be Vietnam Pro',Arial,Helvetica,sans-serif;">
-<div style="display:none;font-size:1px;line-height:1px;color:#f5f3ed;max-height:0;max-width:0;overflow:hidden;">
-    Hồ sơ đăng ký của bạn đã có kết quả.
-</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f3ed;">
+<body style="margin:0;padding:0;background-color:#f4f4f5;color:#18181b;font-family:Arial,Helvetica,sans-serif;">
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;overflow:hidden;">Hồ sơ đăng ký của bạn đã có kết quả.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
     <tr>
-        <td align="center" style="padding:32px 12px;">
-            <table role="presentation" class="email-card" width="600" cellpadding="0" cellspacing="0" border="0"
-                   style="width:600px;max-width:600px;background-color:#ffffff;border:1px solid #e1e3da;border-radius:16px;overflow:hidden;">
+        <td align="center" style="padding:24px 12px;">
+            <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+                   style="width:100%;max-width:560px;background-color:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
                 <tr th:replace="~{email/fragments/brand :: header}"></tr>
                 <tr>
-                    <td class="email-body" style="padding:28px 32px;background-color:#123b2e;">
-                        <p style="margin:0 0 12px;color:#ffe14d;font-size:11px;line-height:18px;font-weight:bold;letter-spacing:1.4px;">KẾT QUẢ XÉT DUYỆT HỒ SƠ</p>
-                        <h1 style="margin:0;color:#fff1e0;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:39px;font-weight:normal;">Hồ sơ chưa được chấp thuận.</h1>
+                    <td style="padding:28px 32px;color:#3f3f46;font-size:15px;line-height:24px;">
+                        <h1 style="margin:0 0 16px;color:#18181b;font-size:20px;line-height:28px;">Hồ sơ đăng ký chưa được chấp thuận</h1>
+                        <p style="margin:0 0 16px;">Xin chào bạn,</p>
+                        <p style="margin:0 0 16px;">Hồ sơ đăng ký của bạn chưa được chấp thuận vì lý do sau:</p>
+                        <div style="padding:16px 20px;background-color:#f4f4f5;border-radius:6px;margin:0 0 16px;">
+                            <p th:text="${reason}" style="margin:0;color:#18181b;white-space:pre-line;overflow-wrap:anywhere;word-break:break-word;">Thông tin hồ sơ cần được bổ sung.</p>
+                        </div>
+                        <p style="margin:0;">Bạn có thể bổ sung thông tin và đăng ký lại, hoặc liên hệ hỗ trợ để được hướng dẫn thêm.</p>
                     </td>
                 </tr>
-                <tr>
-                    <td class="email-body" style="padding:32px;">
-                        <p style="margin:0 0 12px;font-size:15px;line-height:24px;">Xin chào bạn,</p>
-                        <p style="margin:0 0 24px;font-size:15px;line-height:24px;">
-                            Hồ sơ của bạn chưa được chấp thuận vì lý do sau:
-                        </p>
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-                               style="background-color:#fff4f2;border:1px solid #eed5d1;border-radius:8px;">
-                            <tr>
-                                <td style="padding:22px 24px;">
-                                    <p style="margin:0 0 12px;color:#993b45;font-size:12px;font-weight:bold;">LÝ DO TỪ CHỐI</p>
-                                    <p th:text="${reason}" style="margin:0;color:#543b3a;font-size:15px;line-height:25px;white-space:pre-line;overflow-wrap:anywhere;word-break:break-word;">Thông tin hồ sơ cần được bổ sung.</p>
-                                </td>
-                            </tr>
-                        </table>
-                        <p style="margin:24px 0 18px;font-size:14px;line-height:23px;">
-                            Liên hệ hỗ trợ để được hướng dẫn thêm.
-                        </p>
-                        <p style="margin:0 0 28px;text-align:center;">
-                            <a th:href="|mailto:${supportEmail}|" href="mailto:support@example.com"
-                               style="display:inline-block;padding:14px 22px;border-radius:6px;background-color:#ffe14d;color:#17133a;font-size:14px;font-weight:bold;line-height:22px;text-decoration:none;">
-                                Liên hệ hỗ trợ
-                            </a>
-                        </p>
-                    </td>
-                </tr>
-                <tr th:replace="~{email/fragments/brand :: stories}"></tr>
-                <tr th:replace="~{email/fragments/brand :: footer}"></tr>
-                <tr>
-                    <td style="padding:20px 28px;background-color:#fff1e0;border-radius:0 0 16px 16px;text-align:center;">
-                        <p style="margin:0;color:#61695f;font-size:11px;line-height:19px;">Nếu bạn không đăng ký, hãy bỏ qua email này.</p>
-                    </td>
-                </tr>
+                <tr th:replace="~{email/fragments/brand :: footer(note='Nếu bạn không đăng ký tài khoản, hãy bỏ qua email này.')}"></tr>
             </table>
         </td>
     </tr>

@@ -6,7 +6,6 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -22,24 +21,23 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /**
- * Gửi kết quả đăng ký và OTP qua Gmail SMTP; không tự tạo hoặc xác minh OTP.
+ * Gửi kết quả đăng ký và OTP qua SMTP (Gmail hoặc Amazon SES); không tự tạo hoặc xác minh OTP.
  */
 @Service
 @Slf4j
 public class RegistrationMailService {
-    private final ClassPathResource logo = new ClassPathResource("email/images/brand-logo.png");
-    private final ClassPathResource produce = new ClassPathResource("email/images/fresh-produce.png");
-    private final ClassPathResource seafood = new ClassPathResource("email/images/fresh-seafood.png");
-
     @Autowired
     private JavaMailSender sender;
 
     @Autowired
     private TemplateEngine templateEngine;
 
-    // Giá trị chuỗi lấy từ cấu hình nên dùng @Value.
-    @Value("${spring.mail.username:}")
+    // Địa chỉ gửi (Gmail hoặc no-reply@ của SES) và hộp thư nhận phản hồi của khách.
+    @Value("${app.mail.from:}")
     private String from;
+
+    @Value("${app.mail.support-email:}")
+    private String supportEmail;
 
     @Value("${app.frontend-base-url:http://localhost:5173}")
     private String frontendBaseUrl;
@@ -92,7 +90,6 @@ public class RegistrationMailService {
             helper.setTo(email);
             helper.setSubject(subject);
             helper.setText(plainText, html);
-            addBrandImages(helper);
             sender.send(message);
         } catch (MailSendException ex) {
             Throwable cause = ex;
@@ -126,7 +123,7 @@ public class RegistrationMailService {
         context.setVariable("reason", reason);
         String plainText = "Bite to Business\n\nHồ sơ đăng ký của bạn chưa được chấp thuận."
                 + "\nLý do từ chối: " + reason
-                + "\nLiên hệ hỗ trợ để được hướng dẫn: " + from;
+                + (supportEmail.isBlank() ? "" : "\nLiên hệ hỗ trợ để được hướng dẫn: " + supportEmail);
 
         try {
             String html = templateEngine.process("email/registration-rejected", context);
@@ -137,7 +134,6 @@ public class RegistrationMailService {
             helper.setTo(email);
             helper.setSubject("Bite to Business - Kết quả đăng ký");
             helper.setText(plainText, html);
-            addBrandImages(helper);
             sender.send(message);
         } catch (MessagingException | MailException | TemplateEngineException
                 | UnsupportedEncodingException ex) {
@@ -147,15 +143,6 @@ public class RegistrationMailService {
 
     private void prepareBrandContext(Context context) {
         context.setVariable("websiteUrl", frontendBaseUrl.strip().replaceAll("/+$", ""));
-        context.setVariable("supportEmail", from);
-        context.setVariable("showBrandPhotos", produce.exists() && seafood.exists());
-    }
-
-    private void addBrandImages(MimeMessageHelper helper) throws MessagingException {
-        helper.addInline("btb-logo", logo, "image/png");
-        if (produce.exists() && seafood.exists()) {
-            helper.addInline("btb-produce", produce, "image/png");
-            helper.addInline("btb-seafood", seafood, "image/png");
-        }
+        context.setVariable("supportEmail", supportEmail);
     }
 }

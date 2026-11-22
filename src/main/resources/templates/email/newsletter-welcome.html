@@ -2,26 +2,30 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Đăng ký nhận tin thành công | Bite to Business</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>Đăng ký nhận tin | Bite to Business</title>
 </head>
-<body style="margin:0;padding:30px 12px;background:#f5f3ed;color:#17133a;font-family:Arial,Helvetica,sans-serif;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-    <tr><td align="center">
-        <table role="presentation" width="580" cellpadding="0" cellspacing="0" border="0" style="max-width:100%;background:#fff;border-radius:16px;overflow:hidden;">
-            <tr><td style="padding:28px 32px;background:#123b2e;color:#fff1e0;">
-                <h1 style="margin:0;font-size:27px;">Bite to Business</h1>
-                <p style="margin:12px 0 0;">Đăng ký nhận tin thành công</p>
-            </td></tr>
-            <tr><td style="padding:32px;font-size:15px;line-height:1.7;">
-                <p>Xin chào,</p>
-                <p>Cảm ơn bạn đã đăng ký nhận tin. Chúng tôi sẽ cập nhật sản phẩm và ưu đãi mới.</p>
-                <p style="margin-top:28px;"><a th:href="${websiteUrl}" href="http://localhost:5173" style="background:#ffe14d;padding:12px 18px;color:#17133a;text-decoration:none;border-radius:6px;font-weight:bold;">Xem sản phẩm</a></p>
-                <p style="font-size:12px;color:#6a6a6a;">Nếu bạn không đăng ký nhận tin, vui lòng liên hệ bộ phận hỗ trợ để được gỡ khỏi danh sách.</p>
-            </td></tr>
-            <tr><td style="background:#f5f3ed;padding:18px 32px;font-size:12px;color:#61695f;">Bite to Business · Thực phẩm cho mọi căn bếp</td></tr>
-        </table>
-    </td></tr>
+<body style="margin:0;padding:0;background-color:#f4f4f5;color:#18181b;font-family:Arial,Helvetica,sans-serif;">
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;overflow:hidden;">Bạn đã đăng ký nhận tin thành công.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
+    <tr>
+        <td align="center" style="padding:24px 12px;">
+            <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+                   style="width:100%;max-width:560px;background-color:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+                <tr th:replace="~{email/fragments/brand :: header}"></tr>
+                <tr>
+                    <td style="padding:28px 32px;color:#3f3f46;font-size:15px;line-height:24px;">
+                        <h1 style="margin:0 0 16px;color:#18181b;font-size:20px;line-height:28px;">Đăng ký nhận tin thành công</h1>
+                        <p style="margin:0 0 16px;">Xin chào bạn,</p>
+                        <p style="margin:0 0 16px;">Cảm ơn bạn đã đăng ký nhận tin. Chúng tôi sẽ gửi thông tin về sản phẩm và ưu đãi mới cho bạn.</p>
+                        <p style="margin:0;"><a th:href="${websiteUrl}" href="https://bite2business.cloud" style="display:inline-block;padding:12px 20px;background-color:#123b2e;color:#ffffff;font-size:14px;font-weight:bold;line-height:20px;text-decoration:none;border-radius:6px;">Xem sản phẩm</a></p>
+                    </td>
+                </tr>
+                <tr th:replace="~{email/fragments/brand :: footer(note='Nếu bạn không đăng ký nhận tin, hãy liên hệ hỗ trợ để được gỡ khỏi danh sách.')}"></tr>
+            </table>
+        </td>
+    </tr>
 </table>
 </body>
 </html>
