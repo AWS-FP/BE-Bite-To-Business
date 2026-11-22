@@ -33,11 +33,17 @@ public interface QuoteCatalogRepository extends JpaRepository<QuoteItem, UUID> {
             pp.list_price as "listPrice", pp.sale_price as "salePrice", pp.sale_discount_percent as "saleDiscountPercent",
             p.vat_rate as "vatRate",
             tier.id as "tierId", tier.unit_price as "tierPrice",
-            coalesce(promo.status = 'PUBLISHED' and promo.starts_at <= clock_timestamp()
-                and promo.ends_at > clock_timestamp(), false) as "promotionActive"
+            exists (
+                select 1 from public.promotions active_promo
+                where (active_promo.id=p.promotion_id OR EXISTS (
+                  select 1 from public.promotion_products link
+                  where link.product_id=p.id and link.promotion_id=active_promo.id))
+                and active_promo.status='PUBLISHED'
+                and active_promo.starts_at<=clock_timestamp()
+                and active_promo.ends_at>clock_timestamp()
+            ) as "promotionActive"
         from public.products p
         join public.product_prices pp on pp.product_id = p.id
-        left join public.promotions promo on promo.id = p.promotion_id
         left join lateral (
             select id, unit_price from public.product_price_tiers
             where product_id = p.id and min_quantity <= :quantity

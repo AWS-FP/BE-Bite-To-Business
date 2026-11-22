@@ -13,7 +13,15 @@ public interface UserSearchHistoryRepository extends JpaRepository<UserSearchHis
     // Spring Data sinh query lọc theo user, sắp xếp mới nhất trước và giới hạn 5 dòng.
     List<UserSearchHistory> findTop5ByUserIdOrderBySearchedAtDescIdDesc(UUID userId);
 
-    // INSERT ... ON CONFLICT tránh tạo dòng trùng khi hai tab cùng gửi một từ khóa.
+    @Modifying
+    @Query("DELETE FROM UserSearchHistory h WHERE h.id = :historyId AND h.userId = :userId")
+    int deleteOwnedKeyword(@Param("userId") UUID userId, @Param("historyId") UUID historyId);
+
+    @Modifying
+    @Query("DELETE FROM UserSearchHistory h WHERE h.userId = :userId")
+    int deleteAllOwnedKeywords(@Param("userId") UUID userId);
+
+    // INSERT ... ON CONFLICT avoids duplicates in two concurrent tabs.
     @Modifying
     @Query(value = """
             INSERT INTO public.user_search_history (id, user_id, keyword, searched_at)
@@ -21,10 +29,5 @@ public interface UserSearchHistoryRepository extends JpaRepository<UserSearchHis
             ON CONFLICT (user_id, LOWER(keyword))
             DO UPDATE SET keyword = EXCLUDED.keyword, searched_at = EXCLUDED.searched_at
             """, nativeQuery = true)
-    void saveKeyword(@Param("id")
-    UUID id,
-            @Param("userId")
-            UUID userId,
-            @Param("keyword")
-            String keyword);
+    void saveKeyword(@Param("id") UUID id, @Param("userId") UUID userId, @Param("keyword") String keyword);
 }
