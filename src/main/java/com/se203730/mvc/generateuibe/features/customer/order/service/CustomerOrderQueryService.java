@@ -16,10 +16,19 @@ import java.util.UUID;
 public class CustomerOrderQueryService {
     private final CustomerOrderQueryRepository repository;
 
-    public CustomerOrdersPageResponse list(UUID customerId, int page, int size) {
+    /**
+     * @param group ALL, ACTIVE (CONFIRMED/PROCESSING: awaiting payment or delivery)
+     *              or FINISHED (COMPLETED/CANCELLED).
+     */
+    public CustomerOrdersPageResponse list(UUID customerId, String group, int page, int size) {
         if (page < 0 || size < 1 || size > 50) throw new BusinessException(ErrorCode.INVALID_REQUEST);
-        long total = repository.countForCustomer(customerId);
-        return new CustomerOrdersPageResponse(repository.listForCustomer(customerId, size, (long) page * size),
+        String normalized = group == null ? "ALL" : group.toUpperCase(java.util.Locale.ROOT);
+        if (!java.util.Set.of("ALL", "ACTIVE", "FINISHED").contains(normalized)) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        long total = repository.countForCustomer(customerId, normalized);
+        return new CustomerOrdersPageResponse(
+                repository.listForCustomer(customerId, normalized, size, (long) page * size),
                 page, size, total, (int) ((total + size - 1) / size));
     }
 
