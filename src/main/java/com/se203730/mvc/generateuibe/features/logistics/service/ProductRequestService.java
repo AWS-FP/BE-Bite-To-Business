@@ -3,6 +3,7 @@ package com.se203730.mvc.generateuibe.features.logistics.service;
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
+import com.se203730.mvc.generateuibe.features.customer.notification.service.NotificationEventPublisher;
 import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.logistics.entity.ProductRequest;
@@ -27,6 +28,7 @@ public class ProductRequestService {
     private final DatabaseClock clock;
     private final ProductRequestResponseRepository responses;
     private final ApplicationEventPublisher events;
+    private final NotificationEventPublisher notificationEvents;
 
     public record RequestView(UUID id, UUID customerId, String productName, String referenceUrl,
                               String customerNote, String status, Instant createdAt, Instant updatedAt) {}
@@ -122,6 +124,13 @@ public class ProductRequestService {
         }
         request.setStatus(decision);
         request.setUpdatedAt(now);
+        notificationEvents.publish(request.getCustomerId(), "SOURCING_REPLY", id, "PRODUCT_REQUEST",
+                "Yêu cầu sản phẩm đã được phản hồi", "Your product request has an update",
+                "Yêu cầu '" + request.getProductName() + "' đã được " +
+                    ("ADDED".equals(decision) ? "chấp thuận." : "từ chối."),
+                "Your request for '" + request.getProductName() + "' was " +
+                    ("ADDED".equals(decision) ? "accepted." : "rejected."),
+                null);
         return view(request);
     }
 
