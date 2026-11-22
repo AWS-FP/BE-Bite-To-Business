@@ -1,63 +1,44 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<!--/*
+    Khung chung cho mọi email của website: nền trắng, viền xám, logo nhỏ, một màu nhấn xanh đậm.
+    Lambda btb-customer-notifier (aws-lambda/btb-customer-notifier/index.mjs) dùng cùng khung này;
+    sửa giao diện ở đây thì sửa cả bên đó cho đồng bộ.
+    Biến cần có: websiteUrl, supportEmail (có thể rỗng).
+*/-->
 <body>
 <table role="presentation">
     <tr th:fragment="header">
-        <td class="email-header" style="padding:24px 32px;background-color:#fff1e0;border-radius:16px 16px 0 0;border-top:5px solid #ffe14d;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                    <td width="100" valign="middle" style="padding-right:16px;">
-                        <a th:href="${websiteUrl}" style="text-decoration:none;">
-                            <img src="cid:btb-logo" width="84" alt="Logo Bite to Business"
-                                 style="display:block;width:84px;max-width:100%;height:auto;border:0;">
-                        </a>
-                    </td>
-                    <td valign="middle">
-                        <p style="margin:0;color:#123b2e;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:30px;font-weight:bold;">Bite to Business</p>
-                        <p style="margin:6px 0 0;color:#61695f;font-size:10px;line-height:16px;letter-spacing:1px;">THỰC PHẨM CHO MỌI CĂN BẾP</p>
-                    </td>
-                </tr>
-            </table>
+        <td style="padding:20px 32px;border-bottom:1px solid #e4e4e7;">
+            <a th:href="${websiteUrl}" href="https://bite2business.cloud" style="text-decoration:none;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                        <td valign="middle" style="padding-right:12px;">
+                            <img th:src="|${websiteUrl}/images/email/brand-logo.png|"
+                                 src="https://bite2business.cloud/images/email/brand-logo.png"
+                                 width="60" height="40" alt="Bite to Business"
+                                 style="display:block;width:60px;height:40px;border:0;">
+                        </td>
+                        <td valign="middle" style="color:#18181b;font-size:17px;line-height:24px;font-weight:bold;">
+                            Bite to Business
+                        </td>
+                    </tr>
+                </table>
+            </a>
         </td>
     </tr>
 
-    <tr th:fragment="stories" th:if="${showBrandPhotos}">
-        <td class="email-body" style="padding:0 32px 32px;background-color:#ffffff;">
-            <p style="margin:0 0 16px;color:#123b2e;font-size:11px;line-height:18px;font-weight:bold;letter-spacing:1px;">TỪ NGUỒN TƯƠI, ĐẾN GIAN BẾP CỦA BẠN</p>
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                    <td width="49%" valign="top" style="background-color:#fff1e0;border:1px solid #e9e2d5;">
-                        <img src="cid:btb-produce" width="254" alt="Đầu bếp mang giỏ rau củ tươi trong vườn"
-                             style="display:block;width:100%;max-width:254px;height:auto;border:0;">
-                        <p style="margin:0;padding:14px 12px 4px;color:#123b2e;font-size:14px;line-height:20px;font-weight:bold;">Rau củ &amp; nông sản</p>
-                    </td>
-                    <td width="2%" style="font-size:0;line-height:0;">&nbsp;</td>
-                    <td width="49%" valign="top" style="background-color:#fff1e0;border:1px solid #e9e2d5;">
-                        <img src="cid:btb-seafood" width="254" alt="Người bán chăm sóc các khay cá và hải sản trên thuyền"
-                             style="display:block;width:100%;max-width:254px;height:auto;border:0;">
-                        <p style="margin:0;padding:14px 12px 4px;color:#123b2e;font-size:14px;line-height:20px;font-weight:bold;">Cá &amp; hải sản</p>
-                    </td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-
-    <tr th:fragment="footer">
-        <td class="email-body" style="padding:24px 32px;background-color:#123b2e;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                    <td valign="top">
-                        <p style="margin:0;color:#fff1e0;font-size:14px;line-height:22px;font-weight:bold;">Bite to Business</p>
-                        <p style="margin:5px 0 0;color:#d1decc;font-size:11px;line-height:18px;">Đồng hành cùng căn bếp của bạn.</p>
-                    </td>
-                    <td align="right" valign="top" style="padding-left:16px;">
-                        <a th:href="${websiteUrl}" style="color:#ffe14d;font-size:12px;line-height:22px;font-weight:bold;text-decoration:underline;">Mở website &#8599;</a>
-                        <p th:if="${supportEmail != null}" style="margin:5px 0 0;">
-                            <a th:href="|mailto:${supportEmail}|" style="color:#fff1e0;font-size:11px;line-height:18px;text-decoration:underline;">Liên hệ hỗ trợ</a>
-                        </p>
-                    </td>
-                </tr>
-            </table>
+    <tr th:fragment="footer(note)">
+        <td style="padding:20px 32px;border-top:1px solid #e4e4e7;color:#71717a;font-size:12px;line-height:19px;">
+            <p th:if="${note != null and !#strings.isEmpty(note)}" th:text="${note}" style="margin:0 0 8px;">Ghi chú</p>
+            <p style="margin:0 0 8px;">Đây là email tự động từ Bite to Business, vui lòng không trả lời email này.</p>
+            <p style="margin:0;">
+                <a th:href="${websiteUrl}" href="https://bite2business.cloud" style="color:#123b2e;text-decoration:underline;">Website</a>
+                <th:block th:if="${supportEmail != null and !#strings.isEmpty(supportEmail)}">
+                    &nbsp;·&nbsp;
+                    <a th:href="|mailto:${supportEmail}|" href="mailto:support@example.com" style="color:#123b2e;text-decoration:underline;">Liên hệ hỗ trợ</a>
+                </th:block>
+            </p>
         </td>
     </tr>
 </table>

@@ -87,6 +87,24 @@ public class GenerativeUiService {
         String latest = messages.get(messages.size() - 1).content().trim();
         String history = history(messages);
 
+        // Chỉ kiểm câu người dùng vừa gõ; bị chặn thì trả lời từ chối và không gọi model.
+        BedrockClient.GuardrailCheck guard = bedrock.checkUserInput(latest);
+        if (guard.blocked()) {
+            log.info("AI request blocked by guardrail");
+            sendText(sink, blockedText(guard.message(), locale));
+            Map<String, Object> snapshot = new LinkedHashMap<>();
+            snapshot.put("locale", locale);
+            if (state != null) {
+                snapshot.put("view", state.view());
+                snapshot.put("density", state.density());
+                snapshot.put("lastQuery", state.lastQuery());
+                snapshot.put("lastSort", state.lastSort());
+            }
+            snapshot.put("lastIntents", List.of("BLOCKED"));
+            sink.send(event("STATE_SNAPSHOT", "snapshot", snapshot));
+            return;
+        }
+
         Intent intent = classify(history, latest);
         Route route = route(intent);
         log.info("AI intent {} → {}", intent.intents(), route);
@@ -113,6 +131,15 @@ public class GenerativeUiService {
         }
         snapshot.put("lastIntents", intent.intents());
         sink.send(event("STATE_SNAPSHOT", "snapshot", snapshot));
+    }
+
+    private static String blockedText(String guardrailMessage, String locale) {
+        if ("en".equals(locale)) {
+            return "Sorry, I can only help with products and orders on Bite to Business.";
+        }
+        return guardrailMessage == null || guardrailMessage.isBlank()
+                ? "Xin lỗi, mình chỉ hỗ trợ các câu hỏi về sản phẩm và đặt hàng trên Bite to Business."
+                : guardrailMessage;
     }
 
     private static String navigateText(String page, String locale) {
