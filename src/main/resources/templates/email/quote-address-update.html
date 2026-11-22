@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>Cập nhật địa chỉ giao hàng | Bite to Business</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;color:#18181b;font-family:Arial,Helvetica,sans-serif;">
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;overflow:hidden;">Địa chỉ giao hàng trong báo giá cần được cập nhật.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
+    <tr>
+        <td align="center" style="padding:24px 12px;">
+            <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+                   style="width:100%;max-width:560px;background-color:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+                <tr th:replace="~{email/fragments/brand :: header}"></tr>
+                <tr>
+                    <td style="padding:28px 32px;color:#3f3f46;font-size:15px;line-height:24px;">
+                        <h1 style="margin:0 0 16px;color:#18181b;font-size:20px;line-height:28px;">Cần cập nhật địa chỉ giao hàng</h1>
+                        <p style="margin:0 0 16px;">Xin chào bạn,</p>
+                        <p style="margin:0 0 16px;">Địa chỉ giao hàng trong báo giá <strong th:text="${quoteNumber}">BG-0001</strong> cần được cập nhật vì lý do sau:</p>
+                        <div style="padding:16px 20px;background-color:#f4f4f5;border-radius:6px;margin:0 0 16px;">
+                            <p th:text="${reason}" style="margin:0;color:#18181b;white-space:pre-line;overflow-wrap:anywhere;">Địa chỉ nằm ngoài khu vực giao hàng.</p>
+                        </div>
+                        <p style="margin:0;"><a th:href="${quotesUrl}" href="https://bite2business.cloud/quotes" style="display:inline-block;padding:12px 20px;background-color:#123b2e;color:#ffffff;font-size:14px;font-weight:bold;line-height:20px;text-decoration:none;border-radius:6px;">Cập nhật địa chỉ</a></p>
+                    </td>
+                </tr>
+                <tr th:replace="~{email/fragments/brand :: footer(note='')}"></tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
