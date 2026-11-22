@@ -80,6 +80,37 @@ public class ExecutiveMarketingController {
         @PathVariable UUID id,@Valid @RequestBody ExecutivePromotionRequest r) {
         return ok(service.updatePromotion(id,r));
     }
+    @GetMapping("/promotions/{id}/product-ids")
+    public ResponseEntity<ResponseObject<List<UUID>>> promotionProductIds(@PathVariable UUID id) {
+        return ok(service.promotionProductIds(id));
+    }
+    @GetMapping("/promotions/{id}/products")
+    public ResponseEntity<ResponseObject<EcommercePageResponse<Map<String,Object>>>> promotionProductChoices(
+        @PathVariable UUID id, @RequestParam(required=false) String q,
+        @RequestParam(required=false) UUID brandId,
+        @RequestParam(required=false) UUID categoryId,
+        @RequestParam(defaultValue="false") boolean inStockOnly,
+        @RequestParam(defaultValue="false") boolean discountOnly,
+        @RequestParam(defaultValue="0") @Min(0) int page,
+        @RequestParam(defaultValue="20") @Min(1) @Max(100) int size) {
+        return ok(service.promotionProductChoices(id,
+            new ExecutivePromotionProductFilterRequest(q,brandId,categoryId,inStockOnly,discountOnly),page,size));
+    }
+    @PostMapping("/promotions/{id}/products/resolve")
+    public ResponseEntity<ResponseObject<List<Map<String,Object>>>> resolvePromotionProducts(
+        @PathVariable UUID id,@Valid @RequestBody ExecutivePromotionProductsRequest r) {
+        return ok(service.promotionProductDetails(id,r.productIds()));
+    }
+    @PostMapping("/promotions/{id}/products/matching")
+    public ResponseEntity<ResponseObject<List<UUID>>> matchingPromotionProducts(
+        @PathVariable UUID id,@RequestBody ExecutivePromotionProductFilterRequest r) {
+        return ok(service.promotionMatchingProductIds(id,r));
+    }
+    @PutMapping("/promotions/{id}/products")
+    public ResponseEntity<ResponseObject<Map<String,Object>>> replacePromotionProducts(
+        @PathVariable UUID id,@Valid @RequestBody ExecutivePromotionProductsRequest r) {
+        return ok(service.replacePromotionProducts(id,r));
+    }
     @PostMapping("/promotions/{id}/publish")
     public ResponseEntity<ResponseObject<Map<String,Object>>> publish(@PathVariable UUID id) {
         return ok(service.setPromotionStatus(id,"PUBLISHED"));
