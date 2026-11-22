@@ -4,6 +4,8 @@ import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.features.ecommerce.executive.dto.request.ExecutiveCouponRequest;
 import com.se203730.mvc.generateuibe.features.ecommerce.executive.dto.request.ExecutivePromotionRequest;
+import com.se203730.mvc.generateuibe.features.ecommerce.executive.dto.request.ExecutivePromotionProductsRequest;
+import com.se203730.mvc.generateuibe.features.ecommerce.executive.dto.request.ExecutivePromotionProductFilterRequest;
 import com.se203730.mvc.generateuibe.features.ecommerce.executive.dto.response.EcommercePageResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.executive.repository.EcommerceExecutiveRepository;
 import lombok.RequiredArgsConstructor;
@@ -118,18 +120,24 @@ public class ExecutiveMarketingService {
         var p = new MapSqlParameterSource("status",status);
         String where = status==null ? "" : " where p.status=:status";
         return db.page("select p.id,p.name_vi,p.name_en,p.content_vi,p.content_en,p.status," +
-                "p.starts_at,p.ends_at,p.image_url,p.created_by,p.published_at,p.created_at,p.updated_at " +
+                "p.starts_at,p.ends_at,p.promotion_type,p.image_url,p.created_by,p.published_at,p.created_at,p.updated_at " +
                 "from public.promotions p" + where + " order by p.created_at desc,p.id",
             "select count(*) from public.promotions p"+where,p,page,size);
     }
     @Transactional(readOnly=true)
     public Map<String,Object> promotion(UUID id) {
         return db.one("select id,name_vi,name_en,content_vi,content_en,status,starts_at,ends_at," +
-                "image_url,created_by,published_at,created_at,updated_at from public.promotions where id=:id",
+                "promotion_type,image_url,created_by,published_at,created_at,updated_at from public.promotions where id=:id",
             new MapSqlParameterSource("id",id));
     }
+    private static String promotionType(ExecutivePromotionRequest r) {
+        return r.promotionType() == null ? "STANDARD" : r.promotionType();
+    }
     private static void validatePromotion(ExecutivePromotionRequest r) {
-        if (!r.endsAt().isAfter(r.startsAt()) || (r.contentVi()!=null && r.contentVi().isBlank()) ||
+        if (!Set.of("STANDARD", "FLASH_SALE").contains(promotionType(r)) ||
+            ("FLASH_SALE".equals(promotionType(r)) &&
+                java.time.Duration.between(r.startsAt(),r.endsAt()).compareTo(java.time.Duration.ofHours(72))>0) ||
+            !r.endsAt().isAfter(r.startsAt()) || (r.contentVi()!=null && r.contentVi().isBlank()) ||
             (r.contentEn()!=null && r.contentEn().isBlank()) ||
             (r.imageUrl()!=null && (r.imageUrl().length()>2048 || !r.imageUrl().startsWith("https://"))))
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
@@ -137,15 +145,16 @@ public class ExecutiveMarketingService {
     private MapSqlParameterSource promotionParams(ExecutivePromotionRequest r) {
         return new MapSqlParameterSource().addValue("vi",r.nameVi().strip()).addValue("en",r.nameEn().strip())
             .addValue("contentVi",r.contentVi()).addValue("contentEn",r.contentEn())
-            .addValue("start",r.startsAt()).addValue("end",r.endsAt()).addValue("image",r.imageUrl());
+            .addValue("start",r.startsAt()).addValue("end",r.endsAt()).addValue("image",r.imageUrl())
+            .addValue("type",promotionType(r));
     }
     @Transactional
     public Map<String,Object> createPromotion(UUID staffId,ExecutivePromotionRequest r) {
         validatePromotion(r);
         var p=promotionParams(r).addValue("staff",staffId);
         UUID id=db.queryForObject("insert into public.promotions " +
-            "(name_vi,name_en,content_vi,content_en,starts_at,ends_at,image_url,created_by,status)" +
-            "values(:vi,:en,:contentVi,:contentEn,:start,:end,:image,:staff,'DRAFT') returning id",p,UUID.class);
+            "(name_vi,name_en,content_vi,content_en,starts_at,ends_at,image_url,created_by,status,promotion_type)" +
+            "values(:vi,:en,:contentVi,:contentEn,:start,:end,:image,:staff,'DRAFT',:type) returning id",p,UUID.class);
         return promotion(id);
     }
     @Transactional
@@ -154,21 +163,246 @@ public class ExecutiveMarketingService {
         var p=promotionParams(r).addValue("id",id);
         var before=db.one("select status from public.promotions where id=:id for update",p);
         if ("ARCHIVED".equals(before.get("status"))) throw new BusinessException(ErrorCode.CONFLICT);
+        if ("FLASH_SALE".equals(promotionType(r)) && promotionProductIds(id).size()>8)
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
         // Every edit to a published campaign returns it to DRAFT for manual review.
         db.update("update public.promotions set name_vi=:vi,name_en=:en,content_vi=:contentVi," +
-            "content_en=:contentEn,starts_at=:start,ends_at=:end,image_url=:image," +
+            "content_en=:contentEn,starts_at=:start,ends_at=:end,image_url=:image,promotion_type=:type," +
             "status='DRAFT',updated_at=now() where id=:id",p);
         return promotion(id);
     }
+
+    /** Current assignments include the legacy direct FK and the new many-to-many links. */
+    @Transactional(readOnly=true)
+    public List<UUID> promotionProductIds(UUID id) {
+        promotion(id);
+        return db.queryForList("""
+            SELECT product_id FROM public.promotion_products WHERE promotion_id=:id
+            UNION
+            SELECT id FROM public.products WHERE promotion_id=:id
+            ORDER BY product_id
+            """,new MapSqlParameterSource("id",id),UUID.class);
+    }
+
+    /** Shared projection for both the browser and the selected-products pane. */
+    private static final String PROMOTION_PRODUCT_COLUMNS = """
+        SELECT p.id,p.sku,p.name_vi,p.name_en,p.image_url,p.status,p.unit_code,
+            p.brand_id,p.category_id,p.min_order_quantity,p.promotion_id AS legacy_promotion_id,
+            legacy.name_vi AS legacy_promotion_name,
+            (COALESCE(cat.is_active,FALSE) AND
+              (cat.parent_id IS NULL OR COALESCE(parent.is_active,FALSE))) AS category_active,
+            price.list_price,price.sale_price,price.sale_discount_percent,
+            GREATEST(COALESCE(stock.available_quantity,0),0) AS available_quantity,
+            (p.promotion_id=:id OR EXISTS(SELECT 1 FROM public.promotion_products pm
+                WHERE pm.product_id=p.id AND pm.promotion_id=:id)) AS selected
+        """;
+
+    private static final String PROMOTION_PRODUCT_FROM = """
+        FROM public.products p
+        LEFT JOIN public.product_prices price ON price.product_id=p.id
+        LEFT JOIN public.inventory stock ON stock.product_id=p.id
+        LEFT JOIN public.promotions legacy ON legacy.id=p.promotion_id
+        LEFT JOIN public.categories cat ON cat.id=p.category_id
+        LEFT JOIN public.categories parent ON parent.id=cat.parent_id
+        WHERE 1=1
+        """;
+
+    private static MapSqlParameterSource filters(UUID campaignId, ExecutivePromotionProductFilterRequest f) {
+        String q = f.q()==null ? "" : f.q().strip();
+        if (q.length()>100) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        return new MapSqlParameterSource("id", campaignId)
+            .addValue("q", q.isEmpty()?"%%":"%"+EcommerceExecutiveRepository.find(q,100)+"%")
+            .addValue("brand", f.brandId())
+            .addValue("category", f.categoryId())
+            .addValue("stockOnly", f.inStockOnly())
+            .addValue("discountOnly", f.discountOnly());
+    }
+
+    private static final String PROMOTION_PRODUCT_FILTER = """
+        AND (:q='%%' OR p.sku ILIKE :q ESCAPE '\\'
+            OR p.name_vi ILIKE :q ESCAPE '\\' OR p.name_en ILIKE :q ESCAPE '\\')
+        AND (NOT :stockOnly OR COALESCE(stock.available_quantity,0)>=p.min_order_quantity)
+        AND (NOT :discountOnly OR (price.list_price>0 AND price.sale_price>=0
+            AND price.sale_price<price.list_price))
+        """;
+
+    /** Avoid binding untyped UUID nulls to `IS NULL` (PostgreSQL error 42P18). */
+    private static String productFilterSql(ExecutivePromotionProductFilterRequest f) {
+        var sql=new StringBuilder(PROMOTION_PRODUCT_FILTER);
+        if (f.brandId()!=null) sql.append(" AND p.brand_id=:brand\n");
+        if (f.categoryId()!=null)
+            sql.append(" AND (p.category_id=:category OR cat.parent_id=:category)\n");
+        return sql.toString();
+    }
+
+    /** Server-side filters search the entire catalog, never only a currently loaded page. */
+    @Transactional(readOnly=true)
+    public EcommercePageResponse<Map<String,Object>> promotionProductChoices(
+        UUID id,ExecutivePromotionProductFilterRequest f,int page,int size) {
+        promotion(id);
+        var params=filters(id,f);
+        String from=PROMOTION_PRODUCT_FROM+productFilterSql(f);
+        return db.page(PROMOTION_PRODUCT_COLUMNS+from+"""
+            ORDER BY (p.promotion_id=:id OR EXISTS(SELECT 1 FROM public.promotion_products pm
+                WHERE pm.product_id=p.id AND pm.promotion_id=:id)) DESC,p.name_vi ASC,p.id ASC
+            """, "SELECT count(*) "+from,params,page,size);
+    }
+
+    /** Resolve every locally selected ID, including products on other pages/filters. */
+    @Transactional(readOnly=true)
+    public List<Map<String,Object>> promotionProductDetails(UUID id,List<UUID> ids) {
+        promotion(id);
+        if (ids==null || ids.size()>2000 || ids.contains(null) ||
+            new HashSet<>(ids).size()!=ids.size())
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        if (ids.isEmpty()) return List.of();
+        return db.list(PROMOTION_PRODUCT_COLUMNS+PROMOTION_PRODUCT_FROM+
+                " AND p.id IN (:ids) ORDER BY p.name_vi,p.id",
+            new MapSqlParameterSource("id",id).addValue("ids",ids));
+    }
+
+    /** Bulk-select only eligible-to-assign products, without limiting to the visible page. */
+    @Transactional(readOnly=true)
+    public List<UUID> promotionMatchingProductIds(UUID id,ExecutivePromotionProductFilterRequest f) {
+        promotion(id);
+        var p=filters(id,f);
+        List<UUID> matches=db.queryForList("SELECT p.id "+PROMOTION_PRODUCT_FROM+
+            productFilterSql(f)+"""
+                AND p.status='PUBLISHED' AND p.unit_code<>'COMBO'
+                AND COALESCE(cat.is_active,FALSE)
+                AND (cat.parent_id IS NULL OR COALESCE(parent.is_active,FALSE))
+                ORDER BY p.name_vi,p.id LIMIT 2001
+                """,p,UUID.class);
+        if (matches.size()>2000) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        return matches;
+    }
+
+    /** Validate the entire set under one transaction; never silently reassign a legacy campaign. */
+    private boolean allFlashEligible(List<UUID> ids) {
+        if (ids.isEmpty()) return false;
+        Long eligible=db.queryForObject("""
+            SELECT count(*) FROM public.products p
+            JOIN public.product_prices pp ON pp.product_id=p.id
+            JOIN public.categories cat ON cat.id=p.category_id AND cat.is_active=TRUE
+            LEFT JOIN public.categories parent ON parent.id=cat.parent_id
+            LEFT JOIN public.inventory inv ON inv.product_id=p.id
+            WHERE p.id IN (:ids) AND p.status='PUBLISHED' AND p.unit_code<>'COMBO'
+              AND (cat.parent_id IS NULL OR parent.is_active=TRUE)
+              AND pp.list_price>0 AND pp.sale_price>=0 AND pp.sale_price<pp.list_price
+              AND COALESCE(inv.available_quantity,0)>=p.min_order_quantity
+            """,new MapSqlParameterSource("ids",ids),Long.class);
+        return eligible!=null && eligible==ids.size();
+    }
+
+    /** One transaction for membership + requested price edits; no list-price or tier edits. */
+    @Transactional
+    public Map<String,Object> replacePromotionProducts(UUID id,ExecutivePromotionProductsRequest req) {
+        List<UUID> requested=req.productIds();
+        var priceChanges=req.priceUpdates()==null ? List.<ExecutivePromotionProductsRequest.PriceUpdate>of() : req.priceUpdates();
+        if (requested==null || requested.size()>2000 || requested.contains(null)
+            || new HashSet<>(requested).size()!=requested.size() || priceChanges.size()>2000)
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        Set<UUID> requestedSet=new HashSet<>(requested);
+        Set<UUID> pricedIds=new HashSet<>();
+        for (var change:priceChanges) {
+            if (change==null || change.productId()==null ||
+                !requestedSet.contains(change.productId()) || !pricedIds.add(change.productId()) ||
+                change.expectedListPrice()==null || change.expectedListPrice().signum()<=0 ||
+                (change.newSalePrice()!=null && (change.newSalePrice().signum()<0 ||
+                    change.newSalePrice().compareTo(change.expectedListPrice())>=0 ||
+                    change.newSalePrice().stripTrailingZeros().scale()>0)))
+                throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        var p=new MapSqlParameterSource("id",id);
+        var campaign=db.one("select id,status,promotion_type from public.promotions where id=:id for update",p);
+        if ("ARCHIVED".equals(campaign.get("status"))) throw new BusinessException(ErrorCode.CONFLICT);
+        List<UUID> previous=promotionProductIds(id);
+        if (req.expectedProductIds()!=null && (
+            req.expectedProductIds().contains(null) ||
+                req.expectedProductIds().size()!=new HashSet<>(req.expectedProductIds()).size() ||
+                !new HashSet<>(previous).equals(new HashSet<>(req.expectedProductIds()))))
+            throw new BusinessException(ErrorCode.CONFLICT);
+        boolean flash="FLASH_SALE".equals(campaign.get("promotionType"));
+        if (flash && requested.size()>8) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        if (!requested.isEmpty()) {
+            Long found=db.queryForObject("""
+                SELECT count(*) FROM public.products p
+                JOIN public.categories cat ON cat.id=p.category_id AND cat.is_active=TRUE
+                LEFT JOIN public.categories parent ON parent.id=cat.parent_id
+                WHERE p.id IN (:ids) AND p.status='PUBLISHED' AND p.unit_code<>'COMBO'
+                  AND (cat.parent_id IS NULL OR parent.is_active=TRUE)
+                """,new MapSqlParameterSource("ids",requested),Long.class);
+            if (found==null || found!=requested.size()) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        // Lock each price row in deterministic order, preventing lost updates from another editor.
+        for (var change:priceChanges.stream()
+            .sorted(Comparator.comparing(ExecutivePromotionProductsRequest.PriceUpdate::productId)).toList()) {
+            var pp=db.one("select list_price,sale_price,sale_discount_percent from public.product_prices " +
+                "where product_id=:pid for update",new MapSqlParameterSource("pid",change.productId()));
+            BigDecimal actualList=(BigDecimal)pp.get("listPrice");
+            BigDecimal actualSale=(BigDecimal)pp.get("salePrice");
+            BigDecimal actualTierPercent=(BigDecimal)pp.get("saleDiscountPercent");
+            if (actualList==null || actualList.compareTo(change.expectedListPrice())!=0 ||
+                (actualSale==null ? change.expectedSalePrice()!=null :
+                    change.expectedSalePrice()==null || actualSale.compareTo(change.expectedSalePrice())!=0) ||
+                (actualTierPercent==null ? change.expectedSaleDiscountPercent()!=null :
+                    change.expectedSaleDiscountPercent()==null ||
+                        actualTierPercent.compareTo(change.expectedSaleDiscountPercent())!=0))
+                throw new BusinessException(ErrorCode.CONFLICT);
+            // Price is product-wide under the current schema. Do not change list price or tiers.
+            db.update("update public.product_prices set sale_price=:sale," +
+                    "sale_discount_percent=null,updated_at=now() where product_id=:pid",
+                new MapSqlParameterSource("pid",change.productId())
+                    .addValue("sale",change.newSalePrice()));
+        }
+        // Validate AFTER applying price edits, so a product can be selected and discounted in one save.
+        if (flash && !requested.isEmpty() && !allFlashEligible(requested))
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        boolean membershipChanged=!new HashSet<>(previous).equals(requestedSet);
+        if (membershipChanged) {
+            db.update("delete from public.promotion_products where promotion_id=:id",p);
+            db.update("update public.products set promotion_id=null,updated_at=now() " +
+                    "where promotion_id=:id AND (:keepEmpty=true OR id NOT IN (:keepIds))",
+                p.addValue("keepEmpty",requested.isEmpty())
+                    .addValue("keepIds",requested.isEmpty()?List.of(id):requested));
+            for(UUID productId:requested)
+                db.update("insert into public.promotion_products(promotion_id,product_id) " +
+                        "values(:id,:pid) on conflict do nothing",
+                    new MapSqlParameterSource("id",id).addValue("pid",productId));
+        }
+        if (membershipChanged || !priceChanges.isEmpty())
+            db.update("update public.promotions set status='DRAFT',updated_at=now() " +
+                "where id=:id and status='PUBLISHED'",p);
+        return promotion(id);
+    }
+
+    // PgJDBC may expose timestamptz as java.sql.Timestamp via ResultSet.getObject().
+    private static java.time.Instant sqlInstant(Object value) {
+        if (value instanceof java.sql.Timestamp ts) return ts.toInstant();
+        if (value instanceof java.time.OffsetDateTime odt) return odt.toInstant();
+        if (value instanceof java.time.Instant i) return i;
+        throw new IllegalStateException("Unexpected promotion timestamp type: " +
+            (value==null ? "null" : value.getClass().getName()));
+    }
+
     @Transactional
     public Map<String,Object> setPromotionStatus(UUID id,String status) {
         if (!Set.of("PUBLISHED","DISABLED","ARCHIVED","DRAFT").contains(status))
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         var p=new MapSqlParameterSource("id",id).addValue("status",status);
-        var existing=db.one("select status,content_vi,content_en,image_url,(ends_at>now()) as not_expired " +
+        var existing=db.one("select status,content_vi,content_en,image_url,promotion_type,starts_at,ends_at,(ends_at>now()) as not_expired " +
             "from public.promotions where id=:id for update",p);
         if ("ARCHIVED".equals(existing.get("status")) != "DRAFT".equals(status)) throw new BusinessException(ErrorCode.CONFLICT);
         if ("PUBLISHED".equals(status)) {
+            if ("FLASH_SALE".equals(existing.get("promotionType"))) {
+                java.time.Instant starts=sqlInstant(existing.get("startsAt"));
+                java.time.Instant ends=sqlInstant(existing.get("endsAt"));
+                if (java.time.Duration.between(starts,ends).compareTo(java.time.Duration.ofHours(72))>0
+                    || !ends.isAfter(starts)) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+                var selected=promotionProductIds(id);
+                if (selected.isEmpty() || selected.size()>8 || !allFlashEligible(selected))
+                    throw new BusinessException(ErrorCode.CONFLICT);
+            }
             if (existing.get("contentVi")==null || existing.get("contentEn")==null ||
                 existing.get("imageUrl")==null ||
                 !Boolean.TRUE.equals(existing.get("notExpired")))

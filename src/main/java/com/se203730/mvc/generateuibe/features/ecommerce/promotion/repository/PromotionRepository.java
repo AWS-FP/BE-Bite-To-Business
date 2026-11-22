@@ -40,8 +40,8 @@ public class PromotionRepository {
     public List<PromotionResponse> findActiveStandardPromotions(int limit) {
         // Before the optional migration, every promotion is treated as STANDARD.
         String typeClause = hasPromotionType()
-                ? " AND promotion_type = 'STANDARD' "
-                : "";
+            ? " AND promotion_type = 'STANDARD' "
+            : "";
 
         String sql = """
                 SELECT id, name_vi, name_en, content_vi, content_en,
@@ -56,13 +56,13 @@ public class PromotionRepository {
                 """;
 
         return jdbc.query(sql, (rs, rowNum) -> new PromotionResponse(
-                rs.getObject("id", UUID.class),
-                rs.getString("name_vi"),
-                rs.getString("name_en"),
-                rs.getString("content_vi"),
-                rs.getString("content_en"),
-                asInstant(rs.getTimestamp("starts_at")),
-                asInstant(rs.getTimestamp("ends_at"))
+            rs.getObject("id", UUID.class),
+            rs.getString("name_vi"),
+            rs.getString("name_en"),
+            rs.getString("content_vi"),
+            rs.getString("content_en"),
+            asInstant(rs.getTimestamp("starts_at")),
+            asInstant(rs.getTimestamp("ends_at"))
         ), limit);
     }
 
@@ -84,39 +84,51 @@ public class PromotionRepository {
                 FROM public.products p
                 JOIN public.product_prices pp ON pp.product_id = p.id
                 JOIN public.inventory inv ON inv.product_id = p.id
-                JOIN public.promotions promo ON promo.id = p.promotion_id
+                JOIN LATERAL (
+                    SELECT a.id,a.name_vi,a.ends_at,a.status,a.starts_at,a.promotion_type
+                    FROM public.promotions a
+                    WHERE (a.id=p.promotion_id OR EXISTS (
+                      SELECT 1 FROM public.promotion_products link
+                      WHERE link.product_id=p.id AND link.promotion_id=a.id))
+                      AND a.status='PUBLISHED' AND a.promotion_type='FLASH_SALE'
+                      AND a.starts_at<=CURRENT_TIMESTAMP AND a.ends_at>CURRENT_TIMESTAMP
+                      AND a.ends_at-a.starts_at<=INTERVAL '72 hours'
+                    ORDER BY a.ends_at ASC,a.id ASC LIMIT 1
+                ) promo ON TRUE
                 WHERE p.status = 'PUBLISHED'
                   AND promo.status = 'PUBLISHED'
                   AND promo.promotion_type = 'FLASH_SALE'
+                  AND promo.ends_at > promo.starts_at
+                  AND promo.ends_at-promo.starts_at <= INTERVAL '72 hours'
                   AND promo.starts_at <= CURRENT_TIMESTAMP
                   AND promo.ends_at > CURRENT_TIMESTAMP
                   AND pp.sale_price IS NOT NULL
                   AND pp.sale_price >= 0
                   AND pp.sale_price < pp.list_price
-                  AND inv.on_hand_quantity > inv.reserved_quantity
+                  AND COALESCE(inv.available_quantity,0) >= p.min_order_quantity
                 ORDER BY promo.ends_at ASC, p.id ASC
                 LIMIT ?
                 """;
 
         return jdbc.query(sql, (rs, rowNum) -> new FlashSaleProductResponse(
-                rs.getObject("product_id", UUID.class),
-                rs.getString("sku"),
-                rs.getString("name_vi"),
-                rs.getString("name_en"),
-                rs.getString("image_url"),
-                rs.getString("unit_code"),
-                rs.getBigDecimal("list_price"),
-                rs.getBigDecimal("sale_price"),
-                rs.getBigDecimal("available_quantity"),
-                rs.getObject("promotion_id", UUID.class),
-                rs.getString("promotion_name_vi"),
-                asInstant(rs.getTimestamp("promotion_ends_at"))
+            rs.getObject("product_id", UUID.class),
+            rs.getString("sku"),
+            rs.getString("name_vi"),
+            rs.getString("name_en"),
+            rs.getString("image_url"),
+            rs.getString("unit_code"),
+            rs.getBigDecimal("list_price"),
+            rs.getBigDecimal("sale_price"),
+            rs.getBigDecimal("available_quantity"),
+            rs.getObject("promotion_id", UUID.class),
+            rs.getString("promotion_name_vi"),
+            asInstant(rs.getTimestamp("promotion_ends_at"))
         ), limit);
     }
 
     /** One query to obtain effective sale metadata for multiple product cards. */
     public Map<UUID, ActiveSaleInfo> findActiveSalesByProductIds(
-            Collection<UUID> productIds
+        Collection<UUID> productIds
     ) {
         if (productIds == null || productIds.isEmpty()) {
             return Map.of();
@@ -129,7 +141,16 @@ public class PromotionRepository {
                        promo.ends_at AS promotion_ends_at
                 FROM public.products p
                 JOIN public.product_prices pp ON pp.product_id = p.id
-                JOIN public.promotions promo ON promo.id = p.promotion_id
+                JOIN LATERAL (
+                    SELECT a.id,a.name_vi,a.ends_at,a.status,a.starts_at FROM public.promotions a
+                    WHERE (a.id=p.promotion_id OR EXISTS (
+                      SELECT 1 FROM public.promotion_products link
+                      WHERE link.product_id=p.id AND link.promotion_id=a.id))
+                      AND a.status='PUBLISHED' AND a.starts_at<=CURRENT_TIMESTAMP
+                      AND a.ends_at>CURRENT_TIMESTAMP
+                    ORDER BY CASE WHEN a.promotion_type='FLASH_SALE' THEN 0 ELSE 1 END,
+                             a.ends_at ASC,a.id ASC LIMIT 1
+                ) promo ON TRUE
                 WHERE p.id IN (:productIds)
                   AND p.status = 'PUBLISHED'
                   AND promo.status = 'PUBLISHED'
@@ -142,17 +163,17 @@ public class PromotionRepository {
 
         var params = new MapSqlParameterSource("productIds", productIds);
         List<ActiveSaleInfo> rows = namedJdbc.query(sql, params,
-                (rs, rowNum) -> new ActiveSaleInfo(
-                        rs.getObject("product_id", UUID.class),
-                        rs.getBigDecimal("sale_price"),
-                        rs.getObject("promotion_id", UUID.class),
-                        rs.getString("promotion_name_vi"),
-                        asInstant(rs.getTimestamp("promotion_ends_at"))
-                ));
+            (rs, rowNum) -> new ActiveSaleInfo(
+                rs.getObject("product_id", UUID.class),
+                rs.getBigDecimal("sale_price"),
+                rs.getObject("promotion_id", UUID.class),
+                rs.getString("promotion_name_vi"),
+                asInstant(rs.getTimestamp("promotion_ends_at"))
+            ));
 
         return rows.stream().collect(Collectors.toMap(
-                ActiveSaleInfo::productId,
-                item -> item
+            ActiveSaleInfo::productId,
+            item -> item
         ));
     }
 
