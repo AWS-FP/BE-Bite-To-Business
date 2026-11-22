@@ -7,6 +7,7 @@ import com.se203730.mvc.generateuibe.features.ecommerce.executive.dto.request.Ex
 import com.se203730.mvc.generateuibe.features.ecommerce.executive.dto.response.EcommercePageResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.executive.repository.EcommerceExecutiveRepository;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
+import com.se203730.mvc.generateuibe.features.customer.notification.service.NotificationEventPublisher;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageRepository;
@@ -25,6 +26,7 @@ public class ExecutiveOperationsService {
     private final QuotePackageRepository packages;
     private final QuoteWorkflowService workflow;
     private final DatabaseClock clock;
+    private final NotificationEventPublisher notificationEvents;
     private static final Set<String> QUOTE_STATES=Set.of(
         "DRAFT","PENDING_APPROVAL","APPROVED","REJECTED","ACCEPTED","EXPIRED","CANCELLED");
 
@@ -113,6 +115,13 @@ public class ExecutiveOperationsService {
         quote.setReviewNote(r.reason() == null ? null : r.reason().strip());
         quote.setUpdatedAt(now);
         quotes.saveAndFlush(quote);
+        String reference = quote.getQuoteNumber();
+        notificationEvents.publish(quote.getCustomerId(), "QUOTE_APPROVAL", id, "QUOTE",
+            approve ? "Báo giá đã được duyệt" : "Báo giá bị từ chối",
+            approve ? "Your quote was approved" : "Your quote was rejected",
+            "Báo giá " + reference + (approve ? " đã được phê duyệt." : " đã bị từ chối. Vui lòng xem chi tiết."),
+            "Quote " + reference + (approve ? " has been approved." : " was rejected. View the details."),
+            "/quotes");
         return quote(id);
     }
     @Transactional(readOnly=true)

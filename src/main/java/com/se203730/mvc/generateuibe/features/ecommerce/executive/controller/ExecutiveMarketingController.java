@@ -62,9 +62,10 @@ public class ExecutiveMarketingController {
     @GetMapping("/promotions")
     public ResponseEntity<ResponseObject<EcommercePageResponse<Map<String,Object>>>> promotions(
         @RequestParam(required=false) String status,
+        @RequestParam(required=false) String q,
         @RequestParam(defaultValue="0") @Min(0) int page,
         @RequestParam(defaultValue="20") @Min(1) @Max(100) int size) {
-        return ok(service.promotions(status,page,size));
+        return ok(service.promotions(status,q,page,size));
     }
     @GetMapping("/promotions/{id}")
     public ResponseEntity<ResponseObject<Map<String,Object>>> promotion(@PathVariable UUID id) {
@@ -79,6 +80,11 @@ public class ExecutiveMarketingController {
     public ResponseEntity<ResponseObject<Map<String,Object>>> updatePromotion(
         @PathVariable UUID id,@Valid @RequestBody ExecutivePromotionRequest r) {
         return ok(service.updatePromotion(id,r));
+    }
+    @DeleteMapping("/promotions/{id}")
+    public ResponseEntity<ResponseObject<Map<String,Object>>> deletePromotion(@PathVariable UUID id) {
+        service.deletePromotion(id);
+        return ok(Map.of("deleted",true,"id",id));
     }
     @GetMapping("/promotions/{id}/product-ids")
     public ResponseEntity<ResponseObject<List<UUID>>> promotionProductIds(@PathVariable UUID id) {
