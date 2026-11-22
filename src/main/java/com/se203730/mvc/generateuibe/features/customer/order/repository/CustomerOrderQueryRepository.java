@@ -43,16 +43,26 @@ public class CustomerOrderQueryRepository {
                 instant(rs.getTimestamp("created_at")));
     }
 
-    public long countForCustomer(UUID customerId) {
+    /** SQL condition per order group; fixed strings only, never built from request input. */
+    private static String statusCondition(String group) {
+        return switch (group) {
+            case "ACTIVE" -> " AND o.status IN ('CONFIRMED', 'PROCESSING')";
+            case "FINISHED" -> " AND o.status IN ('COMPLETED', 'CANCELLED')";
+            default -> "";
+        };
+    }
+
+    public long countForCustomer(UUID customerId, String group) {
         Long count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM public.orders WHERE customer_id = ?", Long.class, customerId);
+                "SELECT COUNT(*) FROM public.orders o WHERE o.customer_id = ?" + statusCondition(group),
+                Long.class, customerId);
         return count == null ? 0 : count;
     }
 
-    public List<CustomerOrderSummaryResponse> listForCustomer(UUID customerId, int size, long offset) {
-        return jdbc.query(SELECT_SUMMARY + """
-                WHERE o.customer_id = ? ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?
-                """, (rs, row) -> mapSummary(rs), customerId, size, offset);
+    public List<CustomerOrderSummaryResponse> listForCustomer(UUID customerId, String group, int size, long offset) {
+        return jdbc.query(SELECT_SUMMARY + " WHERE o.customer_id = ?" + statusCondition(group)
+                + " ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?",
+                (rs, row) -> mapSummary(rs), customerId, size, offset);
     }
 
     public Optional<CustomerOrderSummaryResponse> findOwned(UUID customerId, UUID orderId) {
