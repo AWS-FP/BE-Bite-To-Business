@@ -8,5 +8,6 @@ public record ExecutivePromotionRequest(
     String contentEn,
     @NotNull OffsetDateTime startsAt,
     @NotNull OffsetDateTime endsAt,
-    String imageUrl
+    String imageUrl,
+    String promotionType
 ) {}

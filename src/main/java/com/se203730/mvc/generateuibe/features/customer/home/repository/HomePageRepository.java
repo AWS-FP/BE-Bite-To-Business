@@ -48,7 +48,16 @@ public class HomePageRepository {
  LEFT JOIN public.categories parent ON parent.id=cat.parent_id
  LEFT JOIN public.product_prices pp ON pp.product_id=p.id
  LEFT JOIN public.inventory inv ON inv.product_id=p.id
- LEFT JOIN public.promotions promo ON promo.id=p.promotion_id
+ LEFT JOIN LATERAL (
+   SELECT a.id,a.name_vi,a.name_en,a.status,a.starts_at,a.ends_at,a.promotion_type
+   FROM public.promotions a
+   WHERE (a.id=p.promotion_id OR EXISTS (
+     SELECT 1 FROM public.promotion_products relation
+     WHERE relation.product_id=p.id AND relation.promotion_id=a.id))
+     AND a.status='PUBLISHED' AND a.starts_at<=CURRENT_TIMESTAMP AND a.ends_at>CURRENT_TIMESTAMP
+   ORDER BY CASE WHEN a.promotion_type='FLASH_SALE' THEN 0 ELSE 1 END,
+            a.ends_at ASC,a.id ASC LIMIT 1
+ ) promo ON TRUE
  LEFT JOIN LATERAL (
   SELECT ROUND(AVG(r.rating),2) average_rating,COUNT(*) review_count
   FROM public.product_reviews r WHERE r.product_id=p.id AND r.deleted_at IS NULL
@@ -77,15 +86,27 @@ public class HomePageRepository {
             (rs,i)->mapProduct(rs),limit);
     }
 
-    // Rank by quantity in COMPLETED orders only. Never treat cancelled orders as sales.
+    // Only actual completed orders from the last 30 days are counted. No mock/fallback sales.
+    // Tie-break equal quantities by net merchandise revenue (after coupon, excluding VAT).
     public List<HomePageProductResponse> bestSellingProducts(int limit) {
         return jdbc.query(PRODUCT_SELECT + """
-          JOIN (SELECT oi.product_id, SUM(oi.quantity) sold_quantity
-                FROM public.order_items oi JOIN public.orders o ON o.id = oi.order_id
-                WHERE o.status = 'COMPLETED' GROUP BY oi.product_id) sales ON sales.product_id = p.id
+          JOIN (
+             SELECT oi.product_id,
+                    SUM(oi.quantity) AS sold_quantity,
+                    SUM(GREATEST(oi.quantity * oi.sale_unit_price
+                        - COALESCE(oi.coupon_discount_amount, 0), 0)) AS sales_revenue
+             FROM public.order_items oi
+             JOIN public.orders o ON o.id = oi.order_id
+             WHERE o.status = 'COMPLETED'
+               AND o.completed_at >= CURRENT_TIMESTAMP - INTERVAL '30 days'
+               AND o.completed_at <= CURRENT_TIMESTAMP
+             GROUP BY oi.product_id
+          ) sales ON sales.product_id = p.id
           """ + PUBLISHED_FILTER + """
-          AND pp.list_price IS NOT NULL AND COALESCE(inv.available_quantity, 0) > 0
-          ORDER BY sales.sold_quantity DESC, p.id ASC LIMIT ?
+          AND pp.list_price IS NOT NULL
+          AND COALESCE(inv.available_quantity, 0) >= p.min_order_quantity
+          ORDER BY sales.sold_quantity DESC, sales.sales_revenue DESC, p.id ASC
+          LIMIT ?
           """, (rs, i) -> mapProduct(rs), limit);
     }
 
@@ -108,17 +129,22 @@ public class HomePageRepository {
           """, (rs, i) -> mapProduct(rs), limit);
     }
 
-    // No new table: a Flash Sale is a short (at most 72 hours) published promotion with
-    // a real reduced price and inventory. Long-running discounts stay in deepDiscountProducts.
+    // A flash deal is a genuine short-term, PUBLISHED promotion linked to the product.
+    // No hard-coded minimum discount: smaller real discounts are allowed on a new store.
+    // Only products with enough stock for the minimum order can be purchased.
     public List<HomePageProductResponse> flashSaleProducts(int limit) {
         return jdbc.query(PRODUCT_SELECT + PUBLISHED_FILTER + """
-          AND promo.status = 'PUBLISHED' AND promo.starts_at <= CURRENT_TIMESTAMP
-          AND promo.ends_at > CURRENT_TIMESTAMP
+          AND promo.status = 'PUBLISHED'
+          AND promo.starts_at <= CURRENT_TIMESTAMP AND promo.ends_at > CURRENT_TIMESTAMP
+          AND promo.promotion_type = 'FLASH_SALE'
+          AND promo.ends_at > promo.starts_at
           AND (promo.ends_at - promo.starts_at) <= INTERVAL '72 hours'
-          AND pp.list_price > 0 AND pp.sale_price >= 0 AND pp.sale_price < pp.list_price
-          AND COALESCE(inv.available_quantity, 0) > 0
-          ORDER BY promo.ends_at ASC, (pp.list_price - pp.sale_price) / pp.list_price DESC,
-                   p.id ASC LIMIT ?
+          AND pp.list_price > 0 AND pp.sale_price IS NOT NULL
+          AND pp.sale_price >= 0 AND pp.sale_price < pp.list_price
+          AND COALESCE(inv.available_quantity, 0) >= p.min_order_quantity
+          ORDER BY promo.ends_at ASC,
+                   (pp.list_price - pp.sale_price) / pp.list_price DESC, p.id ASC
+          LIMIT ?
           """, (rs, i) -> mapProduct(rs), limit);
     }
 
@@ -142,7 +168,16 @@ public class HomePageRepository {
   FROM public.combos c
   JOIN public.products p ON p.id=c.product_id
   LEFT JOIN public.product_prices pp ON pp.product_id=p.id
-  LEFT JOIN public.promotions promo ON promo.id=p.promotion_id
+  LEFT JOIN LATERAL (
+   SELECT a.id,a.name_vi,a.name_en,a.status,a.starts_at,a.ends_at,a.promotion_type
+   FROM public.promotions a
+   WHERE (a.id=p.promotion_id OR EXISTS (
+     SELECT 1 FROM public.promotion_products relation
+     WHERE relation.product_id=p.id AND relation.promotion_id=a.id))
+     AND a.status='PUBLISHED' AND a.starts_at<=CURRENT_TIMESTAMP AND a.ends_at>CURRENT_TIMESTAMP
+   ORDER BY CASE WHEN a.promotion_type='FLASH_SALE' THEN 0 ELSE 1 END,
+            a.ends_at ASC,a.id ASC LIMIT 1
+ ) promo ON TRUE
   LEFT JOIN LATERAL (
    SELECT ROUND(AVG(r.rating),2) average_rating,COUNT(*) review_count
    FROM public.product_reviews r WHERE r.product_id=p.id AND r.deleted_at IS NULL
