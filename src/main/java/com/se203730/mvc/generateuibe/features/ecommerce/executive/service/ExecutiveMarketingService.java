@@ -147,10 +147,7 @@ public class ExecutiveMarketingService {
         Boolean hasHistory=db.queryForObject("select exists(select 1 from " +
             "public.promotion_email_deliveries where promotion_id=:id)",params,Boolean.class);
         if(Boolean.TRUE.equals(hasHistory)) throw new BusinessException(ErrorCode.CONFLICT);
-        // Legacy products.promotion_id has ON DELETE RESTRICT. Detach, never delete products.
-        db.update("update public.products set promotion_id=null,updated_at=now() " +
-            "where promotion_id=:id",params);
-        // promotion_products (new join table) is ON DELETE CASCADE.
+        // promotion_products is the only product link (V41) and is ON DELETE CASCADE.
         int deleted=db.update("delete from public.promotions where id=:id " +
             "and published_at is null and status in ('DRAFT','ARCHIVED')",params);
         if(deleted!=1) throw new BusinessException(ErrorCode.CONFLICT);
@@ -198,14 +195,12 @@ public class ExecutiveMarketingService {
         return promotion(id);
     }
 
-    /** Current assignments include the legacy direct FK and the new many-to-many links. */
+    /** Current assignments; promotion_products is the single source of truth since V41. */
     @Transactional(readOnly=true)
     public List<UUID> promotionProductIds(UUID id) {
         promotion(id);
         return db.queryForList("""
             SELECT product_id FROM public.promotion_products WHERE promotion_id=:id
-            UNION
-            SELECT id FROM public.products WHERE promotion_id=:id
             ORDER BY product_id
             """,new MapSqlParameterSource("id",id),UUID.class);
     }
@@ -213,21 +208,20 @@ public class ExecutiveMarketingService {
     /** Shared projection for both the browser and the selected-products pane. */
     private static final String PROMOTION_PRODUCT_COLUMNS = """
         SELECT p.id,p.sku,p.name_vi,p.name_en,p.image_url,p.status,p.unit_code,
-            p.brand_id,p.category_id,p.min_order_quantity,p.promotion_id AS legacy_promotion_id,
-            legacy.name_vi AS legacy_promotion_name,
+            p.brand_id,p.category_id,p.min_order_quantity,
+            CAST(NULL AS uuid) AS legacy_promotion_id,CAST(NULL AS varchar) AS legacy_promotion_name,
             (COALESCE(cat.is_active,FALSE) AND
               (cat.parent_id IS NULL OR COALESCE(parent.is_active,FALSE))) AS category_active,
             price.list_price,price.sale_price,price.sale_discount_percent,
             GREATEST(COALESCE(stock.available_quantity,0),0) AS available_quantity,
-            (p.promotion_id=:id OR EXISTS(SELECT 1 FROM public.promotion_products pm
-                WHERE pm.product_id=p.id AND pm.promotion_id=:id)) AS selected
+            EXISTS(SELECT 1 FROM public.promotion_products pm
+                WHERE pm.product_id=p.id AND pm.promotion_id=:id) AS selected
         """;
 
     private static final String PROMOTION_PRODUCT_FROM = """
         FROM public.products p
         LEFT JOIN public.product_prices price ON price.product_id=p.id
         LEFT JOIN public.inventory stock ON stock.product_id=p.id
-        LEFT JOIN public.promotions legacy ON legacy.id=p.promotion_id
         LEFT JOIN public.categories cat ON cat.id=p.category_id
         LEFT JOIN public.categories parent ON parent.id=cat.parent_id
         WHERE 1=1
@@ -269,8 +263,8 @@ public class ExecutiveMarketingService {
         var params=filters(id,f);
         String from=PROMOTION_PRODUCT_FROM+productFilterSql(f);
         return db.page(PROMOTION_PRODUCT_COLUMNS+from+"""
-            ORDER BY (p.promotion_id=:id OR EXISTS(SELECT 1 FROM public.promotion_products pm
-                WHERE pm.product_id=p.id AND pm.promotion_id=:id)) DESC,p.name_vi ASC,p.id ASC
+            ORDER BY EXISTS(SELECT 1 FROM public.promotion_products pm
+                WHERE pm.product_id=p.id AND pm.promotion_id=:id) DESC,p.name_vi ASC,p.id ASC
             """, "SELECT count(*) "+from,params,page,size);
     }
 
@@ -387,10 +381,6 @@ public class ExecutiveMarketingService {
         boolean membershipChanged=!new HashSet<>(previous).equals(requestedSet);
         if (membershipChanged) {
             db.update("delete from public.promotion_products where promotion_id=:id",p);
-            db.update("update public.products set promotion_id=null,updated_at=now() " +
-                    "where promotion_id=:id AND (:keepEmpty=true OR id NOT IN (:keepIds))",
-                p.addValue("keepEmpty",requested.isEmpty())
-                    .addValue("keepIds",requested.isEmpty()?List.of(id):requested));
             for(UUID productId:requested)
                 db.update("insert into public.promotion_products(promotion_id,product_id) " +
                         "values(:id,:pid) on conflict do nothing",

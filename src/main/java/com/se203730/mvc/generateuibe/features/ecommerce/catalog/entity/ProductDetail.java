@@ -62,4 +62,8 @@ public class ProductDetail {
 
     @Column(name = "origin_content_en", columnDefinition = "text")
     private String originContentEn;
+
+    // Lượng tham chiếu của bảng dinh dưỡng, ví dụ "100g"; các dòng nằm ở product_nutrition_facts.
+    @Column(name = "nutrition_basis", length = 100)
+    private String nutritionBasis;
 }

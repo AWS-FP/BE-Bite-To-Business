@@ -44,10 +44,7 @@ public class UserProfile {
     @Column(name = "delivery_note", length = 1000)
     private String deliveryNote;
 
-    // Boolean có ba giá trị: true, false và null khi thông tin này không áp dụng cho role.
-    @Column(name = "invoice_same_as_delivery")
-    private Boolean invoiceSameAsDelivery;
-
+    // Hóa đơn luôn dùng địa chỉ giao hàng (V42 bỏ invoice_address/invoice_same_as_delivery).
     @Column(name = "invoice_purchaser", length = 200)
     private String invoicePurchaser;
 
@@ -56,9 +53,6 @@ public class UserProfile {
 
     @Column(name = "invoice_email", length = 254)
     private String invoiceEmail;
-
-    @Column(name = "invoice_address")
-    private String invoiceAddress;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

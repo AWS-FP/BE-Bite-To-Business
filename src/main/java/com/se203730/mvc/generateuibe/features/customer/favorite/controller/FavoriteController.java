@@ -34,6 +34,14 @@ public class FavoriteController {
                 .body(new ResponseObject<>(200, "Success", service.list(customerId, page, size)));
     }
 
+    @GetMapping("/status")
+    @Operation(summary = "Which of these products (up to 100) I liked; returns the liked ids")
+    public ResponseEntity<ResponseObject<java.util.List<UUID>>> statuses(
+            @CurrentUserUUID UUID customerId, @RequestParam java.util.List<UUID> ids) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", service.favoritedAmong(customerId, ids)));
+    }
+
     @GetMapping("/{productId}/status")
     @Operation(summary = "Check whether I liked a product")
     public ResponseEntity<ResponseObject<FavoriteStatusResponse>> status(

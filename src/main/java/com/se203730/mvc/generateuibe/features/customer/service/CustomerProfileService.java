@@ -67,13 +67,9 @@ public class CustomerProfileService {
         profile.setWard(request.ward());
         profile.setDeliveryAddress(request.deliveryAddress());
         profile.setDeliveryNote(request.deliveryNote());
-        profile.setInvoiceSameAsDelivery(request.invoiceSameAsDelivery());
         profile.setInvoicePurchaser(request.invoicePurchaser());
         profile.setInvoiceTaxCode(request.invoiceTaxCode());
         profile.setInvoiceEmail(request.invoiceEmail());
-        profile.setInvoiceAddress(Boolean.TRUE.equals(request.invoiceSameAsDelivery())
-                ? profile.getFullDeliveryAddress()
-                : request.invoiceAddress());
         profile.setUpdatedAt(now);
 
         users.saveAndFlush(customer);

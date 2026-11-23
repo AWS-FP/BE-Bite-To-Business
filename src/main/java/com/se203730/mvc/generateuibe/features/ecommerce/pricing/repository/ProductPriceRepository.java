@@ -17,9 +17,9 @@ public interface ProductPriceRepository extends JpaRepository<ProductPrice, UUID
             SELECT EXISTS (
                 SELECT 1
                 FROM public.products p
-                JOIN public.promotions promo ON (promo.id = p.promotion_id OR EXISTS (
+                JOIN public.promotions promo ON EXISTS (
                     SELECT 1 FROM public.promotion_products link
-                    WHERE link.product_id=p.id AND link.promotion_id=promo.id))
+                    WHERE link.product_id=p.id AND link.promotion_id=promo.id)
                 WHERE p.id = :productId
                   AND promo.status = 'PUBLISHED'
                   AND promo.starts_at <= CURRENT_TIMESTAMP
@@ -32,9 +32,9 @@ public interface ProductPriceRepository extends JpaRepository<ProductPrice, UUID
     @Query(value = """
             SELECT DISTINCT p.id
             FROM public.products p
-            JOIN public.promotions promo ON (promo.id = p.promotion_id OR EXISTS (
+            JOIN public.promotions promo ON EXISTS (
                     SELECT 1 FROM public.promotion_products link
-                    WHERE link.product_id=p.id AND link.promotion_id=promo.id))
+                    WHERE link.product_id=p.id AND link.promotion_id=promo.id)
             WHERE p.id IN (:productIds)
               AND promo.status = 'PUBLISHED'
               AND promo.starts_at <= CURRENT_TIMESTAMP

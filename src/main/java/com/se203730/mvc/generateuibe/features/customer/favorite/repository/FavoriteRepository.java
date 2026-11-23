@@ -20,6 +20,19 @@ public class FavoriteRepository {
         return Boolean.TRUE.equals(result);
     }
 
+    /** Which of these products the customer has favorited, in one query (catalog cards). */
+    public java.util.List<UUID> favoritedAmong(UUID customerId, java.util.List<UUID> productIds) {
+        if (productIds.isEmpty()) return java.util.List.of();
+        String placeholders = String.join(",", java.util.Collections.nCopies(productIds.size(), "?"));
+        Object[] args = new Object[productIds.size() + 1];
+        args[0] = customerId;
+        for (int i = 0; i < productIds.size(); i++) args[i + 1] = productIds.get(i);
+        return jdbc.queryForList(
+                "SELECT product_id FROM public.product_favorites WHERE customer_id = ? AND product_id IN ("
+                        + placeholders + ")",
+                UUID.class, args);
+    }
+
     public boolean isFavorite(UUID customerId, UUID productId) {
         Boolean result = jdbc.queryForObject(
                 "SELECT EXISTS (SELECT 1 FROM public.product_favorites WHERE customer_id = ? AND product_id = ?)",
