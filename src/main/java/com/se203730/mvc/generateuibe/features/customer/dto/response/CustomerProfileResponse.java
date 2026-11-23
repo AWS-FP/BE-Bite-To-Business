@@ -17,9 +17,6 @@ public record CustomerProfileResponse(
         String deliveryAddress,
         String fullDeliveryAddress,
         String deliveryNote,
-        String invoicePurchaser,
-        String invoiceTaxCode,
-        String invoiceEmail,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -34,9 +31,6 @@ public record CustomerProfileResponse(
                 profile.getDeliveryAddress(),
                 profile.getFullDeliveryAddress(),
                 profile.getDeliveryNote(),
-                profile.getInvoicePurchaser(),
-                profile.getInvoiceTaxCode(),
-                profile.getInvoiceEmail(),
                 profile.getCreatedAt(),
                 profile.getUpdatedAt());
     }

@@ -44,15 +44,12 @@ public class UserProfile {
     @Column(name = "delivery_note", length = 1000)
     private String deliveryNote;
 
-    // Hóa đơn luôn dùng địa chỉ giao hàng (V42 bỏ invoice_address/invoice_same_as_delivery).
+    // Hóa đơn luôn dùng địa chỉ giao hàng (V42, V44 bỏ địa chỉ và email hóa đơn).
     @Column(name = "invoice_purchaser", length = 200)
     private String invoicePurchaser;
 
     @Column(name = "invoice_tax_code", length = 10)
     private String invoiceTaxCode;
-
-    @Column(name = "invoice_email", length = 254)
-    private String invoiceEmail;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

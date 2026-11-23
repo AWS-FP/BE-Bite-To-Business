@@ -147,10 +147,10 @@ public class GenerativeUiService {
         return switch (page) {
             case "cart" -> en ? "You can review items, packages, coupons and totals on the cart page."
                     : "Bạn xem sản phẩm, chia gói giao, áp coupon và kiểm tra tổng tiền ở trang giỏ hàng.";
-            case "orders" -> en ? "Your orders, package status, invoices and refund requests are on the orders page."
-                    : "Đơn hàng, trạng thái từng gói, hóa đơn và yêu cầu hoàn tiền nằm ở trang đơn hàng của bạn.";
-            case "profile" -> en ? "You can update addresses and invoice details in your profile."
-                    : "Bạn cập nhật địa chỉ giao hàng và thông tin hóa đơn trong trang hồ sơ.";
+            case "orders" -> en ? "Your orders, package status and refund requests are on the orders page."
+                    : "Đơn hàng, trạng thái từng gói và yêu cầu hoàn tiền nằm ở trang đơn hàng của bạn.";
+            case "profile" -> en ? "You can update your delivery address in your profile."
+                    : "Bạn cập nhật địa chỉ giao hàng trong trang hồ sơ.";
             default -> en ? "You can browse all products in the catalog." : "Bạn xem toàn bộ sản phẩm ở trang danh mục.";
         };
     }

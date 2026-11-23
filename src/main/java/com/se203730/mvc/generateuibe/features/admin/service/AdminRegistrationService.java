@@ -321,7 +321,6 @@ public class AdminRegistrationService {
                 profile.getDeliveryNote(),
                 profile.getInvoicePurchaser(),
                 profile.getInvoiceTaxCode(),
-                profile.getInvoiceEmail(),
                 registration.getStatus(),
                 registration.getReviewNote(),
                 registration.getSubmittedAt(),

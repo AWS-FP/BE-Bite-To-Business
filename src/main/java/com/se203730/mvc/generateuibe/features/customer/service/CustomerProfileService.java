@@ -67,9 +67,6 @@ public class CustomerProfileService {
         profile.setWard(request.ward());
         profile.setDeliveryAddress(request.deliveryAddress());
         profile.setDeliveryNote(request.deliveryNote());
-        profile.setInvoicePurchaser(request.invoicePurchaser());
-        profile.setInvoiceTaxCode(request.invoiceTaxCode());
-        profile.setInvoiceEmail(request.invoiceEmail());
         profile.setUpdatedAt(now);
 
         users.saveAndFlush(customer);
