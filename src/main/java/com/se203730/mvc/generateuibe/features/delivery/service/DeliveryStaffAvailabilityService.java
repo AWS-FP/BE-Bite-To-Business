@@ -7,9 +7,7 @@ import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.repository.UserRepository;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.delivery.entity.DeliveryStaffAvailability;
-import com.se203730.mvc.generateuibe.features.delivery.enums.DeliveryTripStatus;
 import com.se203730.mvc.generateuibe.features.delivery.repository.DeliveryStaffAvailabilityRepository;
-import com.se203730.mvc.generateuibe.features.delivery.repository.DeliveryTripRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,8 +19,6 @@ import java.util.UUID;
 public class DeliveryStaffAvailabilityService {
     @Autowired
     private DeliveryStaffAvailabilityRepository availability;
-    @Autowired
-    private DeliveryTripRepository trips;
     @Autowired
     private UserRepository users;
     @Autowired
@@ -51,9 +47,6 @@ public class DeliveryStaffAvailabilityService {
         if (!"AVAILABLE".equals(status) && !"OFF_DUTY".equals(status)) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        boolean busy = trips.findByDeliveryStaffIdAndStatusIn(staffId,
-                List.of(DeliveryTripStatus.PREPARING, DeliveryTripStatus.READY, DeliveryTripStatus.IN_DELIVERY)).isPresent();
-        if (busy) throw new BusinessException(ErrorCode.CONFLICT);
         DeliveryStaffAvailability state = availability.findById(staffId).orElseGet(DeliveryStaffAvailability::new);
         state.setUserId(staffId);
         state.setStatus(status);

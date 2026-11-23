@@ -13,14 +13,18 @@ import com.se203730.mvc.generateuibe.features.customer.repository.OrderRepositor
 import com.se203730.mvc.generateuibe.features.delivery.dto.response.ClaimedPackageResponse;
 import com.se203730.mvc.generateuibe.features.delivery.entity.DeliveryPackageClaim;
 import com.se203730.mvc.generateuibe.features.delivery.repository.DeliveryPackageClaimRepository;
-import com.se203730.mvc.generateuibe.features.delivery.repository.DeliveryStopRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +33,6 @@ public class DeliveryPackageClaimService {
     private final OrderRepository orders;
     private final OrderPackageRepository packages;
     private final DeliveryPackageClaimRepository claims;
-    private final DeliveryStopRepository stops;
     private final DatabaseClock clock;
 
     @Transactional
@@ -47,9 +50,6 @@ public class DeliveryPackageClaimService {
         }
         if (!orders.hasSuccessfulPayment(order.getId(), order.getTotalAmount())) {
             throw new BusinessException(ErrorCode.ORDER_PAYMENT_REQUIRED);
-        }
-        if (stops.existsByOrderPackageId(packageId)) {
-            throw new BusinessException(ErrorCode.CONFLICT);
         }
         DeliveryPackageClaim existing = claims.findById(packageId).orElse(null);
         if (existing != null) {
@@ -130,11 +130,19 @@ public class DeliveryPackageClaimService {
     }
 
     private Page<ClaimedPackageResponse> packageResponses(Page<DeliveryPackageClaim> results) {
+        // Two batch queries for the whole page instead of two queries per claimed package.
+        List<UUID> packageIds = results.getContent().stream().map(DeliveryPackageClaim::getPackageId).toList();
+        Map<UUID, OrderPackage> parcels = packages.findAllById(packageIds).stream()
+                .collect(Collectors.toMap(OrderPackage::getId, Function.identity()));
+        Set<UUID> orderIds = parcels.values().stream().map(OrderPackage::getOrderId).collect(Collectors.toSet());
+        Map<UUID, Order> ordersById = orders.findAllById(orderIds).stream()
+                .collect(Collectors.toMap(Order::getId, Function.identity()));
         return results.map(claim -> {
-            OrderPackage parcel = packages.findById(claim.getPackageId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-            Order order = orders.findById(parcel.getOrderId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+            OrderPackage parcel = parcels.get(claim.getPackageId());
+            Order order = parcel == null ? null : ordersById.get(parcel.getOrderId());
+            if (order == null) {
+                throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+            }
             return response(claim, parcel, order);
         });
     }

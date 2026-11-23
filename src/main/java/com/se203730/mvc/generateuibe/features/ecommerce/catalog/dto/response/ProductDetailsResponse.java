@@ -3,6 +3,7 @@ package com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.ProductDetail;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /** Dữ liệu tùy chọn từ product_details; không liên quan đến giá bán hay số VAT thực. */
 public record ProductDetailsResponse(
@@ -19,9 +20,17 @@ public record ProductDetailsResponse(
         String complianceVatContentVi,
         String complianceVatContentEn,
         String originContentVi,
-        String originContentEn
+        String originContentEn,
+        String nutritionBasis,
+        List<NutritionFact> nutritionFacts
 ) {
-    public static ProductDetailsResponse from(ProductDetail details) {
+    /** Một dòng của bảng thông tin dinh dưỡng: thành phần và hàm lượng. */
+    public record NutritionFact(String nutrient, String amount) {}
+
+    public static ProductDetailsResponse from(
+            ProductDetail details,
+            List<NutritionFact> nutritionFacts
+    ) {
         return new ProductDetailsResponse(
                 details.getNetWeightKg(),
                 details.getTareWeightKg(),
@@ -36,7 +45,9 @@ public record ProductDetailsResponse(
                 details.getComplianceVatContentVi(),
                 details.getComplianceVatContentEn(),
                 details.getOriginContentVi(),
-                details.getOriginContentEn()
+                details.getOriginContentEn(),
+                details.getNutritionBasis(),
+                List.copyOf(nutritionFacts)
         );
     }
 }

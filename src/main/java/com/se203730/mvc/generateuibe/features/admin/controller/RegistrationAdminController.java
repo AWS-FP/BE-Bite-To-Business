@@ -4,12 +4,14 @@ import com.se203730.mvc.generateuibe.common.annotation.CurrentUserUUID;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
 import com.se203730.mvc.generateuibe.common.api.PageResponse;
 import com.se203730.mvc.generateuibe.features.admin.dto.request.ReviewRegistrationRequest;
+import com.se203730.mvc.generateuibe.features.admin.dto.response.RegistrationDuplicateResponse;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.RegistrationResponse;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.RegistrationReviewResponse;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.RegistrationStatsResponse;
 import com.se203730.mvc.generateuibe.features.admin.enums.CustomerType;
 import com.se203730.mvc.generateuibe.features.admin.enums.RegistrationStatus;
 import com.se203730.mvc.generateuibe.features.admin.service.AdminRegistrationService;
+import com.se203730.mvc.generateuibe.features.admin.service.RegistrationDuplicateService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -34,6 +36,9 @@ import java.util.UUID;
 public class RegistrationAdminController {
     @Autowired
     private AdminRegistrationService registrations;
+
+    @Autowired
+    private RegistrationDuplicateService duplicates;
 
     /** Lọc danh sách hồ sơ theo trạng thái; page bắt đầu từ 0, size giới hạn tối đa 100. */
     @GetMapping
@@ -65,6 +70,23 @@ public class RegistrationAdminController {
                 "Success", data);
 
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
+    }
+
+    /** Đăng ký trùng email/số điện thoại đã có tài khoản; hệ thống tự gửi mail từ chối. */
+    @GetMapping("/duplicates")
+    public ResponseEntity<ResponseObject<PageResponse<RegistrationDuplicateResponse>>> duplicates(
+            @CurrentUserUUID
+            UUID adminId,
+            @RequestParam(defaultValue = "0")
+            @Min(0)
+            int page,
+            @RequestParam(defaultValue = "20")
+            @Min(1)
+            @Max(100)
+            int size) {
+        PageResponse<RegistrationDuplicateResponse> data = PageResponse.from(duplicates.list(adminId, page, size));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", data));
     }
 
     @GetMapping("/stats")

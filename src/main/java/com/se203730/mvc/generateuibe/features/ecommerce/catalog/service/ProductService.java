@@ -4,6 +4,7 @@ package com.se203730.mvc.generateuibe.features.ecommerce.catalog.service;
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response.ProductDetailResponse;
+import com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response.ProductDetailsResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response.ProductPageResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Brand;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Category;
@@ -128,11 +129,18 @@ public class ProductService {
             productId
         ).orElse(null);
 
+        List<ProductDetailsResponse.NutritionFact> nutritionFacts = details == null
+            ? List.of()
+            : productDetails.findNutritionFacts(productId).stream()
+                .map(row -> new ProductDetailsResponse.NutritionFact(row.getNutrient(), row.getAmount()))
+                .toList();
+
         return ProductDetailResponse.from(
             product,
             brand,
             category,
-            details
+            details,
+            nutritionFacts
         );
     }
 

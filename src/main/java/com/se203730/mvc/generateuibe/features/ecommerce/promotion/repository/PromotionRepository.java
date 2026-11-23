@@ -87,9 +87,9 @@ public class PromotionRepository {
                 JOIN LATERAL (
                     SELECT a.id,a.name_vi,a.ends_at,a.status,a.starts_at,a.promotion_type
                     FROM public.promotions a
-                    WHERE (a.id=p.promotion_id OR EXISTS (
+                    WHERE EXISTS (
                       SELECT 1 FROM public.promotion_products link
-                      WHERE link.product_id=p.id AND link.promotion_id=a.id))
+                      WHERE link.product_id=p.id AND link.promotion_id=a.id)
                       AND a.status='PUBLISHED' AND a.promotion_type='FLASH_SALE'
                       AND a.starts_at<=CURRENT_TIMESTAMP AND a.ends_at>CURRENT_TIMESTAMP
                       AND a.ends_at-a.starts_at<=INTERVAL '72 hours'
@@ -143,9 +143,9 @@ public class PromotionRepository {
                 JOIN public.product_prices pp ON pp.product_id = p.id
                 JOIN LATERAL (
                     SELECT a.id,a.name_vi,a.ends_at,a.status,a.starts_at FROM public.promotions a
-                    WHERE (a.id=p.promotion_id OR EXISTS (
+                    WHERE EXISTS (
                       SELECT 1 FROM public.promotion_products link
-                      WHERE link.product_id=p.id AND link.promotion_id=a.id))
+                      WHERE link.product_id=p.id AND link.promotion_id=a.id)
                       AND a.status='PUBLISHED' AND a.starts_at<=CURRENT_TIMESTAMP
                       AND a.ends_at>CURRENT_TIMESTAMP
                     ORDER BY CASE WHEN a.promotion_type='FLASH_SALE' THEN 0 ELSE 1 END,

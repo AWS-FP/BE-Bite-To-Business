@@ -6,6 +6,7 @@ import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Product;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.ProductDetail;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 /** JSON cho trang chi tiết sản phẩm (không chứa dữ liệu quản trị). */
@@ -37,7 +38,8 @@ public record ProductDetailResponse(
             Product product,
             Brand brand,
             Category category,
-            ProductDetail details
+            ProductDetail details,
+            List<ProductDetailsResponse.NutritionFact> nutritionFacts
     ) {
         return new ProductDetailResponse(
                 product.getId(),
@@ -61,7 +63,7 @@ public record ProductDetailResponse(
                 product.getQuantityStep(),
                 product.getImageUrl(),
                 product.getCloudinaryPublicId(),
-                details == null ? null : ProductDetailsResponse.from(details)
+                details == null ? null : ProductDetailsResponse.from(details, nutritionFacts)
         );
     }
 }
