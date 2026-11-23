@@ -11,6 +11,7 @@ import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.repository.UserProfileRepository;
 import com.se203730.mvc.generateuibe.features.admin.repository.UserRepository;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
+import com.se203730.mvc.generateuibe.features.admin.service.AvatarHistoryService;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.CustomerProfileResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -44,6 +46,9 @@ public class CustomerAvatarService {
 
     @Autowired
     private DatabaseClock clock;
+
+    @Autowired
+    private AvatarHistoryService avatarHistory;
 
     public String upload(MultipartFile file) {
         if (file.isEmpty() || file.getSize() > 5 * 1024 * 1024) {
@@ -85,9 +90,40 @@ public class CustomerAvatarService {
         }
         UserProfile profile = profiles.findById(customerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CUSTOMER_PROFILE_NOT_FOUND));
+        avatarHistory.remember(customerId, customer.getAvatarUrl());
+        avatarHistory.remember(customerId, avatarUrl);
         customer.setAvatarUrl(avatarUrl);
         customer.setUpdatedAt(clock.now());
         users.saveAndFlush(customer);
+        return CustomerProfileResponse.from(customer, profile);
+    }
+    @Transactional(readOnly = true)
+    public List<String> recent(UUID customerId) {
+        User customer = accounts.requireActiveUser(customerId);
+        if (customer.getRole() != UserRole.CUSTOMER) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        return avatarHistory.recent(customerId, customer.getAvatarUrl());
+    }
+
+    @Transactional
+    public CustomerProfileResponse restore(UUID customerId, String avatarUrl) {
+        users.findByIdForUpdate(customerId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User customer = accounts.requireActiveUser(customerId);
+        if (customer.getRole() != UserRole.CUSTOMER) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        UserProfile profile = profiles.findById(customerId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CUSTOMER_PROFILE_NOT_FOUND));
+        avatarHistory.requireOwned(customerId, avatarUrl);
+        if (!avatarUrl.equals(customer.getAvatarUrl())) {
+            avatarHistory.remember(customerId, customer.getAvatarUrl());
+            customer.setAvatarUrl(avatarUrl);
+            customer.setUpdatedAt(clock.now());
+            users.saveAndFlush(customer);
+        }
+        avatarHistory.remember(customerId, avatarUrl);
         return CustomerProfileResponse.from(customer, profile);
     }
 }
