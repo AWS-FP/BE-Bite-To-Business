@@ -6,6 +6,7 @@ import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.customer.review.dto.response.ReviewPageResponse;
 import com.se203730.mvc.generateuibe.features.customer.review.dto.response.ReviewResponse;
+import com.se203730.mvc.generateuibe.features.customer.review.dto.response.ReviewSummaryResponse;
 import com.se203730.mvc.generateuibe.features.customer.review.dto.response.UpdateReviewRequest;
 import com.se203730.mvc.generateuibe.features.customer.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,14 @@ public class ReviewService {
     private final AccountAccessService accounts;
 
     @Transactional(readOnly = true)
+    /** Rating summaries for up to 100 products in one query (catalog cards). */
+    public List<ReviewSummaryResponse> summaries(List<UUID> productIds) {
+        if (productIds == null || productIds.isEmpty()) return List.of();
+        List<UUID> ids = productIds.stream().distinct().toList();
+        if (ids.size() > 100) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        return reviews.summaries(ids);
+    }
+
     public ReviewPageResponse list(UUID productId, int page, int size) {
         if (page < 0 || size < 1 || size > 50) throw new BusinessException(ErrorCode.INVALID_REQUEST);
         if (!reviews.isPublished(productId)) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);

@@ -34,11 +34,27 @@ public record CreateWarehouseProductRequest(
         @NotNull @DecimalMin("0") @DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal vat,
         @NotNull @DecimalMin("0.001") @Digits(integer = 9, fraction = 3) BigDecimal minOrder,
         @NotNull @DecimalMin("0.001") @Digits(integer = 9, fraction = 3) BigDecimal quantityStep,
-        @NotNull @Size(max = 100) List<@NotNull @Valid Tier> tiers
+        @NotNull @Size(max = 100) List<@NotNull @Valid Tier> tiers,
+        // Bảng thông tin dinh dưỡng (tùy chọn): lượng tham chiếu, ví dụ "100g", và các dòng thành phần/hàm lượng.
+        @Size(max = 100) String nutritionBasis,
+        @Size(max = 40) List<@NotNull @Valid NutritionFact> nutritionFacts
 ) {
     public record Tier(
             @NotNull @DecimalMin("0.001") @Digits(integer = 9, fraction = 3) BigDecimal min,
             @DecimalMin("0.001") @Digits(integer = 9, fraction = 3) BigDecimal max,
             @NotNull @DecimalMin("0") @Digits(integer = 14, fraction = 0) BigDecimal price
     ) {}
+
+    public record NutritionFact(
+            @NotBlank @Size(max = 100) String nutrient,
+            @NotBlank @Size(max = 50) String amount
+    ) {}
+
+    public List<NutritionFact> nutritionFactsOrEmpty() {
+        return nutritionFacts == null ? List.of() : nutritionFacts;
+    }
+
+    public String trimmedNutritionBasis() {
+        return nutritionBasis == null || nutritionBasis.isBlank() ? null : nutritionBasis.strip();
+    }
 }

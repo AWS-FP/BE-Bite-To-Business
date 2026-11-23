@@ -35,9 +35,9 @@ public interface QuoteCatalogRepository extends JpaRepository<QuoteItem, UUID> {
             tier.id as "tierId", tier.unit_price as "tierPrice",
             exists (
                 select 1 from public.promotions active_promo
-                where (active_promo.id=p.promotion_id OR EXISTS (
+                where EXISTS (
                   select 1 from public.promotion_products link
-                  where link.product_id=p.id and link.promotion_id=active_promo.id))
+                  where link.product_id=p.id and link.promotion_id=active_promo.id)
                 and active_promo.status='PUBLISHED'
                 and active_promo.starts_at<=clock_timestamp()
                 and active_promo.ends_at>clock_timestamp()

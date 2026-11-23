@@ -6,11 +6,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
 public interface QuotePackageItemRepository extends JpaRepository<QuotePackageItem, UUID> {
     List<QuotePackageItem> findAllByQuotePackageId(UUID packageId);
+
+    List<QuotePackageItem> findAllByQuotePackageIdIn(Collection<UUID> packageIds);
+
     void deleteAllByQuotePackageId(UUID packageId);
 
     @Query(value = """

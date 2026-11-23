@@ -16,6 +16,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -44,6 +47,7 @@ public class WarehouseProductService {
                 throw new BusinessException(ErrorCode.INVALID_REQUEST);
             }
         }
+        validateNutrition(request);
         WarehouseProductImageStorage.Image image = file == null ? null : images.upload(file);
         if (image != null) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -56,5 +60,19 @@ public class WarehouseProductService {
         UUID id = UUID.randomUUID();
         products.insert(id, userId, request, image == null ? null : image.url(), image == null ? null : image.publicId());
         return new CreatedProduct(id, request.sku().trim(), "DRAFT");
+    }
+
+    // Bảng dinh dưỡng: có dòng thì phải có lượng tham chiếu, và mỗi thành phần chỉ xuất hiện một lần.
+    private void validateNutrition(CreateWarehouseProductRequest request) {
+        var facts = request.nutritionFactsOrEmpty();
+        if (!facts.isEmpty() && request.trimmedNutritionBasis() == null) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        Set<String> seen = new HashSet<>();
+        for (var fact : facts) {
+            if (!seen.add(fact.nutrient().strip().toLowerCase(Locale.ROOT))) {
+                throw new BusinessException(ErrorCode.INVALID_REQUEST);
+            }
+        }
     }
 }

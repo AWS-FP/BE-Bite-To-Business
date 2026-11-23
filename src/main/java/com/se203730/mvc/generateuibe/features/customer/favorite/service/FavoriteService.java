@@ -28,6 +28,15 @@ public class FavoriteService {
     }
 
     @Transactional(readOnly = true)
+    /** Ids among {@code productIds} that the customer liked; one query for a whole product grid. */
+    public java.util.List<UUID> favoritedAmong(UUID customerId, java.util.List<UUID> productIds) {
+        requireCustomer(customerId);
+        if (productIds == null || productIds.isEmpty()) return java.util.List.of();
+        java.util.List<UUID> ids = productIds.stream().distinct().toList();
+        if (ids.size() > 100) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        return favorites.favoritedAmong(customerId, ids);
+    }
+
     public FavoriteStatusResponse status(UUID customerId, UUID productId) {
         requireCustomer(customerId);
         return new FavoriteStatusResponse(productId, favorites.isFavorite(customerId, productId));
