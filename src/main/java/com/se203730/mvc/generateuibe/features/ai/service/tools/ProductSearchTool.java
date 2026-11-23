@@ -1,10 +1,10 @@
 package com.se203730.mvc.generateuibe.features.ai.service.tools;
 
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response.ProductSummaryResponse;
-import com.se203730.mvc.generateuibe.features.ecommerce.catalog.service.ProductService;
-import com.se203730.mvc.generateuibe.features.ecommerce.pricing.dto.response.ProductPricingResponse;
-import com.se203730.mvc.generateuibe.features.ecommerce.pricing.service.ProductPricingService;
+import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.ProductSummaryResponse;
+import com.se203730.mvc.generateuibe.features.ecommerce.service.ProductService;
+import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.ProductPricingResponse;
+import com.se203730.mvc.generateuibe.features.ecommerce.service.ProductPricingService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

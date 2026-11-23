@@ -8,7 +8,7 @@ import com.se203730.mvc.generateuibe.features.customer.enums.OrderStatus;
 import com.se203730.mvc.generateuibe.features.customer.repository.InventoryMovementRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.OrderRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.PaymentRepository;
-import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductInventoryRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductInventoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
