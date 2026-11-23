@@ -3,7 +3,7 @@ package com.se203730.mvc.generateuibe.features.logistics.service;
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
-import com.se203730.mvc.generateuibe.features.customer.notification.service.NotificationEventPublisher;
+import com.se203730.mvc.generateuibe.features.customer.service.NotificationEventPublisher;
 import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.logistics.entity.ProductRequest;
