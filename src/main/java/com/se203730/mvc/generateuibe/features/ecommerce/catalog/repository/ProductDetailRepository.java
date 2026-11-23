@@ -15,11 +15,13 @@ public interface ProductDetailRepository
     interface NutritionFactRow {
         String getNutrient();
 
+        String getNutrientEn();
+
         String getAmount();
     }
 
     @Query(value = """
-        select nutrient as nutrient, amount as amount
+        select nutrient as nutrient, nutrient_en as nutrientEn, amount as amount
         from public.product_nutrition_facts
         where product_id = :productId
         order by sort_order

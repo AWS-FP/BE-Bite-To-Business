@@ -27,6 +27,9 @@ public class Product {
     @Column(name = "brand_id")
     private UUID brandId;
 
+    @Column(name = "distributor_id")
+    private UUID distributorId;
+
     @Column(name = "category_id", nullable = false)
     private UUID categoryId;
 
@@ -62,6 +65,9 @@ public class Product {
 
     @Column(name = "quantity_step", nullable = false)
     private BigDecimal quantityStep;
+
+    // Không đặt @Column: ProductVat cũng map cột này theo tên mặc định, hai tên logic phải trùng nhau.
+    private BigDecimal vatRate;
 
     @Column(name = "image_url", columnDefinition = "text")
     private String imageUrl;
