@@ -115,7 +115,6 @@ public class RegistrationService {
                 profile.setDeliveryNote(request.deliveryNote());
                 profile.setInvoicePurchaser(request.invoicePurchaser());
                 profile.setInvoiceTaxCode(request.invoiceTaxCode());
-                profile.setInvoiceEmail(request.invoiceEmail());
                 profile.setCreatedAt(now);
                 profile.setUpdatedAt(now);
                 profiles.saveAndFlush(profile);

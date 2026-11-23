@@ -29,7 +29,6 @@ public record RegistrationResponse(
         // Các trường hóa đơn có thể null nếu người đăng ký chưa cung cấp.
         String invoicePurchaser,
         String invoiceTaxCode,
-        String invoiceEmail,
 
         // Kết quả xét duyệt; reviewNote lưu ghi chú, bắt buộc có lý do khi từ chối.
         RegistrationStatus status,

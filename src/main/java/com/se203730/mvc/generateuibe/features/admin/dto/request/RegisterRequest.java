@@ -47,10 +47,6 @@ public record RegisterRequest(
         String invoicePurchaser,
         @Pattern(regexp = "[0-9]{10}")
         String invoiceTaxCode,
-        @Size(max = 254)
-        @Email
-        @Pattern(regexp = "(?i)[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@gmail\\.com")
-        String invoiceEmail,
         Boolean newsletterConsent
 ) {
     // Chuẩn hóa form trước validation; bỏ khoảng trắng, đưa email về chữ thường và đổi chuỗi rỗng thành null.
@@ -67,7 +63,6 @@ public record RegisterRequest(
         deliveryNote = trim(deliveryNote);
         invoicePurchaser = trim(invoicePurchaser);
         invoiceTaxCode = trim(invoiceTaxCode);
-        invoiceEmail = normalizeEmail(invoiceEmail);
     }
 
     public static String trim(String value) {
