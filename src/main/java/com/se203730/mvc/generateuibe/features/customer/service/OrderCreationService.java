@@ -19,7 +19,7 @@ import com.se203730.mvc.generateuibe.features.customer.repository.OrderRepositor
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteRepository;
-import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductInventoryRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductInventoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
