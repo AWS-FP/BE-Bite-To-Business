@@ -2,6 +2,7 @@ package com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response;
 
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Brand;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Category;
+import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Distributor;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Product;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.ProductDetail;
 
@@ -25,11 +26,13 @@ public record ProductDetailResponse(
         String descriptionEn,
         String note,
         String origin,
+        String distributorName,
         String packageSpecVi,
         String packageSpecEn,
         String unitCode,
         BigDecimal minOrderQuantity,
         BigDecimal quantityStep,
+        BigDecimal vatRate,
         String imageUrl,
         String cloudinaryPublicId,
         ProductDetailsResponse details
@@ -38,6 +41,7 @@ public record ProductDetailResponse(
             Product product,
             Brand brand,
             Category category,
+            Distributor distributor,
             ProductDetail details,
             List<ProductDetailsResponse.NutritionFact> nutritionFacts
     ) {
@@ -56,11 +60,13 @@ public record ProductDetailResponse(
                 product.getDescriptionEn(),
                 product.getNote(),
                 product.getOrigin(),
+                distributor == null ? null : distributor.getName(),
                 product.getPackageSpecVi(),
                 product.getPackageSpecEn(),
                 product.getUnitCode(),
                 product.getMinOrderQuantity(),
                 product.getQuantityStep(),
+                product.getVatRate(),
                 product.getImageUrl(),
                 product.getCloudinaryPublicId(),
                 details == null ? null : ProductDetailsResponse.from(details, nutritionFacts)

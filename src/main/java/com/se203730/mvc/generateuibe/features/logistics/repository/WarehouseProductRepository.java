@@ -17,6 +17,7 @@ public class WarehouseProductRepository {
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("id", id).addValue("userId", userId).addValue("sku", r.sku().trim())
                 .addValue("category", r.categoryId()).addValue("brand", r.brandId())
+                .addValue("distributor", r.distributorId())
                 .addValue("nameVi", r.nameVi().trim()).addValue("nameEn", r.nameEn().trim())
                 .addValue("descriptionVi", r.descriptionVi()).addValue("descriptionEn", r.descriptionEn())
                 .addValue("note", r.note()).addValue("origin", r.origin()).addValue("specVi", r.specVi())
@@ -27,23 +28,23 @@ public class WarehouseProductRepository {
                 .addValue("length", r.length()).addValue("width", r.width()).addValue("height", r.height())
                 .addValue("technicalVi", r.technicalVi()).addValue("technicalEn", r.technicalEn())
                 .addValue("storageVi", r.storageVi()).addValue("storageEn", r.storageEn())
-                .addValue("complianceVi", r.complianceVi()).addValue("complianceEn", r.complianceEn())
-                .addValue("originDetailVi", r.originDetailVi()).addValue("originDetailEn", r.originDetailEn())
                 .addValue("nutritionBasis", r.trimmedNutritionBasis());
         jdbc.update("""
-                insert into public.products (id, sku, category_id, brand_id, name_vi, name_en,
+                insert into public.products (id, sku, category_id, brand_id, distributor_id, name_vi, name_en,
                   description_vi, description_en, note, origin, package_spec_vi, package_spec_en,
                   unit_code, min_order_quantity, quantity_step, vat_rate, image_url, cloudinary_public_id, status)
-                values (:id, :sku, :category, :brand, :nameVi, :nameEn, :descriptionVi, :descriptionEn,
+                values (:id, :sku, :category, :brand, :distributor, :nameVi, :nameEn, :descriptionVi, :descriptionEn,
                   :note, :origin, :specVi, :specEn, :unit, :minOrder, :quantityStep, :vat, :imageUrl, :imageId, 'DRAFT')
                 """, p);
+        // Nguồn gốc và "An toàn thực phẩm & VAT" không lưu văn bản: trang sản phẩm ghép từ origin, brand,
+        // distributor và vat_rate để không trùng dữ liệu.
         jdbc.update("""
                 insert into public.product_details (product_id, net_weight_kg, tare_weight_kg, volume_m3,
                   length_cm, width_cm, height_cm, technical_content_vi, technical_content_en,
                   kitchen_storage_content_vi, kitchen_storage_content_en, compliance_vat_content_vi,
                   compliance_vat_content_en, origin_content_vi, origin_content_en, nutrition_basis)
                 values (:id, :netWeight, :tareWeight, :volume, :length, :width, :height, :technicalVi,
-                  :technicalEn, :storageVi, :storageEn, :complianceVi, :complianceEn, :originDetailVi, :originDetailEn,
+                  :technicalEn, :storageVi, :storageEn, null, null, null, null,
                   :nutritionBasis)
                 """, p);
         List<CreateWarehouseProductRequest.NutritionFact> facts = r.nutritionFactsOrEmpty();
@@ -53,11 +54,12 @@ public class WarehouseProductRepository {
             for (int i = 0; i < facts.size(); i++) {
                 rows[i] = new MapSqlParameterSource().addValue("id", id).addValue("sortOrder", i)
                         .addValue("nutrient", facts.get(i).nutrient().strip())
+                        .addValue("nutrientEn", facts.get(i).nutrientEn().strip())
                         .addValue("amount", facts.get(i).amount().strip());
             }
             jdbc.batchUpdate("""
-                    insert into public.product_nutrition_facts (product_id, sort_order, nutrient, amount)
-                    values (:id, :sortOrder, :nutrient, :amount)
+                    insert into public.product_nutrition_facts (product_id, sort_order, nutrient, nutrient_en, amount)
+                    values (:id, :sortOrder, :nutrient, :nutrientEn, :amount)
                     """, rows);
         }
         jdbc.update("insert into public.product_prices (product_id, list_price) values (:id, :price)", p);

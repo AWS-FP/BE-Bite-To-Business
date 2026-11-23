@@ -8,10 +8,12 @@ import com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response.Pro
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.dto.response.ProductPageResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Brand;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Category;
+import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Distributor;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.Product;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.entity.ProductDetail;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.BrandRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.CategoryRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.DistributorRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.ProductDetailRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.catalog.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +48,7 @@ public class ProductService {
     private final BrandRepository brands;
     private final CategoryRepository categories;
     private final ProductDetailRepository productDetails;
+    private final DistributorRepository distributors;
 
     // [GIỮ NGUYÊN] Danh sách sản phẩm, tìm kiếm, lọc, sắp xếp.
     public ProductPageResponse getAll(
@@ -125,6 +128,10 @@ public class ProductService {
             product.getCategoryId()
         ).orElse(null);
 
+        Distributor distributor = product.getDistributorId() == null
+            ? null
+            : distributors.findById(product.getDistributorId()).orElse(null);
+
         ProductDetail details = productDetails.findById(
             productId
         ).orElse(null);
@@ -132,13 +139,15 @@ public class ProductService {
         List<ProductDetailsResponse.NutritionFact> nutritionFacts = details == null
             ? List.of()
             : productDetails.findNutritionFacts(productId).stream()
-                .map(row -> new ProductDetailsResponse.NutritionFact(row.getNutrient(), row.getAmount()))
+                .map(row -> new ProductDetailsResponse.NutritionFact(
+                    row.getNutrient(), row.getNutrientEn(), row.getAmount()))
                 .toList();
 
         return ProductDetailResponse.from(
             product,
             brand,
             category,
+            distributor,
             details,
             nutritionFacts
         );
