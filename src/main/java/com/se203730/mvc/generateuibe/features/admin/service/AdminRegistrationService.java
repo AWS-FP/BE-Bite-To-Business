@@ -33,8 +33,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Nghiệp vụ Admin xử lý yêu cầu đăng ký Customer.
@@ -87,7 +91,14 @@ public class AdminRegistrationService {
         Page<RegistrationRequest> result = registrations
                 .findAll(RegistrationFilters.matching(status, keyword, customerType), pageable);
 
-        return result.map(this::toResponse);
+        // Load users and profiles for the whole page at once instead of two queries per registration.
+        List<UUID> customerIds = result.getContent().stream().map(RegistrationRequest::getCustomerId).toList();
+        Map<UUID, User> customers = users.findAllById(customerIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+        Map<UUID, UserProfile> customerProfiles = profiles.findAllById(customerIds).stream()
+                .collect(Collectors.toMap(UserProfile::getUserId, Function.identity()));
+        return result.map(registration -> toResponse(registration,
+                customers.get(registration.getCustomerId()), customerProfiles.get(registration.getCustomerId())));
     }
 
     @Transactional(readOnly = true)
@@ -287,7 +298,16 @@ public class AdminRegistrationService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         UserProfile profile = profiles.findById(customerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        return toResponse(registration, customer, profile);
+    }
 
+    private RegistrationResponse toResponse(RegistrationRequest registration, User customer, UserProfile profile) {
+        if (customer == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        if (profile == null) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
         return new RegistrationResponse(
                 registration.getId(),
                 UserResponse.from(customer),
@@ -299,11 +319,9 @@ public class AdminRegistrationService {
                 profile.getDeliveryAddress(),
                 profile.getFullDeliveryAddress(),
                 profile.getDeliveryNote(),
-                profile.getInvoiceSameAsDelivery(),
                 profile.getInvoicePurchaser(),
                 profile.getInvoiceTaxCode(),
                 profile.getInvoiceEmail(),
-                profile.getInvoiceAddress(),
                 registration.getStatus(),
                 registration.getReviewNote(),
                 registration.getSubmittedAt(),

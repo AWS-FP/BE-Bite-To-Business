@@ -113,13 +113,9 @@ public class RegistrationService {
                 profile.setWard(request.ward());
                 profile.setDeliveryAddress(request.deliveryAddress());
                 profile.setDeliveryNote(request.deliveryNote());
-                profile.setInvoiceSameAsDelivery(request.invoiceSameAsDelivery());
                 profile.setInvoicePurchaser(request.invoicePurchaser());
                 profile.setInvoiceTaxCode(request.invoiceTaxCode());
                 profile.setInvoiceEmail(request.invoiceEmail());
-                profile.setInvoiceAddress(request.invoiceSameAsDelivery()
-                        ? profile.getFullDeliveryAddress()
-                        : request.invoiceAddress());
                 profile.setCreatedAt(now);
                 profile.setUpdatedAt(now);
                 profiles.saveAndFlush(profile);

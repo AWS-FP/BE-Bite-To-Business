@@ -51,9 +51,9 @@ public class HomePageRepository {
  LEFT JOIN LATERAL (
    SELECT a.id,a.name_vi,a.name_en,a.status,a.starts_at,a.ends_at,a.promotion_type
    FROM public.promotions a
-   WHERE (a.id=p.promotion_id OR EXISTS (
+   WHERE EXISTS (
      SELECT 1 FROM public.promotion_products relation
-     WHERE relation.product_id=p.id AND relation.promotion_id=a.id))
+     WHERE relation.product_id=p.id AND relation.promotion_id=a.id)
      AND a.status='PUBLISHED' AND a.starts_at<=CURRENT_TIMESTAMP AND a.ends_at>CURRENT_TIMESTAMP
    ORDER BY CASE WHEN a.promotion_type='FLASH_SALE' THEN 0 ELSE 1 END,
             a.ends_at ASC,a.id ASC LIMIT 1
@@ -171,9 +171,9 @@ public class HomePageRepository {
   LEFT JOIN LATERAL (
    SELECT a.id,a.name_vi,a.name_en,a.status,a.starts_at,a.ends_at,a.promotion_type
    FROM public.promotions a
-   WHERE (a.id=p.promotion_id OR EXISTS (
+   WHERE EXISTS (
      SELECT 1 FROM public.promotion_products relation
-     WHERE relation.product_id=p.id AND relation.promotion_id=a.id))
+     WHERE relation.product_id=p.id AND relation.promotion_id=a.id)
      AND a.status='PUBLISHED' AND a.starts_at<=CURRENT_TIMESTAMP AND a.ends_at>CURRENT_TIMESTAMP
    ORDER BY CASE WHEN a.promotion_type='FLASH_SALE' THEN 0 ELSE 1 END,
             a.ends_at ASC,a.id ASC LIMIT 1

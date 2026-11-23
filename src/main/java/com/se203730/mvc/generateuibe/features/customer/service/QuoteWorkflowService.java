@@ -127,6 +127,12 @@ public class QuoteWorkflowService {
         }
         Map<UUID, BigDecimal> quantities = new HashMap<>();
         BigDecimal shipping = BigDecimal.ZERO;
+        Map<UUID, List<QuotePackageItem>> allocationsByPackage = new HashMap<>();
+        for (QuotePackageItem allocation : allocations.findAllByQuotePackageIdIn(
+                parcels.stream().map(QuotePackage::getId).toList())) {
+            allocationsByPackage.computeIfAbsent(allocation.getQuotePackageId(), ignored -> new ArrayList<>())
+                    .add(allocation);
+        }
         for (QuotePackage parcel : parcels) {
             if (parcel.getShippingFee() == null || parcel.getDistanceMetres() == null
                     || parcel.getRecipientName() == null || parcel.getRecipientName().isBlank()
@@ -136,7 +142,7 @@ public class QuoteWorkflowService {
                     || parcel.getCity() == null || "NEEDS_UPDATE".equals(parcel.getAddressStatus())) {
                 throw new BusinessException(ErrorCode.QUOTE_INCOMPLETE);
             }
-            List<QuotePackageItem> assigned = allocations.findAllByQuotePackageId(parcel.getId());
+            List<QuotePackageItem> assigned = allocationsByPackage.getOrDefault(parcel.getId(), List.of());
             if (assigned.isEmpty()) throw new BusinessException(ErrorCode.QUOTE_INCOMPLETE);
             for (QuotePackageItem allocation : assigned) {
                 quantities.merge(allocation.getQuoteItemId(), allocation.getQuantity(), BigDecimal::add);

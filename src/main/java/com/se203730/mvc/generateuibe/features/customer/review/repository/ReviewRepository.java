@@ -3,6 +3,7 @@ package com.se203730.mvc.generateuibe.features.customer.review.repository;
 import com.se203730.mvc.generateuibe.features.customer.review.dto.response.ReviewImageResponse;
 import com.se203730.mvc.generateuibe.features.customer.review.dto.response.ReviewPageResponse;
 import com.se203730.mvc.generateuibe.features.customer.review.dto.response.ReviewResponse;
+import com.se203730.mvc.generateuibe.features.customer.review.dto.response.ReviewSummaryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -133,6 +134,28 @@ public class ReviewRepository {
         if (rows.isEmpty()) return null;
         ReviewResponse result = rows.getFirst();
         return result.withImages(imagesForReviews(List.of(reviewId)).getOrDefault(reviewId, List.of()));
+    }
+
+    /** Review count and average rating for many products in one GROUP BY (catalog cards). */
+    public List<ReviewSummaryResponse> summaries(List<UUID> productIds) {
+        if (productIds.isEmpty()) return List.of();
+        String placeholders = String.join(",", java.util.Collections.nCopies(productIds.size(), "?"));
+        Map<UUID, ReviewSummaryResponse> found = new java.util.HashMap<>();
+        jdbc.query("""
+                SELECT product_id, COUNT(*) AS review_count, AVG(rating) AS average_rating
+                FROM public.product_reviews
+                WHERE deleted_at IS NULL AND product_id IN (%s)
+                GROUP BY product_id
+                """.formatted(placeholders), rs -> {
+            UUID id = rs.getObject("product_id", UUID.class);
+            BigDecimal average = rs.getBigDecimal("average_rating");
+            found.put(id, new ReviewSummaryResponse(id, rs.getLong("review_count"),
+                    average == null ? null : average.setScale(2, RoundingMode.HALF_UP)));
+        }, productIds.toArray());
+        // Products without reviews still get a row (0 reviews) so the client can stop asking.
+        return productIds.stream()
+                .map(id -> found.getOrDefault(id, new ReviewSummaryResponse(id, 0, null)))
+                .toList();
     }
 
     public ReviewPageResponse list(UUID productId, int page, int size) {

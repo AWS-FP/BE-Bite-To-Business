@@ -18,6 +18,9 @@ import java.util.stream.Collectors;
 public class RefreshTokenCookies {
     public static final String NAME = "btb_refresh";
     private static final String PATH = "/api/auth";
+    /** Access token cookie: sent to every API path, lives exactly as long as the JWT. */
+    public static final String ACCESS_NAME = "btb_access";
+    private static final String ACCESS_PATH = "/";
 
     private final Duration maxAge;
     private final boolean secure;
@@ -59,6 +62,29 @@ public class RefreshTokenCookies {
                 .secure(secure)
                 .sameSite(sameSite)
                 .path(PATH)
+                .maxAge(Duration.ZERO)
+                .build()
+                .toString();
+    }
+
+    /** Access token cookie; expires together with the JWT so an expired token is never sent. */
+    public String issueAccess(String accessToken, long expiresInSeconds) {
+        return ResponseCookie.from(ACCESS_NAME, accessToken)
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite(sameSite)
+                .path(ACCESS_PATH)
+                .maxAge(Duration.ofSeconds(Math.max(0, expiresInSeconds)))
+                .build()
+                .toString();
+    }
+
+    public String clearAccess() {
+        return ResponseCookie.from(ACCESS_NAME, "")
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite(sameSite)
+                .path(ACCESS_PATH)
                 .maxAge(Duration.ZERO)
                 .build()
                 .toString();

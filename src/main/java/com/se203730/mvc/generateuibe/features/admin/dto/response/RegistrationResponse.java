@@ -27,11 +27,9 @@ public record RegistrationResponse(
         String deliveryNote,
 
         // Các trường hóa đơn có thể null nếu người đăng ký chưa cung cấp.
-        Boolean invoiceSameAsDelivery,
         String invoicePurchaser,
         String invoiceTaxCode,
         String invoiceEmail,
-        String invoiceAddress,
 
         // Kết quả xét duyệt; reviewNote lưu ghi chú, bắt buộc có lý do khi từ chối.
         RegistrationStatus status,
