@@ -17,4 +17,6 @@ public interface ProductRequestRepository extends JpaRepository<ProductRequest, 
     Optional<ProductRequest> findForUpdate(@Param("id") UUID id);
     Page<ProductRequest> findByStatusOrderByCreatedAtDesc(String status, Pageable pageable);
     Page<ProductRequest> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    Page<ProductRequest> findByCustomerIdOrderByCreatedAtDescIdAsc(UUID customerId, Pageable pageable);
 }
