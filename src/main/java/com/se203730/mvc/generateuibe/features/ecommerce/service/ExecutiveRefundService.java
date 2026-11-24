@@ -33,7 +33,7 @@ public class ExecutiveRefundService {
     private static final String SELECT = "select r.id, r.request_group_id, r.status, r.reason, r.recipient_bank, "
         + "r.recipient_account, r.recipient_name, r.refund_amount, r.review_note, r.transfer_reference, "
         + "r.created_at, r.reviewed_at, r.refunded_at, p.id as package_id, p.package_name, p.cancelled_at, "
-        + "p.delivery_date, p.delivery_time_slot, p.delivery_address, o.id as order_id, o.order_number, "
+        + "p.delivery_date, p.delivery_address, o.id as order_id, o.order_number, "
         + "o.customer_id, o.company_name, o.contact_name, o.contact_phone, " + PACKAGE_AMOUNT + " as package_amount "
         + "from public.package_refunds r join public.order_packages p on p.id = r.order_package_id "
         + "join public.orders o on o.id = p.order_id";
@@ -41,6 +41,7 @@ public class ExecutiveRefundService {
     private final EcommerceExecutiveRepository db;
     private final DatabaseClock clock;
     private final NotificationEventPublisher notifications;
+    private final com.se203730.mvc.generateuibe.features.customer.service.PackageStockService stockService;
 
     @Transactional(readOnly = true)
     public EcommercePageResponse<Map<String, Object>> list(String status, int page, int size) {
@@ -80,7 +81,8 @@ public class ExecutiveRefundService {
             params.addValue("amount", amount));
         db.update("update public.order_packages set cancelled_at = :now, updated_at = :now "
             + "where id = :packageId and cancelled_at is null", params);
-        settleOrder(params);
+        // Package đã hủy: nhả hàng đang giữ về kho ngay, không cần Logistics xử lý tay.
+        stockService.releaseCancelled(orderId, packageId, staffId, clock.now(), "Khách hủy package (E-commerce duyệt)");
         String name = (String) current.get("packageName");
         notifications.publish((UUID) current.get("customerId"), null, null, "ORDER",
             "Yêu cầu hủy đã được duyệt", "Cancellation approved",
@@ -133,26 +135,6 @@ public class ExecutiveRefundService {
             "The refund for package \"" + name + "\" was sent. Transfer reference: " + reference + ".",
             "/orders/" + current.get("orderId"));
         return one(id);
-    }
-
-    // Hủy hết package thì đơn bị hủy; các package còn lại đều đã giao thì đơn hoàn thành.
-    private void settleOrder(MapSqlParameterSource params) {
-        Long active = db.queryForObject("select count(*) from public.order_packages "
-            + "where order_id = :orderId and cancelled_at is null", params, Long.class);
-        if (active != null && active == 0) {
-            db.update("update public.orders set status = 'CANCELLED', cancelled_at = :now, cancelled_by = :staff, "
-                + "cancellation_reason = 'Customer cancellation approved', updated_at = :now "
-                + "where id = :orderId and status in ('CONFIRMED', 'PROCESSING')", params);
-            return;
-        }
-        Long undelivered = db.queryForObject("select count(*) from public.order_packages p "
-            + "where p.order_id = :orderId and p.cancelled_at is null and not exists (select 1 from "
-            + "public.delivery_package_claims c where c.package_id = p.id and c.delivered_at is not null)",
-            params, Long.class);
-        if (undelivered != null && undelivered == 0) {
-            db.update("update public.orders set status = 'COMPLETED', completed_at = :now, updated_at = :now "
-                + "where id = :orderId and status in ('CONFIRMED', 'PROCESSING')", params);
-        }
     }
 
     private Map<String, Object> lock(UUID id, String expectedStatus) {

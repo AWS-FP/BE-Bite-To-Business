@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record QuotePackageResponse(UUID id, String name, String recipientName, String recipientPhone,
-                                   LocalDate deliveryDate, String deliveryTimeSlot, String address, String note,
+                                   LocalDate deliveryDate, String address, String note,
                                    String city, BigDecimal latitude, BigDecimal longitude,
                                    Integer distanceMetres, BigDecimal shippingFee, String addressStatus,
                                    List<Allocation> items) {
@@ -17,7 +17,7 @@ public record QuotePackageResponse(UUID id, String name, String recipientName, S
 
     public static QuotePackageResponse from(QuotePackage parcel, List<QuotePackageItem> items) {
         return new QuotePackageResponse(parcel.getId(), parcel.getPackageName(), parcel.getRecipientName(),
-                parcel.getRecipientPhone(), parcel.getDeliveryDate(), parcel.getDeliveryTimeSlot(),
+                parcel.getRecipientPhone(), parcel.getDeliveryDate(),
                 parcel.getDeliveryAddress(), parcel.getDeliveryNote(), parcel.getCity(), parcel.getLatitude(),
                 parcel.getLongitude(), parcel.getDistanceMetres(), parcel.getShippingFee(), parcel.getAddressStatus(),
                 items.stream().map(item -> new Allocation(item.getQuoteItemId(), item.getQuantity())).toList());

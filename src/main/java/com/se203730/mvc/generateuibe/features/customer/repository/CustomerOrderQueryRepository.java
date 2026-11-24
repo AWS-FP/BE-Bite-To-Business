@@ -46,8 +46,9 @@ public class CustomerOrderQueryRepository {
     /** SQL condition per order group; fixed strings only, never built from request input. */
     private static String statusCondition(String group) {
         return switch (group) {
-            case "ACTIVE" -> " AND o.status IN ('CONFIRMED', 'PROCESSING')";
-            case "FINISHED" -> " AND o.status IN ('COMPLETED', 'CANCELLED')";
+            // Đang xử lý: chờ thanh toán, hoặc đã thanh toán nhưng còn package chưa giao.
+            case "ACTIVE" -> " AND (o.status IN ('CONFIRMED', 'PROCESSING') OR (o.status = 'COMPLETED' AND EXISTS (SELECT 1 FROM public.order_packages p WHERE p.order_id = o.id AND p.cancelled_at IS NULL AND NOT EXISTS (SELECT 1 FROM public.delivery_package_claims c WHERE c.package_id = p.id AND c.delivered_at IS NOT NULL))))";
+            case "FINISHED" -> " AND (o.status = 'CANCELLED' OR (o.status = 'COMPLETED' AND NOT EXISTS (SELECT 1 FROM public.order_packages p WHERE p.order_id = o.id AND p.cancelled_at IS NULL AND NOT EXISTS (SELECT 1 FROM public.delivery_package_claims c WHERE c.package_id = p.id AND c.delivered_at IS NOT NULL))))";
             default -> "";
         };
     }
@@ -91,15 +92,24 @@ public class CustomerOrderQueryRepository {
         return jdbc.query("""
                 SELECT op.id, op.package_number, op.package_name, op.delivery_date,
                        op.delivery_address, op.recipient_name, op.recipient_phone,
-                       op.delivery_time_slot, op.cancelled_at
+                       op.cancelled_at, c.package_id AS claimed_package, c.delivered_at,
+                       r.status AS return_status,
+                       (c.delivered_at IS NOT NULL AND op.cancelled_at IS NULL AND r.id IS NULL
+                        AND NOW() < c.delivered_at + INTERVAL '24 hours') AS returnable
                 FROM public.order_packages op JOIN public.orders o ON o.id = op.order_id
+                LEFT JOIN public.delivery_package_claims c ON c.package_id = op.id
+                LEFT JOIN public.package_returns r ON r.order_package_id = op.id
                 WHERE o.id = ? AND o.customer_id = ?
                 ORDER BY op.delivery_date, op.package_number, op.id
                 """, (rs, row) -> new CustomerOrderPackageResponse(
                 rs.getObject("id", UUID.class), rs.getString("package_number"),
                 rs.getString("package_name"), rs.getObject("delivery_date", java.time.LocalDate.class),
                 rs.getString("delivery_address"), rs.getString("recipient_name"),
-                rs.getString("recipient_phone"), rs.getString("delivery_time_slot"),
-                rs.getTimestamp("cancelled_at") != null), orderId, customerId);
+                rs.getString("recipient_phone"), rs.getTimestamp("cancelled_at") != null,
+                rs.getTimestamp("cancelled_at") != null ? "CANCELLED"
+                        : rs.getTimestamp("delivered_at") != null ? "DELIVERED"
+                        : rs.getObject("claimed_package") != null ? "IN_DELIVERY" : "WAITING",
+                instant(rs.getTimestamp("delivered_at")), rs.getString("return_status"),
+                rs.getBoolean("returnable")), orderId, customerId);
     }
 }

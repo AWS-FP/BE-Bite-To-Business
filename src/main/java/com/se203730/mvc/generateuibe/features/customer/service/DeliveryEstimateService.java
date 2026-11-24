@@ -119,7 +119,6 @@ public class DeliveryEstimateService {
 
     private Origin origin(String city) {
         if ("hcm".equals(city)) return new Origin(10.77172, 106.70418);
-        if ("hanoi".equals(city)) return new Origin(21.0292789, 105.8295441);
         throw new BusinessException(ErrorCode.INVALID_REQUEST);
     }
 
