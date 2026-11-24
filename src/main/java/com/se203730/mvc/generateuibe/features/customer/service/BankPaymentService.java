@@ -178,6 +178,10 @@ public class BankPaymentService {
         payment.setProviderTransactionId(request.id().toString());
         payment.setPaidAt(now);
         payment.setUpdatedAt(now);
+        // Thanh toán xong là đơn hoàn tất; trạng thái giao hàng nằm ở từng package.
+        order.setStatus(OrderStatus.COMPLETED);
+        order.setCompletedAt(now);
+        order.setUpdatedAt(now);
         if (order.getCouponId() != null && order.getCouponRedeemedAt() == null) {
             order.setCouponRedeemedAt(now);
             order.setUpdatedAt(now);

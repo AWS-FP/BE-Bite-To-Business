@@ -21,10 +21,9 @@ public record QuotePackageRequest(
         @NotBlank @Size(max = 200) String recipientName,
         @NotBlank @Size(max = 30) String recipientPhone,
         @NotNull @FutureOrPresent LocalDate deliveryDate,
-        @NotBlank @Size(max = 100) String deliveryTimeSlot,
         @NotBlank @Size(max = 1000) String address,
         @Size(max = 1000) String note,
-        @NotBlank @Pattern(regexp = "HCM|HANOI") String city,
+        @NotBlank @Pattern(regexp = "HCM") String city,
         @NotNull @DecimalMin("-90") @DecimalMax("90") BigDecimal latitude,
         @NotNull @DecimalMin("-180") @DecimalMax("180") BigDecimal longitude,
         @NotEmpty @Size(max = 200) List<@NotNull @Valid Allocation> items

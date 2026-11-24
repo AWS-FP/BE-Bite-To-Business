@@ -41,6 +41,7 @@ public class DeliveryPackageClaimService {
     private final DatabaseClock clock;
     private final NotificationEventPublisher notifications;
     private final DeliveryEstimateService routing;
+    private final com.se203730.mvc.generateuibe.features.customer.service.PackageStockService stockService;
     private static final List<String> ACTIVE_REFUNDS = List.of("REQUESTED", "APPROVED", "PROCESSING");
 
     @Transactional
@@ -52,9 +53,12 @@ public class DeliveryPackageClaimService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
         OrderPackage parcel = packages.findForUpdate(packageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        if (parcel.getCancelledAt() != null || order.getStatus() == OrderStatus.CANCELLED
-                || order.getStatus() == OrderStatus.COMPLETED) {
+        if (parcel.getCancelledAt() != null || order.getStatus() == OrderStatus.CANCELLED) {
             throw new BusinessException(ErrorCode.DELIVERY_PACKAGE_CANCELLED);
+        }
+        // Chỉ nhận package của ngày giao hôm nay.
+        if (!parcel.getDeliveryDate().equals(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")))) {
+            throw new BusinessException(ErrorCode.CONFLICT);
         }
         if (!orders.hasSuccessfulPayment(order.getId(), order.getTotalAmount())) {
             throw new BusinessException(ErrorCode.ORDER_PAYMENT_REQUIRED);
@@ -154,13 +158,8 @@ public class DeliveryPackageClaimService {
         Instant now = clock.now();
         claim.setDeliveredAt(now);
         claims.saveAndFlush(claim);
-        // Giao xong package cuối cùng còn hiệu lực thì đơn hàng hoàn thành.
-        if (order.getStatus() != OrderStatus.COMPLETED && packages.countUndeliveredPackages(order.getId()) == 0) {
-            order.setStatus(OrderStatus.COMPLETED);
-            order.setCompletedAt(now);
-            order.setUpdatedAt(now);
-            orders.saveAndFlush(order);
-        }
+        // Hàng của package rời kho khi giao xong.
+        stockService.shipDelivered(order.getId(), parcel.getId(), staffId, now);
         notifications.publish(order.getCustomerId(), null, null, "DELIVERY",
                 "Kiện hàng đã được giao", "Your package was delivered",
                 "Kiện \"" + parcel.getPackageName() + "\" đã được giao thành công.",
@@ -196,7 +195,7 @@ public class DeliveryPackageClaimService {
 
     private ClaimedPackageResponse response(DeliveryPackageClaim claim, OrderPackage parcel, Order order) {
         return new ClaimedPackageResponse(parcel.getId(), parcel.getPackageNumber(), parcel.getPackageName(),
-                order.getId(), order.getOrderNumber(), parcel.getDeliveryDate(), parcel.getDeliveryTimeSlot(),
+                order.getId(), order.getOrderNumber(), parcel.getDeliveryDate(),
                 parcel.getDeliveryAddress(), parcel.getRecipientName(), parcel.getRecipientPhone(),
                 parcel.getDeliveryNote(), parcel.getCity(), parcel.getLatitude(), parcel.getLongitude(),
                 claim.getClaimedAt(), parcel.getCancelledAt() != null || order.getStatus() == OrderStatus.CANCELLED,
