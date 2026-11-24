@@ -68,4 +68,19 @@ Cột "Hệ thống xử lý" do backend quyết định sau bước này, khôn
 - Cụm chung như "thịt bò" sẽ không khớp "Ba chỉ bò"; khi người dùng nói chung chung, giữ đúng cụm họ nói và để bước giao diện gợi ý từ khóa khác nếu không có kết quả.
 - Người dùng nói tiếng Anh thì giữ từ khóa tiếng Anh ("frozen salmon").
 
+- Người dùng chỉ nói mục đích ("đồ cho quán lẩu", "nguyên liệu làm bánh") mà không nêu sản phẩm: `product_name` là `null`, `purpose` giữ cụm đó, `needs_clarification: true` và hỏi nhóm hàng cụ thể.
+
+## Phân biệt dễ nhầm
+
+- "đơn hàng", "đơn của mình", "đơn đã đặt", "lịch sử mua" → `SEARCH_ORDER_HISTORY` (hoặc `TRACK_ORDER` khi hỏi đơn đang giao tới đâu). Không phải `VIEW_CART`.
+- "giỏ hàng", "giỏ", "báo giá đang soạn" → `VIEW_CART`.
+- "đặt hàng", "chốt đơn", "thanh toán" khi chưa có đơn → `VIEW_CART` (thanh toán bắt đầu từ giỏ hàng). Có mã đơn hoặc nói "đơn vừa đặt" → `INITIATE_PAYMENT`.
+
+Ví dụ:
+
+- "Cho mình xem đơn hàng của mình" → `{"intents":["SEARCH_ORDER_HISTORY"],"slots":{"order_id":null},"needs_clarification":false,"clarification_question":null}`
+- "Đơn hôm qua giao tới đâu rồi?" → `{"intents":["TRACK_ORDER"],"slots":{"order_id":null,"time_reference":"hôm qua"},"needs_clarification":false,"clarification_question":null}`
+- "Mở giỏ hàng giúp mình" → `{"intents":["VIEW_CART"],"slots":{},"needs_clarification":false,"clarification_question":null}`
+- "Mình cần đồ cho quán lẩu" → `{"intents":["SEARCH_PRODUCT"],"slots":{"product_name":null,"purpose":"quán lẩu"},"needs_clarification":true,"clarification_question":"Bạn đang cần nhóm hàng nào cho quán lẩu?"}`
+
 Tên slot dùng snake_case như trên. `quantity` là số; `unit` giữ nguyên chữ người dùng nói ("thùng", "kg"). `target_view` chỉ nhận `table` hoặc `grid`.

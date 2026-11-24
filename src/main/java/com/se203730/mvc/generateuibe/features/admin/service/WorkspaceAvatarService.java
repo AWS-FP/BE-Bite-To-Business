@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
+import java.util.List;
 
 @Service
 public class WorkspaceAvatarService {
@@ -29,6 +30,9 @@ public class WorkspaceAvatarService {
     @Autowired
     private DatabaseClock clock;
 
+    @Autowired
+    private AvatarHistoryService avatarHistory;
+
     @Transactional
     public UserResponse updateAvatar(UUID userId, MultipartFile file) {
         User user = accounts.requireActiveUser(userId);
@@ -42,8 +46,37 @@ public class WorkspaceAvatarService {
         if (user.getRole() == UserRole.CUSTOMER) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
+        avatarHistory.remember(userId, user.getAvatarUrl());
+        avatarHistory.remember(userId, avatarUrl);
         user.setAvatarUrl(avatarUrl);
         user.setUpdatedAt(clock.now());
         return UserResponse.from(users.saveAndFlush(user));
+    }
+    @Transactional(readOnly = true)
+    public List<String> recent(UUID userId) {
+        User user = accounts.requireActiveUser(userId);
+        if (user.getRole() == UserRole.CUSTOMER) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        return avatarHistory.recent(userId, user.getAvatarUrl());
+    }
+
+    @Transactional
+    public UserResponse restore(UUID userId, String avatarUrl) {
+        users.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = accounts.requireActiveUser(userId);
+        if (user.getRole() == UserRole.CUSTOMER) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        avatarHistory.requireOwned(userId, avatarUrl);
+        if (!avatarUrl.equals(user.getAvatarUrl())) {
+            avatarHistory.remember(userId, user.getAvatarUrl());
+            user.setAvatarUrl(avatarUrl);
+            user.setUpdatedAt(clock.now());
+            users.saveAndFlush(user);
+        }
+        avatarHistory.remember(userId, avatarUrl);
+        return UserResponse.from(user);
     }
 }

@@ -15,6 +15,8 @@ import com.se203730.mvc.generateuibe.features.customer.repository.OrderPackageRe
 import com.se203730.mvc.generateuibe.features.customer.repository.OrderRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.PackageRefundRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.PaymentRepository;
+import com.se203730.mvc.generateuibe.features.customer.enums.OrderStatus;
+import com.se203730.mvc.generateuibe.features.delivery.repository.DeliveryPackageClaimRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +37,7 @@ public class CustomerRefundService {
     private final OrderPackageRepository packages;
     private final PaymentRepository payments;
     private final PackageRefundRepository refunds;
+    private final DeliveryPackageClaimRepository claims;
     private final DatabaseClock clock;
 
     @Transactional
@@ -43,6 +46,9 @@ public class CustomerRefundService {
         Order order = orders.findForUpdate(orderId)
                 .filter(item -> item.getCustomerId().equals(customerId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (order.getStatus() != OrderStatus.COMPLETED) {
+            throw new BusinessException(ErrorCode.REFUND_PACKAGE_NOT_CANCELLABLE);
+        }
         Payment payment = payments.findByOrderIdAndStatus(orderId, "SUCCESS")
                 .filter(item -> item.getPaidAt() != null && "VND".equals(item.getCurrency())
                         && item.getAmount().compareTo(order.getTotalAmount()) == 0)
@@ -57,7 +63,8 @@ public class CustomerRefundService {
         }
         List<OrderPackage> selected = new ArrayList<>();
         for (OrderPackage item : all) {
-            if (request.entireOrder() || selectedIds.contains(item.getId())) {
+            boolean wanted = request.entireOrder() ? item.getCancelledAt() == null : selectedIds.contains(item.getId());
+            if (wanted) {
                 selected.add(item);
             }
         }
@@ -67,6 +74,10 @@ public class CustomerRefundService {
         List<UUID> packageIds = new ArrayList<>();
         for (OrderPackage item : selected) {
             packageIds.add(item.getId());
+        }
+        // Chỉ hủy được package chưa bị hủy và chưa có nhân viên giao nhận.
+        if (selected.stream().anyMatch(item -> item.getCancelledAt() != null) || claims.existsByPackageIdIn(packageIds)) {
+            throw new BusinessException(ErrorCode.REFUND_PACKAGE_NOT_CANCELLABLE);
         }
         if (refunds.existsByOrderPackageIdInAndStatusIn(packageIds,
                 List.of("REQUESTED", "APPROVED", "PROCESSING", "REFUNDED"))) {

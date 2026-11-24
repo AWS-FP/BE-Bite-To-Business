@@ -17,19 +17,10 @@ public record CustomerProfileResponse(
         String deliveryAddress,
         String fullDeliveryAddress,
         String deliveryNote,
-        Boolean invoiceSameAsDelivery,
-        String invoicePurchaser,
-        String invoiceTaxCode,
-        String invoiceEmail,
-        String invoiceAddress,
         Instant createdAt,
         Instant updatedAt
 ) {
     public static CustomerProfileResponse from(User user, UserProfile profile) {
-        String invoiceAddress = Boolean.TRUE.equals(profile.getInvoiceSameAsDelivery())
-                ? profile.getFullDeliveryAddress()
-                : profile.getInvoiceAddress();
-
         return new CustomerProfileResponse(
                 UserResponse.from(user),
                 profile.getCustomerType(),
@@ -40,11 +31,6 @@ public record CustomerProfileResponse(
                 profile.getDeliveryAddress(),
                 profile.getFullDeliveryAddress(),
                 profile.getDeliveryNote(),
-                profile.getInvoiceSameAsDelivery(),
-                profile.getInvoicePurchaser(),
-                profile.getInvoiceTaxCode(),
-                profile.getInvoiceEmail(),
-                invoiceAddress,
                 profile.getCreatedAt(),
                 profile.getUpdatedAt());
     }

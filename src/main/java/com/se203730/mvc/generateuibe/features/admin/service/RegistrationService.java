@@ -21,6 +21,11 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.se203730.mvc.generateuibe.features.admin.entity.RegistrationDuplicateAttempt;
+import com.se203730.mvc.generateuibe.features.admin.repository.RegistrationDuplicateAttemptRepository;
+
+import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -55,14 +60,30 @@ public class RegistrationService {
     @Autowired
     private DatabaseClock clock;
 
-    /** Tạo tài khoản chờ, lưu hồ sơ và yêu cầu PENDING; chỉ trả biên nhận, chưa cho phép đăng nhập mua hàng. */
+    @Autowired
+    private RegistrationDuplicateAttemptRepository duplicates;
+
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    /**
+     * Tạo tài khoản chờ, lưu hồ sơ và yêu cầu PENDING; chỉ trả biên nhận, chưa cho phép đăng nhập mua hàng.
+     * Email/số điện thoại đã có tài khoản KHÔNG trả lỗi "đã tồn tại" (lỗi đó cho phép dò email nào đã đăng ký):
+     * vẫn trả biên nhận như thường, ghi lại để admin thấy và tự động gửi mail từ chối.
+     */
     public RegistrationReceipt register(RegisterRequest request) {
-        if (users.existsByEmailIgnoreCase(request.email()))
-            throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
-        if (users.existsByPhone(request.phone()))
-            throw new BusinessException(ErrorCode.PHONE_ALREADY_EXISTS);
+        String duplicate = duplicateField(request);
+        if (duplicate != null)
+            return acceptDuplicate(request, duplicate);
         // 1. Tạo tài khoản phía Supabase; dùng cùng UUID cho bảng users của ứng dụng.
-        UUID authUserId = supabase.createPendingUser(request.email());
+        UUID authUserId;
+        try {
+            authUserId = supabase.createPendingUser(request.email());
+        } catch (BusinessException ex) {
+            // Supabase đã có email này (dù bảng users chưa có): xử lý như trùng, không báo lỗi riêng.
+            if (ex.getErrorCode() == ErrorCode.EMAIL_ALREADY_EXISTS)
+                return acceptDuplicate(request, "EMAIL");
+            throw ex;
+        }
         try {
             // 2. Ba bản ghi nội bộ phải cùng thành công; lỗi một bước thì rollback toàn bộ transaction.
             return Objects.requireNonNull(transaction.execute(status -> {
@@ -92,13 +113,8 @@ public class RegistrationService {
                 profile.setWard(request.ward());
                 profile.setDeliveryAddress(request.deliveryAddress());
                 profile.setDeliveryNote(request.deliveryNote());
-                profile.setInvoiceSameAsDelivery(request.invoiceSameAsDelivery());
                 profile.setInvoicePurchaser(request.invoicePurchaser());
                 profile.setInvoiceTaxCode(request.invoiceTaxCode());
-                profile.setInvoiceEmail(request.invoiceEmail());
-                profile.setInvoiceAddress(request.invoiceSameAsDelivery()
-                        ? profile.getFullDeliveryAddress()
-                        : request.invoiceAddress());
                 profile.setCreatedAt(now);
                 profile.setUpdatedAt(now);
                 profiles.saveAndFlush(profile);
@@ -122,8 +138,64 @@ public class RegistrationService {
                 log.error("Could not remove pending Auth user {} after registration rollback",
                         authUserId);
             }
+            // Hai request cùng email/số điện thoại chạy song song: request thua cũng không được lộ lỗi trùng.
+            if (isUserUniqueViolation(ex)) {
+                String field = duplicateField(request);
+                return acceptDuplicate(request, field == null ? "EMAIL" : field);
+            }
             throw ex;
         }
+    }
+
+    private String duplicateField(RegisterRequest request) {
+        boolean email = users.existsByEmailIgnoreCase(request.email());
+        boolean phone = users.existsByPhone(request.phone());
+        if (email && phone) return "EMAIL_AND_PHONE";
+        if (email) return "EMAIL";
+        if (phone) return "PHONE";
+        return null;
+    }
+
+    private static boolean isUserUniqueViolation(Throwable ex) {
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException constraint) {
+                String name = constraint.getConstraintName();
+                if ("ux_users_phone".equals(name) || "ux_users_email_ci".equals(name)) return true;
+            }
+            if (cause.getCause() == cause) break;
+        }
+        return false;
+    }
+
+    /**
+     * Ghi lại đăng ký trùng và trả biên nhận giả có cùng dạng với biên nhận thật. Mail từ chối được gửi sau
+     * vài phút bởi {@link RegistrationDuplicateService}; mỗi địa chỉ nhận tối đa một mail/24 giờ để không bị
+     * lợi dụng spam hộp thư người khác.
+     */
+    private RegistrationReceipt acceptDuplicate(RegisterRequest request, String field) {
+        Instant now = clock.now();
+        RegistrationDuplicateAttempt attempt = new RegistrationDuplicateAttempt();
+        attempt.setId(UUID.randomUUID());
+        attempt.setEmail(request.email());
+        attempt.setPhone(request.phone());
+        attempt.setFirstName(request.firstName());
+        attempt.setLastName(request.lastName());
+        attempt.setDuplicateField(field);
+        attempt.setExistingUserId(users.findByEmailIgnoreCase(request.email()).map(User::getId).orElse(null));
+        boolean recentMail = duplicates.hasRecentRejectionMail(request.email(), now.minus(Duration.ofHours(24)));
+        attempt.setEmailStatus(recentMail ? "SKIPPED" : "PENDING");
+        attempt.setNextEmailAt(now.plusSeconds(180 + RANDOM.nextInt(421)));
+        attempt.setCreatedAt(now);
+        duplicates.saveAndFlush(attempt);
+        // Không ghi email/số điện thoại vào log.
+        log.info("Duplicate registration recorded; attemptId={}, field={}", attempt.getId(), field);
+        // Đăng ký thật gọi Supabase nên chậm hơn; thêm độ trễ để thời gian phản hồi không lộ kết quả.
+        try {
+            Thread.sleep(250 + RANDOM.nextInt(500));
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
+        return new RegistrationReceipt(UUID.randomUUID(), RegistrationStatus.PENDING, now);
     }
 
     /** Kiểm tra thời hạn và xác minh OTP; chỉ đánh dấu email đã xác minh, chưa ghi nhận kích hoạt. */

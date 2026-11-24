@@ -9,11 +9,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -33,5 +35,13 @@ public class WarehouseProductController {
             @RequestPart(value = "image", required = false)
             MultipartFile image) {
         return ResponseEntity.status(201).body(new ResponseObject<>(201, "Product created", products.create(userId, request, image)));
+    }
+
+    // Danh sách nhà phân phối cho dropdown ở form tạo sản phẩm.
+    @GetMapping("/distributors")
+    public ResponseEntity<ResponseObject<List<WarehouseProductService.DistributorOption>>> distributors(
+            @CurrentUserUUID
+            UUID userId) {
+        return ResponseEntity.ok(new ResponseObject<>(200, "Distributors", products.distributors(userId)));
     }
 }

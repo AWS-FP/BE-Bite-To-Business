@@ -12,8 +12,8 @@ import com.se203730.mvc.generateuibe.features.customer.entity.QuotePackageItem;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageRepository;
-import com.se203730.mvc.generateuibe.features.ecommerce.pricing.entity.ProductInventory;
-import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductInventoryRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.entity.ProductInventory;
+import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductInventoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -127,16 +127,21 @@ public class QuoteWorkflowService {
         }
         Map<UUID, BigDecimal> quantities = new HashMap<>();
         BigDecimal shipping = BigDecimal.ZERO;
+        Map<UUID, List<QuotePackageItem>> allocationsByPackage = new HashMap<>();
+        for (QuotePackageItem allocation : allocations.findAllByQuotePackageIdIn(
+                parcels.stream().map(QuotePackage::getId).toList())) {
+            allocationsByPackage.computeIfAbsent(allocation.getQuotePackageId(), ignored -> new ArrayList<>())
+                    .add(allocation);
+        }
         for (QuotePackage parcel : parcels) {
             if (parcel.getShippingFee() == null || parcel.getDistanceMetres() == null
                     || parcel.getRecipientName() == null || parcel.getRecipientName().isBlank()
                     || parcel.getRecipientPhone() == null || parcel.getRecipientPhone().isBlank()
-                    || parcel.getDeliveryTimeSlot() == null || parcel.getDeliveryTimeSlot().isBlank()
                     || parcel.getLatitude() == null || parcel.getLongitude() == null
                     || parcel.getCity() == null || "NEEDS_UPDATE".equals(parcel.getAddressStatus())) {
                 throw new BusinessException(ErrorCode.QUOTE_INCOMPLETE);
             }
-            List<QuotePackageItem> assigned = allocations.findAllByQuotePackageId(parcel.getId());
+            List<QuotePackageItem> assigned = allocationsByPackage.getOrDefault(parcel.getId(), List.of());
             if (assigned.isEmpty()) throw new BusinessException(ErrorCode.QUOTE_INCOMPLETE);
             for (QuotePackageItem allocation : assigned) {
                 quantities.merge(allocation.getQuoteItemId(), allocation.getQuantity(), BigDecimal::add);

@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 /**
@@ -30,14 +31,15 @@ public class SecurityConfig {
         CorsConfigurationSource corsConfigurationSource,
         AccountAccessService accounts,
         RestSecurityExceptionHandler securityErrors,
+        RefreshTokenCookies authCookies,
         @Value("${app.docs.public-enabled:false}")
         boolean docsPublicEnabled) throws Exception {
 
         http.cors(cors ->
             cors.configurationSource(corsConfigurationSource));
 
-        // Các API dùng Bearer token trong header,
-        // không xác thực bằng cookie.
+        // CSRF token của Spring không dùng: request bằng cookie được bảo vệ bởi SameSite=Lax
+        // + CookieCsrfOriginFilter (kiểm tra Origin); request Bearer header không cần CSRF.
         http.csrf(AbstractHttpConfigurer::disable);
 
         http.sessionManagement(
@@ -92,6 +94,7 @@ public class SecurityConfig {
                 HttpMethod.GET,
                 "/api/catalog/products",
                 "/api/catalog/products/*",
+                "/api/catalog/products/*/related",
                 "/api/catalog/products/*/pricing"
             ).permitAll();
 
@@ -124,6 +127,12 @@ public class SecurityConfig {
             authorize.requestMatchers(
                 HttpMethod.POST,
                 "/api/ai/agent"
+            ).permitAll();
+            // Sự kiện tương tác cho cá nhân hóa giao diện: Guest gửi kèm anonId,
+            // Customer đã đăng nhập được BE gắn user từ cookie.
+            authorize.requestMatchers(
+                HttpMethod.POST,
+                "/api/ui-events"
             ).permitAll();
 
             // Webhook dùng chữ ký HMAC của SePay
@@ -179,7 +188,12 @@ public class SecurityConfig {
             accounts::authorities
         );
 
+        // Phiên trình duyệt: access token nằm trong cookie HttpOnly btb_access (header Bearer vẫn được ưu tiên).
+        // Request ghi dữ liệu dùng cookie phải đến từ FE của mình (chống CSRF).
+        http.addFilterBefore(new CookieCsrfOriginFilter(authCookies), BearerTokenAuthenticationFilter.class);
+
         http.oauth2ResourceServer(resourceServer -> resourceServer
+            .bearerTokenResolver(new CookieBearerTokenResolver())
             .jwt(jwt -> jwt.jwtAuthenticationConverter(converter))
             .authenticationEntryPoint(securityErrors)
             .accessDeniedHandler(securityErrors));

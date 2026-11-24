@@ -1,16 +1,32 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ưu đãi mới | Bite to Business</title></head>
-<body style="margin:0;padding:28px 12px;background:#f5f3ed;font-family:Arial,Helvetica,sans-serif;color:#17133a;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center">
-<table role="presentation" width="580" cellpadding="0" cellspacing="0" border="0" style="max-width:100%;background:#fff;border-radius:14px;overflow:hidden;">
-<tr><td style="padding:26px 32px;background:#123b2e;color:#fff1e0;"><h1 style="margin:0;font-size:24px;">Bite to Business</h1><p style="margin:10px 0 0;">Thông báo chương trình ưu đãi mới</p></td></tr>
-<tr><td style="padding:32px;line-height:1.6;">
-<h2 th:text="${title}" style="margin-top:0;color:#123b2e;">Ưu đãi mới</h2>
-<img th:if="${imageUrl != null and !#strings.isEmpty(imageUrl)}" th:src="${imageUrl}" alt="Hình chương trình" width="480" style="display:block;max-width:100%;height:auto;margin:20px 0;">
-<p th:text="${content}" style="white-space:pre-line;overflow-wrap:anywhere;">Thông tin khuyến mãi</p>
-<p style="margin-top:28px;"><a th:href="${websiteUrl}" href="http://localhost:5173" style="padding:12px 18px;background:#ffe14d;color:#17133a;text-decoration:none;font-weight:bold;border-radius:6px;">Xem ưu đãi</a></p>
-<p style="font-size:12px;color:#707070;">Bạn nhận thư này vì đã đăng ký nhận tin từ Bite to Business. Liên hệ hỗ trợ nếu muốn ngừng nhận tin.</p>
-</td></tr></table></td></tr></table>
-</body></html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>Ưu đãi mới | Bite to Business</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;color:#18181b;font-family:Arial,Helvetica,sans-serif;">
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;overflow:hidden;">Bite to Business có chương trình ưu đãi mới.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
+    <tr>
+        <td align="center" style="padding:24px 12px;">
+            <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+                   style="width:100%;max-width:560px;background-color:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+                <tr th:replace="~{email/fragments/brand :: header}"></tr>
+                <tr>
+                    <td style="padding:28px 32px;color:#3f3f46;font-size:15px;line-height:24px;">
+                        <h1 style="margin:0 0 16px;color:#18181b;font-size:20px;line-height:28px;"><span th:text="${title}" th:remove="tag">Ưu đãi mới</span></h1>
+                        <img th:if="${imageUrl != null and !#strings.isEmpty(imageUrl)}" th:src="${imageUrl}" alt="Hình chương trình ưu đãi"
+                             width="496" style="display:block;width:100%;max-width:496px;height:auto;margin:0 0 16px;border:0;border-radius:6px;">
+                        <p th:text="${content}" style="margin:0 0 16px;white-space:pre-line;overflow-wrap:anywhere;">Thông tin khuyến mãi</p>
+                        <p style="margin:0;"><a th:href="${websiteUrl}" href="https://bite2business.cloud" style="display:inline-block;padding:12px 20px;background-color:#123b2e;color:#ffffff;font-size:14px;font-weight:bold;line-height:20px;text-decoration:none;border-radius:6px;">Xem ưu đãi</a></p>
+                    </td>
+                </tr>
+                <tr th:replace="~{email/fragments/brand :: footer(note='Bạn nhận email này vì đã đăng ký nhận tin từ Bite to Business. Liên hệ hỗ trợ nếu muốn ngừng nhận tin.')}"></tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

@@ -31,7 +31,10 @@ public class QuotePackageAmounts {
         Map<UUID, List<QuotePackageItem>> assigned = new HashMap<>();
         for (QuotePackage parcel : parcels) {
             sums.put(parcel.getId(), new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO});
-            for (QuotePackageItem part : allocations.findAllByQuotePackageId(parcel.getId())) {
+        }
+        // Load allocations for every package in one query instead of one query per package.
+        if (!sums.isEmpty()) {
+            for (QuotePackageItem part : allocations.findAllByQuotePackageIdIn(sums.keySet())) {
                 assigned.computeIfAbsent(part.getQuoteItemId(), ignored -> new ArrayList<>()).add(part);
             }
         }

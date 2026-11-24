@@ -8,7 +8,7 @@ import com.se203730.mvc.generateuibe.features.customer.enums.OrderStatus;
 import com.se203730.mvc.generateuibe.features.customer.repository.InventoryMovementRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.OrderRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.PaymentRepository;
-import com.se203730.mvc.generateuibe.features.ecommerce.pricing.repository.ProductInventoryRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductInventoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,9 +39,27 @@ public class ReservationExpiryService {
                 || payments.existsByOrderIdAndStatus(orderId, "SUCCESS")) {
             return;
         }
+        if (!releaseReservedStock(order, now, "Payment reservation expired")) {
+            throw new IllegalStateException("Reservation has no inventory movements: " + orderId);
+        }
+        payments.expirePending(orderId, now);
+        if (orders.expireReservation(orderId, now) != 1) {
+            throw new IllegalStateException("Could not expire reservation: " + orderId);
+        }
+        outbox.record("order.reservation_expired", "ORDER", orderId, Map.of(
+                "customerId", order.getCustomerId(),
+                "expiredAt", now));
+    }
+
+    /**
+     * Returns every still-reserved quantity of the order to stock and logs a RELEASE movement.
+     * The caller must hold the order row lock. Returns false when the order never reserved stock.
+     */
+    boolean releaseReservedStock(Order order, Instant now, String reason) {
+        UUID orderId = order.getId();
         List<InventoryMovementRepository.Balance> balances = movements.findBalances(orderId);
         if (balances.isEmpty()) {
-            throw new IllegalStateException("Reservation has no inventory movements: " + orderId);
+            return false;
         }
         for (InventoryMovementRepository.Balance balance : balances) {
             if (balance.getShipped().signum() != 0 || balance.getReleased().compareTo(balance.getReserved()) > 0) {
@@ -60,17 +78,11 @@ public class ReservationExpiryService {
             movement.setOrderId(orderId);
             movement.setMovementType("RELEASE");
             movement.setQuantity(quantity);
-            movement.setReason("Payment reservation expired");
+            movement.setReason(reason);
             movement.setCreatedBy(order.getCustomerId());
             movement.setCreatedAt(now);
             movements.save(movement);
         }
-        payments.expirePending(orderId, now);
-        if (orders.expireReservation(orderId, now) != 1) {
-            throw new IllegalStateException("Could not expire reservation: " + orderId);
-        }
-        outbox.record("order.reservation_expired", "ORDER", orderId, Map.of(
-                "customerId", order.getCustomerId(),
-                "expiredAt", now));
+        return true;
     }
 }

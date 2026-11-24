@@ -30,7 +30,6 @@ public class VietmapGeocodingService {
         }
         String focus;
         if ("hcm".equals(city)) focus = "10.77172,106.70418";
-        else if ("hanoi".equals(city)) focus = "21.0292789,105.8295441";
         else throw new BusinessException(ErrorCode.INVALID_REQUEST);
         JsonNode results = get(UriComponentsBuilder.fromUriString("https://maps.vietmap.vn/api/search/v4")
                 .queryParam("apikey", apiKey).queryParam("text", address.trim())

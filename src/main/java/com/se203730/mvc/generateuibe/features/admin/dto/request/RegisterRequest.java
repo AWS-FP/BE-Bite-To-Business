@@ -31,7 +31,7 @@ public record RegisterRequest(
         String businessName,
         @NotBlank
         @Size(max = 100)
-        @Pattern(regexp = "Thành phố Hà Nội|Thành phố Hồ Chí Minh")
+        @Pattern(regexp = "Thành phố Hồ Chí Minh")
         String province,
         @Size(max = 100)
         String district,
@@ -43,18 +43,10 @@ public record RegisterRequest(
         String deliveryAddress,
         @Size(max = 1000)
         String deliveryNote,
-        @NotNull
-        Boolean invoiceSameAsDelivery,
         @Size(max = 200)
         String invoicePurchaser,
         @Pattern(regexp = "[0-9]{10}")
         String invoiceTaxCode,
-        @Size(max = 254)
-        @Email
-        @Pattern(regexp = "(?i)[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@gmail\\.com")
-        String invoiceEmail,
-        @Size(max = 1000)
-        String invoiceAddress,
         Boolean newsletterConsent
 ) {
     // Chuẩn hóa form trước validation; bỏ khoảng trắng, đưa email về chữ thường và đổi chuỗi rỗng thành null.
@@ -71,8 +63,6 @@ public record RegisterRequest(
         deliveryNote = trim(deliveryNote);
         invoicePurchaser = trim(invoicePurchaser);
         invoiceTaxCode = trim(invoiceTaxCode);
-        invoiceEmail = normalizeEmail(invoiceEmail);
-        invoiceAddress = trim(invoiceAddress);
     }
 
     public static String trim(String value) {

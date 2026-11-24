@@ -89,9 +89,36 @@ public class DeliveryEstimateService {
         return new Estimate(address, lat, lng, metres, fee, coordinates);
     }
 
+    /** Đường đi xe máy giữa hai tọa độ (VietMap Route v4), dùng vẽ chỉ đường cho nhân viên giao hàng. */
+    public Route route(double fromLat, double fromLng, double toLat, double toLng) {
+        for (double value : new double[] {fromLat, fromLng, toLat, toLng}) {
+            if (!Double.isFinite(value)) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        if (Math.abs(fromLat) > 90 || Math.abs(toLat) > 90 || Math.abs(fromLng) > 180 || Math.abs(toLng) > 180) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        JsonNode route = get("/api/route/v4", "point", toLat + "," + toLng, true, new Origin(fromLat, fromLng));
+        JsonNode path = route.path("paths").path(0);
+        if (!"OK".equals(route.path("code").asText()) || !path.path("distance").isNumber()) {
+            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+        }
+        JsonNode geometry = path.path("points");
+        JsonNode points = geometry.path("coordinates");
+        if (!"LineString".equals(geometry.path("type").asText()) || !points.isArray() || points.size() < 2) {
+            throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+        }
+        List<List<Double>> coordinates = new ArrayList<>();
+        for (JsonNode point : points) {
+            if (!point.isArray() || point.size() < 2 || !point.path(0).isNumber() || !point.path(1).isNumber()) {
+                throw new BusinessException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+            }
+            coordinates.add(List.of(point.path(0).asDouble(), point.path(1).asDouble()));
+        }
+        return new Route(path.path("distance").asDouble(), path.path("time").asLong(0), coordinates);
+    }
+
     private Origin origin(String city) {
         if ("hcm".equals(city)) return new Origin(10.77172, 106.70418);
-        if ("hanoi".equals(city)) return new Origin(21.0292789, 105.8295441);
         throw new BusinessException(ErrorCode.INVALID_REQUEST);
     }
 
@@ -115,5 +142,6 @@ public class DeliveryEstimateService {
 
     public record Suggestion(String refId, String display) {}
     public record Estimate(String address, double lat, double lng, double distanceMetres, long fee, List<List<Double>> coordinates) {}
+    public record Route(double distanceMetres, long durationMs, List<List<Double>> coordinates) {}
     private record Origin(double lat, double lng) {}
 }

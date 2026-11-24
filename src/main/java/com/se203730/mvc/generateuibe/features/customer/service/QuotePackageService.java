@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,8 +55,11 @@ public class QuotePackageService {
     @Transactional(readOnly = true)
     public List<QuotePackageResponse> list(UUID customerId, UUID quoteId) {
         drafts.get(customerId, quoteId);
-        return packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId).stream()
-                .map(this::response).toList();
+        List<QuotePackage> parcels = packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId);
+        Map<UUID, List<QuotePackageItem>> assigned = allocationsByPackage(parcels);
+        return parcels.stream()
+                .map(parcel -> QuotePackageResponse.from(parcel, assigned.getOrDefault(parcel.getId(), List.of())))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -66,8 +70,8 @@ public class QuotePackageService {
         List<QuotePackage> parcels = packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId);
         if (lines.isEmpty() || parcels.isEmpty() || lines.stream().anyMatch(line -> !line.isVatRateConfigured())) return Map.of();
         Map<UUID, BigDecimal> quantities = new HashMap<>();
-        for (QuotePackage parcel : parcels) {
-            for (QuotePackageItem part : allocations.findAllByQuotePackageId(parcel.getId())) {
+        for (List<QuotePackageItem> parts : allocationsByPackage(parcels).values()) {
+            for (QuotePackageItem part : parts) {
                 quantities.merge(part.getQuoteItemId(), part.getQuantity(), BigDecimal::add);
             }
         }
@@ -114,7 +118,6 @@ public class QuotePackageService {
         parcel.setRecipientName(request.recipientName().trim());
         parcel.setRecipientPhone(request.recipientPhone().trim());
         parcel.setDeliveryDate(request.deliveryDate());
-        parcel.setDeliveryTimeSlot(request.deliveryTimeSlot().trim());
         parcel.setDeliveryAddress(request.address().trim());
         parcel.setDeliveryNote(request.note() == null ? null : request.note().trim());
         parcel.setCity(request.city());
@@ -178,6 +181,16 @@ public class QuotePackageService {
         quote.setRevision(quote.getRevision() + 1);
         quote.setUpdatedAt(now);
         quotes.saveAndFlush(quote);
+    }
+
+    private Map<UUID, List<QuotePackageItem>> allocationsByPackage(List<QuotePackage> parcels) {
+        Map<UUID, List<QuotePackageItem>> result = new HashMap<>();
+        if (parcels.isEmpty()) return result;
+        List<UUID> ids = parcels.stream().map(QuotePackage::getId).toList();
+        for (QuotePackageItem part : allocations.findAllByQuotePackageIdIn(ids)) {
+            result.computeIfAbsent(part.getQuotePackageId(), ignored -> new ArrayList<>()).add(part);
+        }
+        return result;
     }
 
     private QuotePackageResponse response(QuotePackage parcel) {

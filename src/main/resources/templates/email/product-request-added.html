@@ -1,25 +1,35 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sản phẩm đã được bổ sung</title></head>
-<body style="margin:0;background:#f5f3ed;color:#17133a;font-family:Arial,Helvetica,sans-serif;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ed;">
-    <tr><td align="center" style="padding:32px 12px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#fff;border:1px solid #e1e3da;border-radius:16px;overflow:hidden;">
-            <tr th:replace="~{email/fragments/brand :: header}"></tr>
-            <tr><td style="padding:28px 32px;background:#123b2e;">
-                <p style="color:#ffe14d;font-size:12px;font-weight:bold;letter-spacing:1px;">YÊU CẦU SẢN PHẨM</p>
-                <h1 style="margin:0;color:#fff1e0;font-family:Georgia,serif;font-size:30px;font-weight:normal;">Sản phẩm đã có trên website</h1>
-            </td></tr>
-            <tr><td style="padding:32px;font-size:15px;line-height:24px;">
-                <p>Xin chào bạn,</p>
-                <p>Sản phẩm bạn yêu cầu đã được bổ sung:</p>
-                <p style="padding:16px;background:#fff6df;border-radius:8px;font-weight:bold;" th:text="${productName}">Tên sản phẩm</p>
-                <p style="margin:28px 0;"><a th:href="${productUrl}" style="display:inline-block;padding:12px 22px;background:#123b2e;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Xem chi tiết sản phẩm</a></p>
-                <p>Giá và tình trạng hàng có thể thay đổi. Vui lòng kiểm tra trên website trước khi mua.</p>
-            </td></tr>
-            <tr th:replace="~{email/fragments/brand :: footer}"></tr>
-        </table>
-    </td></tr>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>Sản phẩm đã được bổ sung | Bite to Business</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;color:#18181b;font-family:Arial,Helvetica,sans-serif;">
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;overflow:hidden;">Sản phẩm bạn yêu cầu đã có trên website.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
+    <tr>
+        <td align="center" style="padding:24px 12px;">
+            <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+                   style="width:100%;max-width:560px;background-color:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+                <tr th:replace="~{email/fragments/brand :: header}"></tr>
+                <tr>
+                    <td style="padding:28px 32px;color:#3f3f46;font-size:15px;line-height:24px;">
+                        <h1 style="margin:0 0 16px;color:#18181b;font-size:20px;line-height:28px;">Sản phẩm bạn yêu cầu đã có trên website</h1>
+                        <p style="margin:0 0 16px;">Xin chào bạn,</p>
+                        <p style="margin:0 0 16px;">Sản phẩm bạn yêu cầu đã được bổ sung:</p>
+                        <div style="padding:16px 20px;background-color:#f4f4f5;border-radius:6px;margin:0 0 16px;">
+                            <p th:text="${productName}" style="margin:0;color:#18181b;font-weight:bold;overflow-wrap:anywhere;">Tên sản phẩm</p>
+                        </div>
+                        <p style="margin:0 0 16px;"><a th:href="${productUrl}" href="https://bite2business.cloud" style="display:inline-block;padding:12px 20px;background-color:#123b2e;color:#ffffff;font-size:14px;font-weight:bold;line-height:20px;text-decoration:none;border-radius:6px;">Xem chi tiết sản phẩm</a></p>
+                        <p style="margin:0;color:#71717a;font-size:13px;">Giá và tình trạng hàng có thể thay đổi. Vui lòng kiểm tra trên website trước khi mua.</p>
+                    </td>
+                </tr>
+                <tr th:replace="~{email/fragments/brand :: footer(note='')}"></tr>
+            </table>
+        </td>
+    </tr>
 </table>
 </body>
 </html>

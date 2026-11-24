@@ -21,6 +21,15 @@ public interface OrderPackageRepository extends JpaRepository<OrderPackage, UUID
     Optional<OrderPackage> findForUpdate(@Param("id") UUID id);
     List<OrderPackage> findByOrderIdOrderByIdAsc(UUID orderId);
 
+    // Số package còn hiệu lực của đơn chưa được giao xong; bằng 0 thì đơn hoàn thành.
+    @Query(value = """
+            select count(*) from public.order_packages p
+            where p.order_id = :orderId and p.cancelled_at is null
+              and not exists (select 1 from public.delivery_package_claims c
+                              where c.package_id = p.id and c.delivered_at is not null)
+            """, nativeQuery = true)
+    long countUndeliveredPackages(@Param("orderId") UUID orderId);
+
     @Query(value = """
             select pi.order_package_id as "packageId", oi.id as "orderItemId",
                 oi.sku as "sku", oi.name_vi as "nameVi", oi.name_en as "nameEn",

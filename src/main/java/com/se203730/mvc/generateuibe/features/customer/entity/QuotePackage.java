@@ -30,7 +30,6 @@ public class QuotePackage {
     private Instant updatedAt;
     private String recipientName;
     private String recipientPhone;
-    private String deliveryTimeSlot;
     private String deliveryNote;
     private String city;
     private BigDecimal latitude;

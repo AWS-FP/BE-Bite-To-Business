@@ -3,6 +3,8 @@ package com.se203730.mvc.generateuibe.features.customer.controller;
 import com.se203730.mvc.generateuibe.common.annotation.CurrentUserUUID;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.UpdateCustomerProfileRequest;
+import com.se203730.mvc.generateuibe.features.admin.dto.request.RestoreAvatarRequest;
+import com.se203730.mvc.generateuibe.features.customer.service.CustomerAvatarService;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.CustomerProfileResponse;
 import com.se203730.mvc.generateuibe.features.customer.service.CustomerProfileService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/customer/profile")
@@ -31,6 +34,9 @@ import java.util.UUID;
 public class CustomerProfileController {
     @Autowired
     private CustomerProfileService profileService;
+
+    @Autowired
+    private CustomerAvatarService avatarService;
 
     @GetMapping
     public ResponseEntity<ResponseObject<CustomerProfileResponse>> getProfile(
@@ -64,5 +70,17 @@ public class CustomerProfileController {
         CustomerProfileResponse data = profileService.updateAvatar(customerId, file);
         return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
                 .body(new ResponseObject<>(200, "Avatar updated.", data));
+    }
+    @GetMapping("/avatars")
+    public ResponseEntity<ResponseObject<List<String>>> recentAvatars(@CurrentUserUUID UUID customerId) {
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", avatarService.recent(customerId)));
+    }
+
+    @PutMapping("/avatar/restore")
+    public ResponseEntity<ResponseObject<CustomerProfileResponse>> restoreAvatar(
+            @CurrentUserUUID UUID customerId, @Valid @RequestBody RestoreAvatarRequest request) {
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Avatar restored.", avatarService.restore(customerId, request.avatarUrl())));
     }
 }

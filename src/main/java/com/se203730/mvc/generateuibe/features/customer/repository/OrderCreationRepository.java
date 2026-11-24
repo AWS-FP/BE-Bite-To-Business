@@ -29,7 +29,7 @@ public class OrderCreationRepository {
                     q.contact_name, q.contact_phone, q.contact_email, q.company_name, q.note, q.customer_po_reference,
                     q.items_subtotal, q.volume_discount_amount, q.sale_discount_amount, q.coupon_discount_amount,
                     q.vat_amount, q.shipping_fee, q.shipping_coupon_discount_amount,
-                    :now, cast(:now as timestamptz) + interval '1 hour', true, :now, :now, :now
+                    :now, cast(:now as timestamptz) + interval '6 hours', true, :now, :now, :now
                 from public.quotes q
                 left join public.coupons c on c.id = q.coupon_id
                 left join public.coupons s on s.id = q.shipping_coupon_id
@@ -57,12 +57,12 @@ public class OrderCreationRepository {
                               BigDecimal vat, BigDecimal shippingCoupon) {
         entityManager.createNativeQuery("""
                 insert into public.order_packages (id, package_number, order_id, package_name, delivery_date,
-                    delivery_address, created_by, recipient_name, recipient_phone, delivery_time_slot,
+                    delivery_address, created_by, recipient_name, recipient_phone,
                     delivery_note, city, latitude, longitude, distance_metres, address_status,
                     merchandise_amount, product_coupon_discount_amount, vat_amount, shipping_fee,
                     shipping_coupon_discount_amount)
                 select qp.id, 'PKG-' || cast(qp.id as text), :orderId, qp.package_name, qp.delivery_date,
-                    qp.delivery_address, qp.created_by, qp.recipient_name, qp.recipient_phone, qp.delivery_time_slot,
+                    qp.delivery_address, qp.created_by, qp.recipient_name, qp.recipient_phone,
                     qp.delivery_note, qp.city, qp.latitude, qp.longitude, qp.distance_metres, qp.address_status,
                     :merchandise, :productCoupon, :vat, qp.shipping_fee, :shippingCoupon
                 from public.quote_packages qp where qp.id = :packageId and qp.cancelled_at is null

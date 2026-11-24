@@ -6,7 +6,6 @@ import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -33,8 +32,10 @@ public class ProductRequestEmailService {
     private final DatabaseClock clock;
     private final Semaphore slots = new Semaphore(3);
 
-    @Value("${spring.mail.username:}")
+    @Value("${app.mail.from:}")
     private String from;
+    @Value("${app.mail.support-email:}")
+    private String supportEmail;
     @Value("${app.frontend-base-url:${app.frontend.base-url:http://localhost:5173}}")
     private String websiteUrl;
 
@@ -104,9 +105,9 @@ public class ProductRequestEmailService {
     private void sendEmail(ProductRequestResponse response) throws Exception {
         if (from.isBlank()) throw new IllegalStateException("SMTP sender is not configured");
         Context context = new Context(Locale.forLanguageTag("vi"));
-        context.setVariable("websiteUrl", websiteUrl);
-        context.setVariable("supportEmail", from);
-        context.setVariable("showBrandPhotos", false);
+        String baseUrl = websiteUrl.strip().replaceAll("/+$", "");
+        context.setVariable("websiteUrl", baseUrl);
+        context.setVariable("supportEmail", supportEmail);
         context.setVariable("responseNote", response.getResponseNote());
         context.setVariable("productName", response.getProductName());
         context.setVariable("productAddedDate", response.getProductAddedAt());
@@ -114,7 +115,7 @@ public class ProductRequestEmailService {
         context.setVariable("availableQuantity", response.getAvailableQuantity());
         boolean added = response.getAddedProductId() != null;
         if (added) {
-            context.setVariable("productUrl", websiteUrl.replaceAll("/+$", "") + "/products/" + response.getAddedProductId());
+            context.setVariable("productUrl", baseUrl + "/products/" + response.getAddedProductId());
         }
         var message = mail.createMimeMessage();
         var helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
@@ -122,7 +123,6 @@ public class ProductRequestEmailService {
         helper.setTo(response.getRecipientEmail());
         helper.setSubject(added ? "Bite to Business - Sản phẩm đã được bổ sung" : "Bite to Business - Phản hồi yêu cầu sản phẩm");
         helper.setText(templates.process(added ? "email/product-request-added" : "email/product-request-response", context), true);
-        helper.addInline("btb-logo", new ClassPathResource("email/images/brand-logo.png"), "image/png");
         mail.send(message);
     }
 }
