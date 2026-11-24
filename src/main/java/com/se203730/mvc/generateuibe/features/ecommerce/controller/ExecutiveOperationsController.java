@@ -22,7 +22,7 @@ import java.util.*;
 @RestController @RequiredArgsConstructor @Validated
 @RequestMapping("/api/ecommerce")
 @PreAuthorize("hasRole('ECOMMERCE_EXECUTIVE')")
-@Tag(name="E-commerce - Dashboard, Quotes, Reviews and Requests")
+@Tag(name="E-commerce - Dashboard, Quotes and Reviews")
 public class ExecutiveOperationsController {
     private final ExecutiveOperationsService service;
     private final ExecutiveDashboardService dashboard;
@@ -67,19 +67,5 @@ public class ExecutiveOperationsController {
     public ResponseEntity<ResponseObject<Map<String,Object>>> moderateReview(@CurrentUserUUID UUID staff,
                                                                              @PathVariable UUID id,@Valid @RequestBody ExecutiveReviewDecisionRequest r) {
         return ok(service.moderateReview(id,staff,r));
-    }
-    @PatchMapping("/product-requests/{id}/start-review")
-    public ResponseEntity<ResponseObject<Map<String,Object>>> startReview(@PathVariable UUID id) {
-        return ok(service.startProductRequestReview(id));
-    }
-    @GetMapping("/product-requests/{id}")
-    public ResponseEntity<ResponseObject<Map<String,Object>>> productRequest(@PathVariable UUID id) {
-        return ok(service.productRequest(id));
-    }
-    @GetMapping("/product-requests")
-    public ResponseEntity<ResponseObject<EcommercePageResponse<Map<String,Object>>>> productRequests(
-        @RequestParam(required=false) String status,@RequestParam(defaultValue="0") @Min(0) int page,
-        @RequestParam(defaultValue="20") @Min(1) @Max(100) int size) {
-        return ok(service.productRequests(status,page,size));
     }
 }

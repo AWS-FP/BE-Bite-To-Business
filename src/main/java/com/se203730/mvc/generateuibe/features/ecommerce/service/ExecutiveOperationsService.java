@@ -167,37 +167,4 @@ public class ExecutiveOperationsService {
         return db.one("select id,product_id,customer_id,rating,content,deleted_at,deleted_by," +
             "deletion_reason,created_at,updated_at from public.product_reviews where id=:id",p);
     }
-    @Transactional(readOnly=true)
-    public Map<String,Object> productRequest(UUID id) {
-        var p = new MapSqlParameterSource("id", id);
-        var item = db.one("select r.id,r.customer_id,r.product_name,r.reference_url," +
-            "r.contact_email,r.notify_by_email,r.status,r.customer_note,r.created_at,r.updated_at " +
-            "from public.product_requests r where r.id=:id", p);
-        item.put("responses", db.list("select id,response_note,product_name,selling_price," +
-            "available_quantity,unit_code,email_status,created_at " +
-            "from public.product_request_responses where request_id=:id order by created_at desc",p));
-        return item;
-    }
-    @Transactional
-    public Map<String,Object> startProductRequestReview(UUID id) {
-        var p=new MapSqlParameterSource("id", id);
-        int updated=db.update("update public.product_requests set status='REVIEWING'," +
-            "updated_at=now() where id=:id and status='PENDING'",p);
-        if (updated!=1) {
-            db.one("select id from public.product_requests where id=:id",p);
-            throw new BusinessException(ErrorCode.CONFLICT);
-        }
-        return productRequest(id);
-    }
-    @Transactional(readOnly=true)
-    public EcommercePageResponse<Map<String,Object>> productRequests(String status,int page,int size) {
-        if(status!=null && !Set.of("PENDING","REVIEWING","ADDED","REJECTED").contains(status))
-            throw new BusinessException(ErrorCode.INVALID_REQUEST);
-        var p=new MapSqlParameterSource("status",status);
-        String where=status==null ? "" : " where r.status=:status";
-        // Logistics remains the owner of all response/write actions.
-        return db.page("select r.id,r.customer_id,r.product_name,r.reference_url,r.status," +
-            "r.customer_note,r.created_at,r.updated_at from public.product_requests r" + where +
-            " order by r.created_at desc,r.id", "select count(*) from public.product_requests r"+where,p,page,size);
-    }
 }
