@@ -94,6 +94,7 @@ public class SecurityConfig {
                 HttpMethod.GET,
                 "/api/catalog/products",
                 "/api/catalog/products/*",
+                "/api/catalog/products/*/related",
                 "/api/catalog/products/*/pricing"
             ).permitAll();
 
