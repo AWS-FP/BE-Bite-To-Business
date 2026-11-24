@@ -7,7 +7,7 @@ import java.util.UUID;
 
 public record ClaimedPackageResponse(UUID packageId, String packageNumber, String packageName,
                                      UUID orderId, String orderNumber, LocalDate deliveryDate,
-                                     String deliveryTimeSlot, String address, String recipientName,
+                                     String address, String recipientName,
                                      String recipientPhone, String note, String city,
                                      BigDecimal latitude, BigDecimal longitude, Instant claimedAt,
                                      boolean cancelled, Instant deliveredAt) {

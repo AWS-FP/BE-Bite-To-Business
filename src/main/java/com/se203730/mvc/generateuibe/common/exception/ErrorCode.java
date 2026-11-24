@@ -96,6 +96,7 @@ public enum ErrorCode {
     ORDER_CANCELLED(HttpStatus.CONFLICT, "This order has been cancelled."),
     REFUND_PACKAGE_NOT_CANCELLABLE(HttpStatus.CONFLICT, "This package is already out for delivery, delivered or cancelled."),
     REFUND_INVALID_STATE(HttpStatus.CONFLICT, "The cancellation request is not in the required state."),
+    RETURN_NOT_ALLOWED(HttpStatus.CONFLICT, "This package can no longer be returned."),
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "The payment was not found."),
     PAYMENT_ALREADY_PAID(HttpStatus.CONFLICT, "This order has already been paid."),
     PAYMENT_INVALID_STATE(HttpStatus.CONFLICT, "The order or payment is not in a valid state."),

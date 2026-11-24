@@ -31,7 +31,7 @@ public record RegisterRequest(
         String businessName,
         @NotBlank
         @Size(max = 100)
-        @Pattern(regexp = "Thành phố Hà Nội|Thành phố Hồ Chí Minh")
+        @Pattern(regexp = "Thành phố Hồ Chí Minh")
         String province,
         @Size(max = 100)
         String district,

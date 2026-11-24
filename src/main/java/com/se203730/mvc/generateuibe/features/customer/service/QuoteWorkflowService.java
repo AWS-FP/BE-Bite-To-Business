@@ -137,7 +137,6 @@ public class QuoteWorkflowService {
             if (parcel.getShippingFee() == null || parcel.getDistanceMetres() == null
                     || parcel.getRecipientName() == null || parcel.getRecipientName().isBlank()
                     || parcel.getRecipientPhone() == null || parcel.getRecipientPhone().isBlank()
-                    || parcel.getDeliveryTimeSlot() == null || parcel.getDeliveryTimeSlot().isBlank()
                     || parcel.getLatitude() == null || parcel.getLongitude() == null
                     || parcel.getCity() == null || "NEEDS_UPDATE".equals(parcel.getAddressStatus())) {
                 throw new BusinessException(ErrorCode.QUOTE_INCOMPLETE);
