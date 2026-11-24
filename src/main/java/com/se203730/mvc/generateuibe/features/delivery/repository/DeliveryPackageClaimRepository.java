@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.UUID;
 
 public interface DeliveryPackageClaimRepository extends JpaRepository<DeliveryPackageClaim, UUID> {
+    boolean existsByPackageIdIn(java.util.Collection<UUID> packageIds);
+
     Page<DeliveryPackageClaim> findByDeliveryStaffIdAndDeliveredAtIsNullOrderByClaimedAtDescPackageIdAsc(
             UUID staffId, Pageable pageable);
 

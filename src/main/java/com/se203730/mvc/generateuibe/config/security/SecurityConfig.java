@@ -127,6 +127,12 @@ public class SecurityConfig {
                 HttpMethod.POST,
                 "/api/ai/agent"
             ).permitAll();
+            // Sự kiện tương tác cho cá nhân hóa giao diện: Guest gửi kèm anonId,
+            // Customer đã đăng nhập được BE gắn user từ cookie.
+            authorize.requestMatchers(
+                HttpMethod.POST,
+                "/api/ui-events"
+            ).permitAll();
 
             // Webhook dùng chữ ký HMAC của SePay
             // thay cho JWT của khách hàng.

@@ -7,7 +7,7 @@ public enum TranslationField {
     SPEC("packaging specification, e.g. pack size and units per case", 500),
     TECHNICAL("technical specifications", 2000),
     STORAGE("storage and preparation instructions", 2000),
-    COMPLIANCE("food safety and invoice information", 2000),
+    COMPLIANCE("food safety and VAT information", 2000),
     ORIGIN_DETAIL("origin and sourcing information", 2000);
 
     private final String hint;
