@@ -25,6 +25,13 @@ public class PackageRefund {
     private String recipientBank;
     private String recipientAccount;
     private String recipientName;
+    private UUID reviewedBy;
+    private UUID processedBy;
+    private java.math.BigDecimal refundAmount;
+    private String transferReference;
+    private String reviewNote;
+    private Instant reviewedAt;
+    private Instant refundedAt;
     private Instant createdAt;
     private Instant updatedAt;
 }

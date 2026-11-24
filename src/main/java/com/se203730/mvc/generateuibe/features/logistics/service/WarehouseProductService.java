@@ -6,6 +6,7 @@ import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.ecommerce.repository.BrandRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.repository.CategoryRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.repository.DistributorRepository;
 import com.se203730.mvc.generateuibe.features.logistics.dto.CreateWarehouseProductRequest;
 import com.se203730.mvc.generateuibe.features.logistics.repository.WarehouseProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -29,14 +31,26 @@ public class WarehouseProductService {
     private final BrandRepository brands;
     private final WarehouseProductRepository products;
     private final WarehouseProductImageStorage images;
+    private final DistributorRepository distributors;
 
     public record CreatedProduct(UUID id, String sku, String status) {}
+
+    public record DistributorOption(UUID id, String name) {}
+
+    @Transactional(readOnly = true)
+    public List<DistributorOption> distributors(UUID userId) {
+        if (accounts.requireActiveUser(userId).getRole() != UserRole.LOGISTICS_STAFF) throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        return distributors.findAllByOrderByNameAsc().stream()
+                .map(distributor -> new DistributorOption(distributor.getId(), distributor.getName()))
+                .toList();
+    }
 
     @Transactional
     public CreatedProduct create(UUID userId, CreateWarehouseProductRequest request, MultipartFile file) {
         if (accounts.requireActiveUser(userId).getRole() != UserRole.LOGISTICS_STAFF) throw new BusinessException(ErrorCode.ACCESS_DENIED);
         if (categories.findById(request.categoryId()).filter(c -> c.isActive() && c.getParentId() != null).isEmpty()
-                || request.brandId() != null && !brands.existsById(request.brandId())) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+                || !brands.existsById(request.brandId())
+                || !distributors.existsById(request.distributorId())) throw new BusinessException(ErrorCode.INVALID_REQUEST);
         if (request.minOrder().remainder(request.quantityStep()).signum() != 0) throw new BusinessException(ErrorCode.INVALID_REQUEST);
         var tiers = new ArrayList<>(request.tiers());
         tiers.sort(Comparator.comparing(CreateWarehouseProductRequest.Tier::min));
@@ -47,6 +61,7 @@ public class WarehouseProductService {
                 throw new BusinessException(ErrorCode.INVALID_REQUEST);
             }
         }
+        validateFreeTextLength(request);
         validateNutrition(request);
         WarehouseProductImageStorage.Image image = file == null ? null : images.upload(file);
         if (image != null) {
@@ -62,15 +77,29 @@ public class WarehouseProductService {
         return new CreatedProduct(id, request.sku().trim(), "DRAFT");
     }
 
-    // Bảng dinh dưỡng: có dòng thì phải có lượng tham chiếu, và mỗi thành phần chỉ xuất hiện một lần.
+    // Ô văn bản tự do tối đa 150 chữ để đoạn hiển thị trên trang sản phẩm không phá bố cục.
+    private static final int MAX_TEXT_WORDS = 150;
+
+    private void validateFreeTextLength(CreateWarehouseProductRequest request) {
+        for (String text : new String[]{request.descriptionVi(), request.descriptionEn(), request.note(),
+                request.storageVi(), request.storageEn()}) {
+            if (text != null && !text.isBlank() && text.strip().split("\\s+").length > MAX_TEXT_WORDS) {
+                throw new BusinessException(ErrorCode.INVALID_REQUEST);
+            }
+        }
+    }
+
+    // Bảng dinh dưỡng bắt buộc: có lượng tham chiếu, ít nhất một dòng, tên VI/EN không trùng nhau.
     private void validateNutrition(CreateWarehouseProductRequest request) {
         var facts = request.nutritionFactsOrEmpty();
-        if (!facts.isEmpty() && request.trimmedNutritionBasis() == null) {
+        if (facts.isEmpty() || request.trimmedNutritionBasis() == null) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        Set<String> seen = new HashSet<>();
+        Set<String> seenVi = new HashSet<>();
+        Set<String> seenEn = new HashSet<>();
         for (var fact : facts) {
-            if (!seen.add(fact.nutrient().strip().toLowerCase(Locale.ROOT))) {
+            if (!seenVi.add(fact.nutrient().strip().toLowerCase(Locale.ROOT))
+                    || !seenEn.add(fact.nutrientEn().strip().toLowerCase(Locale.ROOT))) {
                 throw new BusinessException(ErrorCode.INVALID_REQUEST);
             }
         }

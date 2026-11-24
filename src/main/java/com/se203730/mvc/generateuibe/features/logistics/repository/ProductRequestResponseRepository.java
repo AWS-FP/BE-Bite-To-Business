@@ -8,9 +8,12 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface ProductRequestResponseRepository extends JpaRepository<ProductRequestResponse, UUID> {
+    List<ProductRequestResponse> findByRequestIdInOrderByCreatedAtDesc(java.util.Collection<UUID> requestIds);
+
     interface ProductSnapshot {
         String getName();
         String getUnit();

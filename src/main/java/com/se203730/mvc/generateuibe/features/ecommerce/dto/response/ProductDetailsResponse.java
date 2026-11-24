@@ -24,8 +24,8 @@ public record ProductDetailsResponse(
         String nutritionBasis,
         List<NutritionFact> nutritionFacts
 ) {
-    /** Một dòng của bảng thông tin dinh dưỡng: thành phần và hàm lượng. */
-    public record NutritionFact(String nutrient, String amount) {}
+    /** Một dòng của bảng thông tin dinh dưỡng: thành phần (VI/EN) và hàm lượng. */
+    public record NutritionFact(String nutrient, String nutrientEn, String amount) {}
 
     public static ProductDetailsResponse from(
             ProductDetail details,
