@@ -20,7 +20,7 @@ public class QuotePackageRoutingService {
         DeliveryEstimateService.Estimate estimate = delivery.estimateCoordinates(
                 request.latitude().setScale(6, RoundingMode.HALF_UP).doubleValue(),
                 request.longitude().setScale(6, RoundingMode.HALF_UP).doubleValue(),
-                request.city().equals("HCM") ? "hcm" : "hanoi", request.address());
+                "hcm", request.address());
         return packages.save(customerId, quoteId, packageId, request, estimate);
     }
 }

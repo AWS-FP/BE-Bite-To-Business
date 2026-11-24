@@ -118,7 +118,6 @@ public class QuotePackageService {
         parcel.setRecipientName(request.recipientName().trim());
         parcel.setRecipientPhone(request.recipientPhone().trim());
         parcel.setDeliveryDate(request.deliveryDate());
-        parcel.setDeliveryTimeSlot(request.deliveryTimeSlot().trim());
         parcel.setDeliveryAddress(request.address().trim());
         parcel.setDeliveryNote(request.note() == null ? null : request.note().trim());
         parcel.setCity(request.city());

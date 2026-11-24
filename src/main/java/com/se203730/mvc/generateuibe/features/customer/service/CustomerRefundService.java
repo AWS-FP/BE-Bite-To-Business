@@ -46,7 +46,7 @@ public class CustomerRefundService {
         Order order = orders.findForUpdate(orderId)
                 .filter(item -> item.getCustomerId().equals(customerId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        if (order.getStatus() != OrderStatus.CONFIRMED && order.getStatus() != OrderStatus.PROCESSING) {
+        if (order.getStatus() != OrderStatus.COMPLETED) {
             throw new BusinessException(ErrorCode.REFUND_PACKAGE_NOT_CANCELLABLE);
         }
         Payment payment = payments.findByOrderIdAndStatus(orderId, "SUCCESS")

@@ -38,7 +38,8 @@ public class ReadyDeliveryService {
             return orders.map(order -> new ReadyDeliveryOrderResponse(order.getId(), order.getOrderNumber(), order.getContactName(), List.of()));
         }
         var orderIds = orders.getContent().stream().map(order -> order.getId()).toList();
-        Map<UUID, List<OrderPackage>> packages = repository.findReadyPackages(orderIds).stream()
+        Map<UUID, List<OrderPackage>> packages = repository.findReadyPackages(orderIds,
+                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))).stream()
                 .collect(Collectors.groupingBy(OrderPackage::getOrderId));
         return orders.map(order -> new ReadyDeliveryOrderResponse(order.getId(), order.getOrderNumber(), order.getContactName(),
                 packages.getOrDefault(order.getId(), List.of()).stream()

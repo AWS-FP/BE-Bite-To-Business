@@ -26,4 +26,22 @@ public interface ProductInventoryRepository extends JpaRepository<ProductInvento
             """, nativeQuery = true)
     int release(@Param("productId") UUID productId, @Param("quantity") BigDecimal quantity,
                 @Param("now") Instant now);
+    // Giao xong: hàng rời kho, trừ cả tồn thực tế và phần đang giữ.
+    @Modifying
+    @Query(value = """
+            update public.inventory set on_hand_quantity = on_hand_quantity - :quantity,
+                reserved_quantity = reserved_quantity - :quantity, updated_at = :now
+            where product_id = :productId and reserved_quantity >= :quantity and on_hand_quantity >= :quantity
+            """, nativeQuery = true)
+    int ship(@Param("productId") UUID productId, @Param("quantity") BigDecimal quantity,
+             @Param("now") Instant now);
+
+    // Khách trả hàng: nhập lại tồn thực tế.
+    @Modifying
+    @Query(value = """
+            update public.inventory set on_hand_quantity = on_hand_quantity + :quantity, updated_at = :now
+            where product_id = :productId
+            """, nativeQuery = true)
+    int restock(@Param("productId") UUID productId, @Param("quantity") BigDecimal quantity,
+                @Param("now") Instant now);
 }
