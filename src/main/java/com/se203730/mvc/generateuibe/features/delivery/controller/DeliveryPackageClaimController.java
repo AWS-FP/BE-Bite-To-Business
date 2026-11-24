@@ -1,5 +1,6 @@
 package com.se203730.mvc.generateuibe.features.delivery.controller;
 
+import com.se203730.mvc.generateuibe.features.customer.service.DeliveryEstimateService;
 import com.se203730.mvc.generateuibe.common.annotation.CurrentUserUUID;
 import com.se203730.mvc.generateuibe.common.api.PageResponse;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
@@ -32,6 +33,17 @@ public class DeliveryPackageClaimController {
             @CurrentUserUUID UUID staffId, @PathVariable UUID packageId) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(new ResponseObject<>(200, "Success", service.detail(staffId, packageId)));
+    }
+
+    // Đường đi xe máy từ vị trí hiện tại (lat/lng) tới điểm giao của package.
+    @GetMapping("/{packageId}/route")
+    public ResponseEntity<ResponseObject<DeliveryEstimateService.Route>> route(
+            @CurrentUserUUID UUID staffId,
+            @PathVariable UUID packageId,
+            @RequestParam double lat,
+            @RequestParam double lng) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", service.route(staffId, packageId, lat, lng)));
     }
 
     @GetMapping("/mine")

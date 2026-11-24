@@ -11,6 +11,7 @@ import com.se203730.mvc.generateuibe.features.customer.enums.OrderStatus;
 import com.se203730.mvc.generateuibe.features.customer.repository.OrderPackageRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.OrderRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.PackageRefundRepository;
+import com.se203730.mvc.generateuibe.features.customer.service.DeliveryEstimateService;
 import com.se203730.mvc.generateuibe.features.customer.service.NotificationEventPublisher;
 import com.se203730.mvc.generateuibe.features.delivery.dto.response.ClaimedPackageResponse;
 import com.se203730.mvc.generateuibe.features.delivery.entity.DeliveryPackageClaim;
@@ -39,6 +40,7 @@ public class DeliveryPackageClaimService {
     private final PackageRefundRepository refunds;
     private final DatabaseClock clock;
     private final NotificationEventPublisher notifications;
+    private final DeliveryEstimateService routing;
     private static final List<String> ACTIVE_REFUNDS = List.of("REQUESTED", "APPROVED", "PROCESSING");
 
     @Transactional
@@ -94,6 +96,16 @@ public class DeliveryPackageClaimService {
         Order order = orders.findById(parcel.getOrderId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
         return response(claim, parcel, order);
+    }
+
+    /** Đường đi từ vị trí hiện tại của nhân viên tới điểm giao của package mình đã nhận. */
+    @Transactional(readOnly = true)
+    public DeliveryEstimateService.Route route(UUID staffId, UUID packageId, double lat, double lng) {
+        ClaimedPackageResponse parcel = detail(staffId, packageId);
+        if (parcel.latitude() == null || parcel.longitude() == null) {
+            throw new BusinessException(ErrorCode.DELIVERY_DATA_INVALID);
+        }
+        return routing.route(lat, lng, parcel.latitude().doubleValue(), parcel.longitude().doubleValue());
     }
 
     @Transactional(readOnly = true)
