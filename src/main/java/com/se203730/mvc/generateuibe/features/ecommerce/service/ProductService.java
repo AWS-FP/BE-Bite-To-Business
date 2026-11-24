@@ -16,6 +16,9 @@ import com.se203730.mvc.generateuibe.features.ecommerce.repository.CategoryRepos
 import com.se203730.mvc.generateuibe.features.ecommerce.repository.DistributorRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductDetailRepository;
 import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.repository.CatalogSearchRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.CatalogSuggestion;
+import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.ProductSummaryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -44,6 +47,7 @@ public class ProductService {
     private static final int MAX_PAGE_SIZE = 100;
     private static final int MAX_SEARCH_LENGTH = 100;
 
+    private final CatalogSearchRepository search;
     private final ProductRepository products;
     private final BrandRepository brands;
     private final CategoryRepository categories;
@@ -76,16 +80,10 @@ public class ProductService {
         Specification<Product> filter = (root, query, cb) ->
             cb.equal(root.get("status"), PUBLISHED);
 
+        Set<UUID> acceptedCategoryIds = categoryId == null ? null : findVisibleSubtree(categoryId);
         if (!keyword.isEmpty()) {
-            String pattern = "%" +
-                escapeLike(keyword.toLowerCase(Locale.ROOT)) +
-                "%";
-
-            filter = filter.and((root, query, cb) -> cb.or(
-                cb.like(cb.lower(root.get("nameVi")), pattern, '\\'),
-                cb.like(cb.lower(root.get("nameEn")), pattern, '\\'),
-                cb.like(cb.lower(root.get("sku")), pattern, '\\')
-            ));
+            return ProductPageResponse.from(search.search(keyword, brandId, acceptedCategoryIds,
+                sort, PageRequest.of(page, size)));
         }
 
         if (brandId != null) {
@@ -94,9 +92,6 @@ public class ProductService {
         }
 
         if (categoryId != null) {
-            Set<UUID> acceptedCategoryIds =
-                findVisibleSubtree(categoryId);
-
             filter = filter.and((root, query, cb) ->
                 root.get("categoryId").in(acceptedCategoryIds));
         }
@@ -159,7 +154,7 @@ public class ProductService {
             : sort.trim().toLowerCase(Locale.ROOT);
 
         return switch (key) {
-            case "name_asc" -> Sort.by(
+            case "relevance", "name_asc" -> Sort.by(
                 Sort.Order.asc("nameVi").ignoreCase(),
                 Sort.Order.asc("id")
             );
@@ -244,9 +239,16 @@ public class ProductService {
         return result;
     }
 
-    private String escapeLike(String value) {
-        return value.replace("\\", "\\\\")
-            .replace("%", "\\%")
-            .replace("_", "\\_");
+    public List<CatalogSuggestion> suggestions(String q) {
+        String keyword = q.trim();
+        if (keyword.length() > MAX_SEARCH_LENGTH) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        return keyword.length() < 2 ? List.of() : products.suggestions(keyword);
+    }
+
+    public List<ProductSummaryResponse> related(UUID id) {
+        Product source = products.findById(id).filter(p -> PUBLISHED.equals(p.getStatus()))
+            .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        Set<UUID> subtree = findVisibleSubtree(source.getCategoryId());
+        return products.related(id, subtree).stream().map(ProductSummaryResponse::from).toList();
     }
 }
