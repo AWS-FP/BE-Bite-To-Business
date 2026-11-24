@@ -7,4 +7,5 @@ public interface CatalogSuggestion {
     UUID getId();
     String getLabelVi();
     String getLabelEn();
+    String getImageUrl();
 }
