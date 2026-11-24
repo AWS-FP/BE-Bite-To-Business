@@ -248,7 +248,6 @@ public class ProductService {
     public List<ProductSummaryResponse> related(UUID id) {
         Product source = products.findById(id).filter(p -> PUBLISHED.equals(p.getStatus()))
             .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        Set<UUID> subtree = findVisibleSubtree(source.getCategoryId());
-        return products.related(id, subtree).stream().map(ProductSummaryResponse::from).toList();
+        return products.related(id).stream().map(ProductSummaryResponse::from).toList();
     }
 }
