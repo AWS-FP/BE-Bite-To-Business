@@ -26,6 +26,7 @@ public class AiPromptLibrary {
     private final String businessContext;
     private final String intentPrompt;
     private final String uiPrompt;
+    private final String pagePrompt;
     private final JsonNode contract;
     private final JsonNode catalogSchema;
     private final List<JsonNode> uiExamples;
@@ -37,6 +38,7 @@ public class AiPromptLibrary {
         this.businessContext = stripComments(read(BASE + "business-context.md"));
         this.intentPrompt = stripComments(read(BASE + "prompts/intent.md"));
         this.uiPrompt = stripComments(read(BASE + "prompts/ui.md"));
+        this.pagePrompt = stripComments(read(BASE + "prompts/page.md"));
         this.contract = mapper.readTree(read(BASE + "catalog.json"));
         this.catalogSchema = mapper.readTree(read("a2ui/catalog/bite-to-business.catalog.json"));
         List<JsonNode> examples = new ArrayList<>();
@@ -70,6 +72,10 @@ public class AiPromptLibrary {
 
     public String uiPrompt() {
         return uiPrompt;
+    }
+
+    public String pagePrompt() {
+        return pagePrompt;
     }
 
     public JsonNode contract() {

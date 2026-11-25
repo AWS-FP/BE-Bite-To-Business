@@ -7,6 +7,9 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+/**
+ * Đếm lượt dùng AI theo cửa sổ 1 giờ. lockUser khóa dòng user để hai request song song không cùng vượt giới hạn.
+ */
 public interface AiRequestUsageRepository extends JpaRepository<AiRequestUsage, UUID> {
     @Query(value = "SELECT id FROM public.users WHERE id = :userId FOR UPDATE", nativeQuery = true)
     UUID lockUser(@Param("userId") UUID userId);

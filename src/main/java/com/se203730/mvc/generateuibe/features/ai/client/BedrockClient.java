@@ -23,6 +23,16 @@ import software.amazon.awssdk.services.bedrockruntime.model.SystemContentBlock;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 
+/**
+ * Cổng duy nhất gọi AWS Bedrock (Converse API). Mọi chỗ dùng model trong module AI đi qua class này để:
+ * <ul>
+ *   <li>dùng chung cấu hình region/model ({@code app.bedrock.*}), timeout 40–45 giây và credentials
+ *       (task role trên ECS, profile khi chạy local, hoặc assume role sang tài khoản Bedrock khác);</li>
+ *   <li>trả kèm số token và thời gian ({@link ModelReply}) để ghi bảng ai_model_requests;</li>
+ *   <li>áp Guardrail của Bedrock (nếu cấu hình) lên câu người dùng trước khi tốn lượt gọi model.</li>
+ * </ul>
+ * Không có business logic ở đây; prompt và việc kiểm tra kết quả nằm ở service gọi tới.
+ */
 @Component
 @Slf4j
 public class BedrockClient {
@@ -71,6 +81,7 @@ public class BedrockClient {
         this.client = builder.build();
     }
 
+    /** Trả lời một câu đơn với prompt mặc định (cách dùng cũ trước pipeline; giữ cho tương thích). */
     public String reply(String prompt) {
         String instructions = "Bạn là trợ lý của Bite to Business. Trả lời ngắn gọn, rõ ràng bằng tiếng Việt. "
                 + "Bạn chưa được cung cấp dữ liệu sản phẩm, giá, tồn kho, đơn hàng hay chính sách thực tế. "
@@ -83,6 +94,7 @@ public class BedrockClient {
         return converse(instructions, prompt, maxTokens, temperature).text();
     }
 
+    /** Model/inference profile đang dùng, ghi vào ai_model_requests. */
     public String modelId() {
         return modelId;
     }
@@ -129,6 +141,15 @@ public class BedrockClient {
     public record ModelReply(String text, Integer inputTokens, Integer outputTokens, long durationMs) {
     }
 
+    /**
+     * Một lượt Converse: system prompt + một tin nhắn user, không stream.
+     *
+     * @param instructions system prompt (vai trò, nghiệp vụ, catalog, ví dụ)
+     * @param prompt       nội dung lượt này (dữ liệu đã bọc thẻ như &lt;data_model_summary&gt;)
+     * @param maxTokens    giới hạn token đầu ra (intent ~400, chat UI ~1500, page ~3000)
+     * @param temperature  0 cho phân loại ý định, 0.2–0.3 cho bố cục
+     * @throws RuntimeException khi Bedrock lỗi/timeout hoặc không trả text; nơi gọi tự quyết định fallback
+     */
     public ModelReply converse(String instructions, String prompt, int maxTokens, float temperature) {
         long started = System.nanoTime();
         Message message = Message.builder()

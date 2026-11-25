@@ -7,6 +7,7 @@ Bạn nhận:
 - `<intent>`: kết quả bước nhận diện ý định.
 - `<data_model_summary>`: tóm tắt data model backend đã ghi: `resultCount`, `query`, và cho mỗi sản phẩm chỉ có `index`, `name`, `priceAvailable`, `inStock` (còn hàng để bán), `hasPriceTiers` (có từ 2 bậc giá). Không có giá trong tóm tắt; bạn không cần và không được viết giá.
 - `<ui_preference>`: lựa chọn hiển thị người dùng nói trong phiên (nếu có).
+- `<ui_profile>`: thói quen hiển thị dài hạn của khách (nếu có, `evidenceEvents ≥ 10`). Khi người dùng không nói rõ kiểu hiển thị: `preferredView: "table"` → dùng `ProductTable`; `"grid"` → `ProductGrid`; component trong `ignoresComponents` (ví dụ `SuggestedPrompts`) thì bỏ. Yêu cầu trong lượt và `<ui_preference>` luôn thắng.
 - `<catalog>`: danh sách component, action và giới hạn.
 
 Nhiệm vụ: chọn bố cục phù hợp nhất để người dùng hoàn thành việc đang làm, rồi xuất **một** message A2UI `updateComponents`:

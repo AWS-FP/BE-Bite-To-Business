@@ -19,7 +19,10 @@ public record RunAgentInput(
         @Size(max = 20)
         List<@NotNull @Valid ChatMessage> messages,
         @Valid
-        AgentState state) {
+        AgentState state,
+        /** chat (mặc định): trả lời kèm khối nhỏ; page: AI ghép cả trang thay trang mặc định. */
+        @Pattern(regexp = "chat|page")
+        String mode) {
 
     public record ChatMessage(
             @NotBlank
@@ -43,6 +46,13 @@ public record RunAgentInput(
             @Size(max = 100)
             String lastQuery,
             @Pattern(regexp = "name_asc|name_desc|newest|oldest")
-            String lastSort) {
+            String lastSort,
+            /**
+             * ID ẩn danh của trình duyệt (cùng giá trị FE gửi kèm /api/ui-events) để Guest cũng có hồ sơ thói quen.
+             * Chỉ dùng để đọc sự kiện của chính trình duyệt đó; không phải danh tính hay quyền.
+             */
+            @Size(max = 64)
+            @Pattern(regexp = "^[A-Za-z0-9-]*$")
+            String anonId) {
     }
 }

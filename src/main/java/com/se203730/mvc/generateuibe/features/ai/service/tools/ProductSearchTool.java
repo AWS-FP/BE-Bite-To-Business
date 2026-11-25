@@ -1,6 +1,7 @@
 package com.se203730.mvc.generateuibe.features.ai.service.tools;
 
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
+import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.ProductDetailResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.ProductSummaryResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.service.ProductService;
 import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.ProductPricingResponse;
@@ -120,6 +121,53 @@ public class ProductSearchTool {
         summary.put("query", query);
         summary.put("products", summaries);
         return new SearchResult(dataModel, summary, items.size(), queryText);
+    }
+
+    /**
+     * Dựng thẻ sản phẩm (cùng hình dạng với /products) cho danh sách ID cho trước, giữ nguyên thứ tự.
+     * Dùng cho "xem gần đây" và "mua lại": ID đến từ lịch sử của chính khách, còn giá/tồn luôn lấy mới
+     * từ ProductService/ProductPricingService. Sản phẩm đã ngừng bán hoặc lỗi thì bỏ qua.
+     */
+    public List<Map<String, Object>> byIds(List<UUID> ids, String locale) {
+        boolean english = "en".equals(locale);
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (UUID id : ids.stream().distinct().limit(MAX_PRODUCTS).toList()) {
+            ProductDetailResponse product;
+            ProductPricingResponse price;
+            try {
+                product = products.getById(id);
+                price = pricing.getPricing(id);
+            } catch (BusinessException exception) {
+                continue;
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("productId", product.id().toString());
+            item.put("sku", product.sku());
+            item.put("name", english && product.nameEn() != null ? product.nameEn() : product.nameVi());
+            item.put("spec", english && product.packageSpecEn() != null ? product.packageSpecEn()
+                    : product.packageSpecVi());
+            item.put("origin", product.origin());
+            item.put("unitCode", product.unitCode());
+            item.put("imageUrl", product.imageUrl());
+            item.put("currency", price.currency());
+            item.put("priceAvailable", price.priceAvailable());
+            item.put("listPrice", price.listPrice());
+            item.put("salePrice", price.salePrice());
+            item.put("saleActive", price.saleActive());
+            item.put("minOrderQuantity", price.minOrderQuantity());
+            item.put("quantityStep", price.quantityStep());
+            item.put("priceTiers", price.priceTiers().stream().map(tier -> {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("minQuantity", tier.minQuantity());
+                row.put("maxQuantity", tier.maxQuantity());
+                row.put("unitPrice", tier.unitPrice());
+                return row;
+            }).toList());
+            item.put("inventoryAvailable", price.inventoryAvailable());
+            item.put("availableQuantity", price.availableQuantity());
+            items.add(item);
+        }
+        return items;
     }
 
     /** Data model rỗng khi chưa đủ thông tin để tìm (cần hỏi lại). */
