@@ -68,4 +68,12 @@ public class ExecutiveOperationsController {
                                                                              @PathVariable UUID id,@Valid @RequestBody ExecutiveReviewDecisionRequest r) {
         return ok(service.moderateReview(id,staff,r));
     }
+    // Restricted by controller-level @PreAuthorize to ECOMMERCE_EXECUTIVE.
+    // Permanent removal is distinct from the reversible HIDE moderation action.
+    @DeleteMapping("/reviews/{id}")
+    public ResponseEntity<ResponseObject<Map<String,Object>>> deleteReview(@CurrentUserUUID UUID staff,
+                                                                            @PathVariable UUID id) {
+        service.deleteReview(id, staff);
+        return ok(Map.of("reviewId", id, "deleted", true));
+    }
 }

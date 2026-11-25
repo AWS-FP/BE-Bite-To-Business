@@ -5,6 +5,7 @@ import com.se203730.mvc.generateuibe.common.api.ResponseObject;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.*;
 import com.se203730.mvc.generateuibe.features.customer.service.CustomerOrderQueryService;
 import com.se203730.mvc.generateuibe.features.customer.service.CustomerOrderCancellationService;
+import com.se203730.mvc.generateuibe.features.customer.service.CustomerReorderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.util.UUID;
 public class CustomerOrderController {
     private final CustomerOrderQueryService service;
     private final CustomerOrderCancellationService cancellation;
+    private final CustomerReorderService reorders;
 
     @GetMapping
     @Operation(summary = "List only the authenticated customer's orders, newest first")
@@ -42,6 +44,15 @@ public class CustomerOrderController {
         cancellation.cancel(customerId, orderId);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(new ResponseObject<>(200, "Order cancelled.", service.get(customerId, orderId)));
+    }
+
+    @PostMapping("/{orderId}/reorder")
+    @Operation(summary = "Prepare a fresh quote from one of my previous orders, including delivery packages")
+    public ResponseEntity<ResponseObject<QuoteDraftResponse>> reorder(
+            @CurrentUserUUID UUID customerId, @PathVariable UUID orderId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "New quote prepared; confirm before payment.",
+                        reorders.prepare(customerId, orderId)));
     }
 
     @GetMapping("/{orderId}")

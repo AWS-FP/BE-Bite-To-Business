@@ -13,6 +13,7 @@ public record QuoteDraftResponse(
         UUID id, String quoteNumber, String status, int revision, Instant submittedAt, String reviewNote,
         String contactName, String contactPhone, String contactEmail, String companyName, String note,
         UUID productCouponId, UUID shippingCouponId,
+        String productCouponCode, String shippingCouponCode,
         BigDecimal itemsSubtotal, BigDecimal volumeDiscountAmount, BigDecimal saleDiscountAmount,
         BigDecimal couponDiscountAmount, BigDecimal shippingFee, BigDecimal shippingCouponDiscountAmount,
         BigDecimal vatAmount, BigDecimal productVatAmount, String vatStatus,
@@ -33,7 +34,8 @@ public record QuoteDraftResponse(
         }
     }
 
-    public static QuoteDraftResponse from(Quote quote, List<QuoteItem> items, Map<UUID, BigDecimal> quantitySteps) {
+    public static QuoteDraftResponse from(Quote quote, List<QuoteItem> items, Map<UUID, BigDecimal> quantitySteps,
+                                          String productCouponCode, String shippingCouponCode) {
         boolean vatComplete = !items.isEmpty() && items.stream().allMatch(QuoteItem::isVatRateConfigured);
         BigDecimal total = quote.getItemsSubtotal().subtract(quote.getVolumeDiscountAmount())
                 .subtract(quote.getSaleDiscountAmount()).subtract(quote.getCouponDiscountAmount())
@@ -42,7 +44,7 @@ public record QuoteDraftResponse(
         return new QuoteDraftResponse(quote.getId(), quote.getQuoteNumber(), quote.getStatus(), quote.getRevision(),
                 quote.getSubmittedAt(), quote.getReviewNote(),
                 quote.getContactName(), quote.getContactPhone(), quote.getContactEmail(), quote.getCompanyName(), quote.getNote(),
-                quote.getCouponId(), quote.getShippingCouponId(),
+                quote.getCouponId(), quote.getShippingCouponId(), productCouponCode, shippingCouponCode,
                 quote.getItemsSubtotal(), quote.getVolumeDiscountAmount(), quote.getSaleDiscountAmount(),
                 quote.getCouponDiscountAmount(), quote.getShippingFee(), quote.getShippingCouponDiscountAmount(),
                 vatComplete ? quote.getVatAmount() : null, quote.getVatAmount(),
