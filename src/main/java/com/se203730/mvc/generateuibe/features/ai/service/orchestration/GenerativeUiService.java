@@ -8,6 +8,9 @@ import com.se203730.mvc.generateuibe.features.ai.dto.RunAgentInput.ChatMessage;
 import com.se203730.mvc.generateuibe.features.ai.repository.AiModelRequestRepository;
 import com.se203730.mvc.generateuibe.features.ai.service.a2ui.A2uiValidator;
 import com.se203730.mvc.generateuibe.features.ai.service.context.AiPromptLibrary;
+import com.se203730.mvc.generateuibe.features.ai.service.context.UiProfileService;
+import com.se203730.mvc.generateuibe.features.ai.service.context.UiProfileService.UiProfile;
+import com.se203730.mvc.generateuibe.features.ai.service.tools.PageDataTool;
 import com.se203730.mvc.generateuibe.features.ai.service.tools.ProductSearchTool;
 import com.se203730.mvc.generateuibe.features.ai.service.tools.ProductSearchTool.SearchResult;
 import java.io.IOException;
@@ -70,17 +73,31 @@ public class GenerativeUiService {
     private final AiModelRequestRepository modelRequests;
     private final ObjectMapper mapper;
 
+    private final PageDataTool pageData;
+    private final UiProfileService profiles;
+
     public GenerativeUiService(BedrockClient bedrock, AiPromptLibrary library, A2uiValidator validator,
-            ProductSearchTool products, AiModelRequestRepository modelRequests, ObjectMapper mapper) {
+            ProductSearchTool products, PageDataTool pageData, UiProfileService profiles,
+            AiModelRequestRepository modelRequests, ObjectMapper mapper) {
         this.bedrock = bedrock;
         this.library = library;
         this.validator = validator;
         this.products = products;
+        this.pageData = pageData;
+        this.profiles = profiles;
         this.modelRequests = modelRequests;
         this.mapper = mapper;
     }
 
     public void run(RunAgentInput input, EventSink sink) throws IOException {
+        run(input, null, sink);
+    }
+
+    /**
+     * @param customerId Customer đã đăng nhập (đã được AgentService kiểm tra role), hoặc null với Guest.
+     *                   Chỉ dùng để lấy dữ liệu của chính khách đó (yêu thích) khi dựng trang.
+     */
+    public void run(RunAgentInput input, UUID customerId, EventSink sink) throws IOException {
         AgentState state = input.state();
         String locale = state != null && "en".equals(state.locale()) ? "en" : "vi";
         List<ChatMessage> messages = input.messages();
@@ -106,10 +123,17 @@ public class GenerativeUiService {
         }
 
         Intent intent = classify(history, latest);
+        // Hồ sơ thói quen (long-term memory) của chính người đang hỏi: Customer theo userId, Guest theo anonId.
+        UiProfile profile = profiles.profile(customerId, state == null ? null : state.anonId());
+        if ("page".equals(input.mode())) {
+            log.info("AI page intent {}", intent.intents());
+            generatePage(intent, latest, state, locale, customerId, profile, sink);
+            return;
+        }
         Route route = route(intent);
         log.info("AI intent {} → {}", intent.intents(), route);
         if (route == Route.GENERATE_UI) {
-            generateUi(intent, latest, state, locale, sink);
+            generateUi(intent, latest, state, locale, profile, sink);
             return;
         }
         if (route == Route.NAVIGATE) {
@@ -117,7 +141,7 @@ public class GenerativeUiService {
             String page = intent.intents().stream().filter(NAVIGATE_PAGES::containsKey).map(NAVIGATE_PAGES::get)
                     .findFirst().orElse("catalog");
             sendText(sink, navigateText(page, locale));
-            sendSurface(sink, newSurfaceId(), products.empty().dataModel(), navigateLayout(page, locale));
+            sendSurface(sink, newSurfaceId("chat"), products.empty().dataModel(), navigateLayout(page, locale));
         } else {
             sendText(sink, answer(intent, route, history, latest));
         }
@@ -157,6 +181,11 @@ public class GenerativeUiService {
 
     // ---------- Bước 1: ý định ----------
 
+    /**
+     * Bước 1 — nhận diện ý định bằng Bedrock (prompts/intent.md, temperature 0). Trả về intent + slot đã trích
+     * (product_name có dấu, product_names, target_view…). Model trả JSON hỏng thì coi như không rõ ý định
+     * (intents rỗng) để luồng trả lời văn bản xử lý, không làm vỡ request.
+     */
     Intent classify(String history, String latest) {
         String system = library.systemPrompt() + "\n\n" + library.intentPrompt();
         String user = "<conversation>\n" + history + "\n</conversation>\n<latest_message>\n" + latest
@@ -177,6 +206,10 @@ public class GenerativeUiService {
         return new Intent(intents, slots, json.path("needs_clarification").asBoolean(false), question);
     }
 
+    /**
+     * Chế độ chat: chọn cách xử lý theo intent. Có intent tìm/so sánh/xem giá → tạo UI; giỏ/đơn/hồ sơ → điều
+     * hướng bằng câu cố định; chức năng chưa có → nói chưa hỗ trợ; còn lại → trả lời từ business context.
+     */
     private static Route route(Intent intent) {
         if (intent.intents().stream().anyMatch(UI_INTENTS::contains)) {
             return Route.GENERATE_UI;
@@ -195,7 +228,13 @@ public class GenerativeUiService {
 
     // ---------- Bước 2: tool + sinh UI ----------
 
-    private void generateUi(Intent intent, String latest, AgentState state, String locale, EventSink sink)
+    /**
+     * Chế độ chat — bước 2–4: xác định từ khóa (slot hoặc dùng lại từ khóa lượt trước khi chỉ đổi kiểu hiển thị),
+     * gọi ProductSearchTool lấy dữ liệu thật, cho model chọn bố cục, rồi phát text + surface + STATE_SNAPSHOT
+     * (FE gửi lại snapshot ở lượt sau để giữ ngắn hạn: kiểu hiển thị, từ khóa, sort).
+     */
+    private void generateUi(Intent intent, String latest, AgentState state, String locale, UiProfile profile,
+            EventSink sink)
             throws IOException {
         List<String> keywords = new ArrayList<>();
         intent.slots().path("product_names").forEach(node -> keywords.add(node.asString("")));
@@ -228,10 +267,11 @@ public class GenerativeUiService {
         }
 
         Map<String, Object> preference = preference(intent, state);
-        String surfaceId = newSurfaceId();
+        String surfaceId = newSurfaceId("chat");
         Intent shown = new Intent(intent.intents(), intent.slots(), question != null && result.resultCount() == 0,
                 result.resultCount() == 0 ? question : null);
-        JsonNode components = generateComponents(shown, latest, result, preference, surfaceId);
+        String profilePrompt = profile.personalized() ? json(profile.toPrompt(Map.of())) : "null";
+        JsonNode components = generateComponents(shown, latest, result, preference, profilePrompt, surfaceId);
 
         sendText(sink, summaryText(result, shown.question(), locale));
         sendSurface(sink, surfaceId, result.dataModel(), components);
@@ -245,12 +285,17 @@ public class GenerativeUiService {
         sink.send(event("STATE_SNAPSHOT", "snapshot", snapshot));
     }
 
+    /**
+     * Cho model sinh updateComponents cho khối chat. Model chỉ thấy tóm tắt không có giá; kết quả phải qua
+     * A2uiValidator. Sai thì gửi danh sách lỗi để model sửa đúng 1 lần, sau đó dùng defaultLayout.
+     */
     private JsonNode generateComponents(Intent intent, String latest, SearchResult result,
-            Map<String, Object> preference, String surfaceId) {
+            Map<String, Object> preference, String profilePrompt, String surfaceId) {
         String system = uiSystemPrompt(intent, result.resultCount(), !preference.isEmpty());
         String user = "<latest_message>\n" + latest + "\n</latest_message>\n<intent>\n" + json(intentJson(intent))
                 + "\n</intent>\n<data_model_summary>\n" + json(result.summary()) + "\n</data_model_summary>\n"
                 + "<ui_preference>\n" + (preference.isEmpty() ? "null" : json(preference)) + "\n</ui_preference>\n"
+                + "<ui_profile>\n" + profilePrompt + "\n</ui_profile>\n"
                 + "<surface_id>" + surfaceId + "</surface_id>";
         String prompt = user;
         for (int attempt = 1; attempt <= 2; attempt++) {
@@ -278,6 +323,10 @@ public class GenerativeUiService {
         return defaultLayout(result, surfaceId);
     }
 
+    /**
+     * System prompt cho bước sinh UI (chat): system-prompt.md + prompts/ui.md + catalog rút gọn + tối đa 4 ví dụ
+     * few-shot gần nhất với tình huống (cùng intent, cùng kiểu kết quả rỗng/1/nhiều).
+     */
     private String uiSystemPrompt(Intent intent, int resultCount, boolean hasPreference) {
         JsonNode contract = library.contract();
         ObjectNode catalog = mapper.createObjectNode();
@@ -321,6 +370,7 @@ public class GenerativeUiService {
         return updateComponents(surfaceId, components);
     }
 
+    /** Surface chỉ có một nút open_page tới trang có sẵn (giỏ, đơn hàng, hồ sơ); dựng cố định, không qua model. */
     private JsonNode navigateLayout(String page, String locale) {
         boolean en = "en".equals(locale);
         String label = switch (page) {
@@ -337,6 +387,7 @@ public class GenerativeUiService {
         return updateComponents(null, components);
     }
 
+    /** Gói danh sách component thành message A2UI v0.9 updateComponents. */
     private JsonNode updateComponents(String surfaceId, List<Map<String, Object>> components) {
         ObjectNode message = mapper.createObjectNode();
         message.put("version", "v0.9");
@@ -346,8 +397,144 @@ public class GenerativeUiService {
         return message;
     }
 
+    // ---------- Chế độ Page: AI ghép cả trang ----------
+
+    /**
+     * Chế độ page: AI ghép cả trang thay trang mặc định. Lấy mọi nguồn dữ liệu trang có thể dùng (PageDataTool,
+     * kèm danh sách cá nhân theo hồ sơ thói quen), cho model chọn section, validate, rồi phát surface.
+     * STATE_SNAPSHOT kèm pageFallback/validationErrors/personalized để bảng cây widget và nghiên cứu theo dõi.
+     */
+    private void generatePage(Intent intent, String latest, AgentState state, String locale, UUID customerId,
+            UiProfile profile, EventSink sink) throws IOException {
+        List<String> keywords = new ArrayList<>();
+        intent.slots().path("product_names").forEach(node -> {
+            if (!node.asString("").isBlank()) {
+                keywords.add(node.asString());
+            }
+        });
+        String name = slot(intent, "product_name");
+        if (keywords.isEmpty() && !name.isBlank()) {
+            keywords.add(name);
+        }
+        String sort = slot(intent, "sort");
+        PageDataTool.PageData data = pageData.build(keywords, sort, locale, customerId, profile);
+        Map<String, Object> preference = preference(intent, state);
+        String surfaceId = newSurfaceId("page");
+        List<String> diagnostics = new ArrayList<>();
+        String profilePrompt = profile.personalized() ? json(profile.toPrompt(data.productNames())) : "null";
+        JsonNode components = generatePageComponents(intent, latest, data, preference, profilePrompt,
+                customerId != null, surfaceId, diagnostics);
+        sendSurface(sink, surfaceId, data.dataModel(), components);
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("locale", locale);
+        snapshot.put("view", preference.get("view"));
+        snapshot.put("density", preference.get("density"));
+        snapshot.put("lastQuery", data.query());
+        snapshot.put("lastSort", data.sort());
+        snapshot.put("lastIntents", intent.intents());
+        // Cho bảng cây widget/nghiên cứu: trang có phải bố cục dự phòng không và vì sao.
+        snapshot.put("pageFallback", !diagnostics.isEmpty());
+        snapshot.put("personalized", profile.personalized());
+        snapshot.put("profileEvents", profile.evidenceEvents());
+        snapshot.put("validationErrors", diagnostics.stream().limit(8).toList());
+        sink.send(event("STATE_SNAPSHOT", "snapshot", snapshot));
+    }
+
+    /**
+     * Prompt chế độ page: system-prompt + business-context + prompts/page.md + catalog; nội dung lượt gồm yêu cầu,
+     * intent, tóm tắt từng danh sách (count + tên, không giá), lựa chọn hiển thị, hồ sơ thói quen và loại khách.
+     * {@code diagnostics} nhận lỗi validate của lần thử cuối (rỗng nếu thành công).
+     */
+    private JsonNode generatePageComponents(Intent intent, String latest, PageDataTool.PageData data,
+            Map<String, Object> preference, String profilePrompt, boolean customer, String surfaceId,
+            List<String> diagnostics) {
+        JsonNode contract = library.contract();
+        ObjectNode catalog = mapper.createObjectNode();
+        catalog.set("components", contract.path("components"));
+        catalog.set("actions", contract.path("actions"));
+        catalog.set("dataModel", contract.path("dataModel").path("productLists"));
+        String system = library.systemPrompt() + "\n\n<business_context>\n" + library.businessContext()
+                + "\n</business_context>\n\n" + library.pagePrompt() + "\n\n<catalog>\n" + json(catalog)
+                + "\n</catalog>";
+        String user = "<latest_message>\n" + latest + "\n</latest_message>\n<intent>\n" + json(intentJson(intent))
+                + "\n</intent>\n<data_model_summary>\n" + json(data.summary()) + "\n</data_model_summary>\n"
+                + "<ui_preference>\n" + (preference.isEmpty() ? "null" : json(preference)) + "\n</ui_preference>\n"
+                + "<ui_profile>\n" + profilePrompt + "\n</ui_profile>\n"
+                + "<customer>" + (customer ? "CUSTOMER" : "GUEST") + "</customer>\n<surface_id>" + surfaceId
+                + "</surface_id>";
+        String prompt = user;
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            ModelReply reply;
+            try {
+                reply = callModel(system, prompt, 3000, 0.3F, "PAGE");
+            } catch (RuntimeException exception) {
+                diagnostics.add("MODEL_ERROR: " + exception.getClass().getSimpleName());
+                return defaultPageLayout(data, latest, surfaceId);
+            }
+            JsonNode message = parseJson(reply.text());
+            if (message != null && message.path("updateComponents").isObject()) {
+                ((ObjectNode) message.path("updateComponents")).put("surfaceId", surfaceId);
+            }
+            List<String> errors = validator.validate(message, data.lists(), true);
+            if (errors.isEmpty()) {
+                record(reply, "SUCCEEDED", null);
+                diagnostics.clear();
+                return message;
+            }
+            record(reply, "FAILED", "PAGE_INVALID");
+            diagnostics.clear();
+            diagnostics.addAll(errors);
+            log.info("A2UI page validation failed (attempt {}): {}", attempt, errors);
+            prompt = user + "\n\nKết quả trước của bạn chưa hợp lệ:\n- "
+                    + String.join("\n- ", errors.subList(0, Math.min(errors.size(), 12)))
+                    + "\nHãy sửa và trả lại đúng một JSON updateComponents.";
+        }
+        return defaultPageLayout(data, latest, surfaceId);
+    }
+
+    /** Trang mặc định khi model lỗi hoặc sai schema hai lần; chỉ dùng danh sách có dữ liệu. */
+    JsonNode defaultPageLayout(PageDataTool.PageData data, String latest, String surfaceId) {
+        List<Map<String, Object>> components = new ArrayList<>();
+        List<String> sections = new ArrayList<>(List.of("header"));
+        components.add(Map.of("id", "header", "component", "PageHeader", "title",
+                data.query() == null ? "Gợi ý mua sắm" : "Kết quả cho “" + data.query() + "”"));
+        Map<String, Integer> lists = data.lists();
+        if (lists.getOrDefault("/products", 0) > 0) {
+            sections.add("main");
+            components.add(Map.of("id", "main", "component", "Section", "title", "Sản phẩm phù hợp", "variant",
+                    "highlight", "child", "main-grid"));
+            components.add(Map.of("id", "main-grid", "component", "ProductGrid", "items",
+                    Map.of("path", "/products"), "columns", 3));
+        } else if (data.query() != null) {
+            sections.add("empty");
+            components.add(Map.of("id", "empty", "component", "Notice", "tone", "empty", "text",
+                    "Chưa có sản phẩm khớp yêu cầu. Bạn xem thử các nhóm hàng bên dưới."));
+        }
+        String side = lists.getOrDefault("/favorites", 0) > 0 ? "/favorites"
+                : lists.getOrDefault("/home/bestSelling", 0) > 0 ? "/home/bestSelling" : null;
+        if (side != null) {
+            sections.add("side");
+            components.add(Map.of("id", "side", "component", "Section", "title",
+                    "/favorites".equals(side) ? "Sản phẩm bạn đã lưu" : "Bán chạy", "child", "side-row"));
+            components.add(Map.of("id", "side-row", "component", "ProductCarousel", "items", Map.of("path", side)));
+        }
+        if (lists.getOrDefault("/categories", 0) > 0) {
+            sections.add("cats");
+            components.add(Map.of("id", "cats", "component", "Section", "title", "Nhóm hàng", "variant", "card",
+                    "child", "cat-grid"));
+            components.add(Map.of("id", "cat-grid", "component", "CategoryGrid", "items",
+                    Map.of("path", "/categories")));
+        }
+        components.add(0, Map.of("id", "root", "component", "Column", "children", sections));
+        return updateComponents(surfaceId, components);
+    }
+
     // ---------- Trả lời bằng văn bản ----------
 
+    /**
+     * Trả lời bằng văn bản cho câu hỏi chính sách/chức năng chưa hỗ trợ, dựa trên business-context.md.
+     * Prompt cấm khẳng định trạng thái giỏ/đơn của khách vì model không có dữ liệu đó.
+     */
     private String answer(Intent intent, Route route, String history, String latest) {
         String guidance = switch (route) {
             case UNSUPPORTED -> "Chức năng này chưa được hỗ trợ. Nói rõ điều đó và gợi ý cách làm hiện có nếu "
@@ -368,6 +555,7 @@ public class GenerativeUiService {
 
     // ---------- Tiện ích ----------
 
+    /** Gọi Bedrock một lượt; lỗi thì ghi FAILED kèm bước (INTENT/UI/PAGE/ANSWER) rồi ném tiếp cho nơi gọi fallback. */
     private ModelReply callModel(String system, String user, int maxTokens, float temperature, String stage) {
         try {
             return bedrock.converse(system, user, maxTokens, temperature);
@@ -379,6 +567,7 @@ public class GenerativeUiService {
         }
     }
 
+    /** Ghi token/thời gian/kết quả của một lượt gọi vào ai_model_requests; lỗi ghi log không được làm hỏng request. */
     private void record(ModelReply reply, String status, String errorCode) {
         try {
             modelRequests.record(bedrock.modelId(), status,
@@ -390,6 +579,7 @@ public class GenerativeUiService {
         }
     }
 
+    /** Lấy JSON object đầu tiên trong câu trả lời của model (bỏ chữ thừa/markdown quanh nó); không đọc được thì null. */
     private JsonNode parseJson(String text) {
         if (text == null) {
             return null;
@@ -406,6 +596,7 @@ public class GenerativeUiService {
         }
     }
 
+    /** Phát một tin nhắn văn bản theo AG-UI: TEXT_MESSAGE_START → CONTENT → END. */
     private void sendText(EventSink sink, String text) throws IOException {
         if (text == null || text.isBlank()) {
             return;
@@ -427,6 +618,7 @@ public class GenerativeUiService {
         sink.send(event("CUSTOM", "name", "a2ui", "value", List.of(create, data, components)));
     }
 
+    /** Lựa chọn hiển thị của phiên: người dùng vừa nói (slot) thắng state FE gửi lại; chỉ nhận grid/table, compact/comfortable. */
     private Map<String, Object> preference(Intent intent, AgentState state) {
         Map<String, Object> preference = new LinkedHashMap<>();
         String view = slot(intent, "target_view");
@@ -446,6 +638,7 @@ public class GenerativeUiService {
         return preference;
     }
 
+    /** Câu chữ ngắn đi kèm khối UI trong chat; dựng cố định từ số kết quả, không để model viết số. */
     private static String summaryText(SearchResult result, String question, String locale) {
         boolean en = "en".equals(locale);
         if (question != null && !question.isBlank()) {
@@ -470,6 +663,7 @@ public class GenerativeUiService {
         return value;
     }
 
+    /** Ngắn hạn: 6 lượt gần nhất (mỗi lượt tối đa 500 ký tự) làm ngữ cảnh hội thoại cho bước nhận diện ý định. */
     private static String history(List<ChatMessage> messages) {
         StringBuilder text = new StringBuilder();
         int from = Math.max(0, messages.size() - 1 - HISTORY_TURNS);
@@ -489,8 +683,8 @@ public class GenerativeUiService {
         return value.isString() ? value.asString().trim() : "";
     }
 
-    private static String newSurfaceId() {
-        return "chat-" + UUID.randomUUID().toString().substring(0, 8);
+    private static String newSurfaceId(String mode) {
+        return mode + "-" + UUID.randomUUID().toString().substring(0, 8);
     }
 
     private String json(Object value) {

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+/** Ghi/dọn sự kiện tương tác (ui_interaction_events); đọc tổng hợp nằm ở UiProfileQueryRepository. */
 public interface UiInteractionEventRepository extends JpaRepository<UiInteractionEvent, UUID> {
     /** Gửi lại cùng eventId thì bỏ qua, không ghi trùng. */
     @Modifying

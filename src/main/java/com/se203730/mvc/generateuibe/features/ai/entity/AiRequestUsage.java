@@ -9,6 +9,7 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/** Một lượt dùng trợ lý AI của Customer, để giới hạn 20 lượt/giờ (AiRequestLimitService). */
 @Entity
 @Table(name = "ai_request_usage", schema = "public")
 @Getter

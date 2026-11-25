@@ -13,6 +13,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+/**
+ * Endpoint Generative UI: {@code POST /api/ai/agent} trả SSE theo sự kiện AG-UI.
+ * Body là {@link com.se203730.mvc.generateuibe.features.ai.dto.RunAgentInput}: lịch sử hội thoại,
+ * state hiển thị và mode ("chat" khối nhỏ / "page" cả trang). Guest gọi được (userId = null);
+ * Customer được nhận diện từ cookie/JWT. Mọi kiểm tra quyền và giới hạn lượt nằm ở AgentService.
+ */
 @RestController
 @RequestMapping("/api/ai")
 public class AgentController {
