@@ -1,10 +1,9 @@
 {
-  "contractVersion": "btb-genui-3",
+  "contractVersion": "btb-genui-4",
   "a2uiVersion": "v0.9",
   "catalogId": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
   "catalogSchema": "classpath:a2ui/catalog/bite-to-business.catalog.json",
   "roles": [
-    "GUEST",
     "CUSTOMER"
   ],
   "surface": {
@@ -93,7 +92,28 @@
       "inventoryAvailable": "boolean",
       "availableQuantity": "number | null",
       "averageRating": "number | null",
-      "reviewCount": "number"
+      "reviewCount": "number",
+      "facts": {
+        "origin": "string | null — xuất xứ ngắn",
+        "brand": "string",
+        "category": "string",
+        "distributor": "string",
+        "description": "string",
+        "netWeightKg": "number | null",
+        "storage": "string | null — hướng dẫn bảo quản/sơ chế",
+        "technical": "string | null",
+        "originDetail": "string | null — câu chuyện nguồn gốc",
+        "compliance": "string | null — VSATTP/hóa đơn",
+        "nutritionBasis": "string | null — ví dụ 100g",
+        "nutrition": [
+          {
+            "nutrient": "string",
+            "amount": "string"
+          }
+        ],
+        "_note": "Chỉ có khi tra cứu thông tin (tìm theo thuộc tính hoặc ASK_PRODUCT_INFO)."
+      },
+      "matchedOn": "[origin|storage|contains|nutrient|compliance] — nhóm điều kiện khớp khi tìm theo thuộc tính"
     },
     "personalLists": {
       "/recentlyViewed": "Sản phẩm khách vừa xem gần đây (lịch sử duyệt web thật).",
@@ -111,10 +131,11 @@
     "PageHeader": "[page] Đầu trang: title theo mục đích người dùng, subtitle giải thích cách sắp trang. Đặt đầu tiên, tối đa 1.",
     "Section": "[page] Một khối nội dung có tiêu đề; child là một component (bọc nhiều phần tử trong Column). variant plain|card|highlight (highlight tối đa 1).",
     "ProductGrid": "Lưới thẻ sản phẩm từ một danh sách sản phẩm; columns 2|3|4; density; showPriceTiers; showAddToCart.",
-    "ProductTable": "Bảng so sánh từ một danh sách sản phẩm; columns trong image,name,spec,price,priceTiers,moq,stock; highlight none|lowestPrice|inStock.",
+    "ProductTable": "Bảng so sánh từ một danh sách sản phẩm; columns trong image,name,spec,origin,price,priceTiers,moq,stock; highlight none|lowestPrice|inStock.",
     "ProductCarousel": "[page] Dải sản phẩm cuộn ngang từ một danh sách sản phẩm; hợp với khối phụ (bán chạy, giảm sâu, yêu thích).",
     "ProductCard": "Một sản phẩm nổi bật, product={path:'/products/0'}.",
     "PriceTiers": "Bảng giá theo bậc số lượng của một sản phẩm.",
+    "ProductFacts": "Thông tin mô tả của một sản phẩm lấy nguyên từ DB: sections trong storage, origin, nutrition, technical, compliance, description; product={path:'/products/0'}. Dùng khi khách hỏi bảo quản, xuất xứ, thành phần, dinh dưỡng.",
     "InventoryBadge": "Nhãn còn hàng/hết hàng của một sản phẩm.",
     "BannerCarousel": "[page] Banner khuyến mãi đã đăng, items={path:'/home/banners'}.",
     "CategoryGrid": "[page] Lối tắt danh mục, items={path:'/categories'}; showChildren hiện danh mục con.",

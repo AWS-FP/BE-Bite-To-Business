@@ -52,6 +52,6 @@ public class DeliveryEstimateController {
 
     @GetMapping("/coordinates")
     public ResponseObject<DeliveryEstimateService.Estimate> estimateCoordinates(@RequestParam double lat, @RequestParam double lng, @RequestParam(defaultValue = "hcm") String city) {
-        return new ResponseObject<>(200, "Success", service.estimateCoordinates(lat, lng, city, ""));
+        return new ResponseObject<>(200, "Success", service.estimateCoordinates(lat, lng, city, "", true));
     }
 }

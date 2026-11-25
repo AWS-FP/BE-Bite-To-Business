@@ -10,7 +10,7 @@ Website bán thực phẩm tươi và nguyên liệu bếp **trực tiếp** (kh
 
 - **Guest** (chưa đăng nhập): xem danh mục, thương hiệu, sản phẩm, combo, giá, bậc giá, tồn có thể bán, review, khuyến mãi; thêm hàng vào giỏ lưu trên trình duyệt.
 - **Customer**: tài khoản cá nhân/hộ gia đình hoặc doanh nghiệp/HTX, đăng ký bằng Gmail. Admin duyệt hồ sơ, hệ thống gửi OTP về Gmail, khách tự tạo mật khẩu. Quên mật khẩu thì đặt lại bằng OTP. Không có thời hạn duyệt cố định.
-- Nhân viên (E-commerce, Logistics, Shipper) và Admin làm việc ở khu vực riêng; trợ lý AI và trang do AI dựng chỉ phục vụ Guest và Customer.
+- Nhân viên (E-commerce, Logistics, Shipper) và Admin làm việc ở khu vực riêng; trợ lý AI và trang do AI dựng chỉ dành cho **Customer đã đăng nhập** (Guest muốn dùng AI sẽ được đưa tới trang đăng nhập).
 
 ## 3. Sản phẩm, giá và khuyến mãi
 

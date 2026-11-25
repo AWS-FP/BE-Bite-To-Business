@@ -2,6 +2,7 @@ package com.se203730.mvc.generateuibe.features.customer.service;
 
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
+import com.se203730.mvc.generateuibe.common.exception.ErrorResponse;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteDraftResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteAvailabilityResponse;
@@ -91,11 +92,16 @@ public class QuoteWorkflowService {
 
     private void checkStock(List<QuoteItem> lines) {
         Map<UUID, ProductInventory> available = getInventory(lines);
+        List<ErrorResponse.ValidationError> shortages = new ArrayList<>();
         for (QuoteItem line : lines) {
             ProductInventory stock = available.get(line.getProductId());
-            if (stock == null || stock.getAvailableQuantity().compareTo(line.getQuantity()) < 0) {
-                throw new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE);
+            BigDecimal onHand = stock == null ? BigDecimal.ZERO : stock.getAvailableQuantity();
+            if (onHand.compareTo(line.getQuantity()) < 0) {
+                shortages.add(StockShortage.of(line.getProductId(), onHand, line.getQuantity()));
             }
+        }
+        if (!shortages.isEmpty()) {
+            throw new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE, shortages);
         }
     }
 

@@ -56,7 +56,18 @@ public class DeliveryEstimateService {
         return estimateCoordinates(lat, lng, city, place.path("display").asText(""));
     }
 
+    // Điểm khách chọn cách đường xe chạy gần nhất quá ngưỡng này (giữa sông, ruộng...) thì không giao được.
+    private static final double MAX_SNAP_METRES = 100;
+
     public Estimate estimateCoordinates(double lat, double lng, String city, String address) {
+        return estimateCoordinates(lat, lng, city, address, false);
+    }
+
+    /**
+     * snapToRoad = true (khách tự chọn trên bản đồ): đưa điểm về chỗ VietMap nối vào đường xe chạy
+     * (điểm cuối tuyến đường) và từ chối nếu điểm chọn cách đường quá xa.
+     */
+    public Estimate estimateCoordinates(double lat, double lng, String city, String address, boolean snapToRoad) {
         if (!Double.isFinite(lat) || !Double.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
@@ -86,6 +97,13 @@ public class DeliveryEstimateService {
             coordinates.add(List.of(longitude, latitude));
         }
         long fee = Math.round(Math.max(0, metres - 5000) * 5);
+        if (snapToRoad) {
+            List<Double> end = coordinates.get(coordinates.size() - 1);
+            if (distanceMetres(lat, lng, end.get(1), end.get(0)) > MAX_SNAP_METRES) {
+                throw new BusinessException(ErrorCode.DELIVERY_LOCATION_UNREACHABLE);
+            }
+            return new Estimate(address, end.get(1), end.get(0), metres, fee, coordinates);
+        }
         return new Estimate(address, lat, lng, metres, fee, coordinates);
     }
 
@@ -115,6 +133,14 @@ public class DeliveryEstimateService {
             coordinates.add(List.of(point.path(0).asDouble(), point.path(1).asDouble()));
         }
         return new Route(path.path("distance").asDouble(), path.path("time").asLong(0), coordinates);
+    }
+
+    private static double distanceMetres(double lat1, double lng1, double lat2, double lng2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return 6371000 * 2 * Math.asin(Math.sqrt(h));
     }
 
     private Origin origin(String city) {
