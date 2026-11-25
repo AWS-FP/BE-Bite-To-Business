@@ -4,6 +4,8 @@ import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuotePackageRequest;
+import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteCartRequest;
+import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteDraftResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuotePackageResponse;
 import com.se203730.mvc.generateuibe.features.customer.entity.Quote;
 import com.se203730.mvc.generateuibe.features.customer.entity.QuoteItem;
@@ -34,6 +36,8 @@ public class QuotePackageService {
     @Autowired
     private QuoteDraftService drafts;
     @Autowired
+    private com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductInventoryRepository inventory;
+    @Autowired
     private QuoteRepository quotes;
     @Autowired
     private QuoteItemRepository items;
@@ -51,6 +55,52 @@ public class QuotePackageService {
     private QuotePackageAmounts packageAmounts;
     @Autowired
     private DeliveryAddressMatcher addressMatcher;
+
+    /** Apply cart edits to this exact quote, atomically; never touch a different draft. */
+    @Transactional
+    public QuoteDraftResponse replaceCart(
+            UUID customerId, UUID quoteId, int revision,
+            QuoteCartRequest request) {
+        Quote quote = drafts.editableQuote(customerId, quoteId);
+        if (quote.getRevision() != revision) throw new BusinessException(ErrorCode.QUOTE_REVISION_CONFLICT);
+        Map<UUID, BigDecimal> desired = new HashMap<>();
+        for (var line : request.items()) {
+            if (desired.put(line.productId(), line.quantity()) != null)
+                throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        for (var line : request.items()) {
+            var stock = inventory.findById(line.productId()).orElseThrow(
+                    () -> new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE));
+            if (stock.getAvailableQuantity().compareTo(line.quantity()) < 0)
+                throw new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE);
+        }
+        List<QuoteItem> existing = items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId);
+        Set<UUID> changed = new HashSet<>();
+        for (QuoteItem line : existing) {
+            BigDecimal quantity = desired.get(line.getProductId());
+            if (quantity == null || quantity.compareTo(line.getQuantity()) != 0)
+                changed.add(line.getId());
+        }
+        // Only packages containing changed/removed lines need to be reallocated.
+        for (QuotePackage parcel : packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId)) {
+            if (allocations.findAllByQuotePackageId(parcel.getId()).stream()
+                    .anyMatch(part -> changed.contains(part.getQuoteItemId()))) {
+                remove(customerId, quoteId, parcel.getId());
+            }
+        }
+        for (QuoteItem line : existing) {
+            if (!desired.containsKey(line.getProductId())) {
+                drafts.removeItem(customerId, quoteId, line.getId());
+            }
+        }
+        for (var line : request.items()) {
+            if (existing.stream().noneMatch(old -> old.getProductId().equals(line.productId())
+                    && old.getQuantity().compareTo(line.quantity()) == 0)) {
+                drafts.putItem(customerId, quoteId, line);
+            }
+        }
+        return drafts.refreshPrices(customerId, quoteId);
+    }
 
     @Transactional(readOnly = true)
     public List<QuotePackageResponse> list(UUID customerId, UUID quoteId) {
