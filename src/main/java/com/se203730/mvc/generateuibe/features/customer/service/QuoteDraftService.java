@@ -86,6 +86,15 @@ public class QuoteDraftService {
         return response(quote);
     }
 
+    /** Creates a separate quote for reorder without altering the customer's active cart draft. */
+    @Transactional
+    public QuoteDraftResponse createFresh(UUID customerId) {
+        users.findByIdForUpdate(customerId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        requireCustomer(customerId);
+        return response(newDraft(customerId));
+    }
+
     @Transactional(readOnly = true)
     public QuoteDraftResponse get(UUID customerId, UUID quoteId) {
         requireCustomer(customerId);

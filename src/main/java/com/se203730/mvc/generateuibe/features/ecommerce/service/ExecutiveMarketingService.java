@@ -126,14 +126,14 @@ public class ExecutiveMarketingService {
         if(!query.isEmpty()) where += " and (p.name_vi ILIKE :search ESCAPE '\\' " +
             "or p.name_en ILIKE :search ESCAPE '\\')";
         return db.page("select p.id,p.name_vi,p.name_en,p.content_vi,p.content_en,p.status," +
-                "p.starts_at,p.ends_at,p.promotion_type,p.image_url,p.created_by,p.published_at,p.created_at,p.updated_at " +
+                "p.starts_at,p.ends_at,(p.ends_at<=CURRENT_TIMESTAMP) as expired,p.promotion_type,p.image_url,p.created_by,p.published_at,p.created_at,p.updated_at " +
                 "from public.promotions p" + where + " order by p.created_at desc,p.id",
             "select count(*) from public.promotions p"+where,p,page,size);
     }
     @Transactional(readOnly=true)
     public Map<String,Object> promotion(UUID id) {
         return db.one("select id,name_vi,name_en,content_vi,content_en,status,starts_at,ends_at," +
-                "promotion_type,image_url,created_by,published_at,created_at,updated_at from public.promotions where id=:id",
+                "(ends_at<=CURRENT_TIMESTAMP) as expired,promotion_type,image_url,created_by,published_at,created_at,updated_at from public.promotions where id=:id",
             new MapSqlParameterSource("id",id));
     }
     /** Delete only campaigns never published, preserving customers' historical promotions. */
