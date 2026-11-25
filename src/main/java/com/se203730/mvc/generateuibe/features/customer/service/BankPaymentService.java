@@ -6,7 +6,6 @@ import com.se203730.mvc.generateuibe.common.outbox.service.OutboxEventService;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.SepayWebhookRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.BankPaymentResponse;
-import com.se203730.mvc.generateuibe.features.customer.dto.response.SepayReviewResponse;
 import com.se203730.mvc.generateuibe.features.customer.entity.Order;
 import com.se203730.mvc.generateuibe.features.customer.entity.Payment;
 import com.se203730.mvc.generateuibe.features.customer.entity.SepayWebhookEvent;
@@ -23,7 +22,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Locale;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -117,6 +115,20 @@ public class BankPaymentService {
 
     @Transactional
     public void receive(SepayWebhookRequest request) {
+        receive(request, "WEBHOOK", null);
+    }
+
+    /**
+     * Ghi nhận một giao dịch SePay. Idempotent theo transaction id và mã tham chiếu, nên webhook
+     * và job đối soát có thể cùng gửi một giao dịch mà không bị ghi hai lần.
+     *
+     * @param source  WEBHOOK hoặc RECONCILIATION
+     * @param paidAt  thời điểm ngân hàng ghi nhận (job đối soát biết); null thì dùng giờ hiện tại.
+     *                Hạn giữ hàng được so với thời điểm này, để khoản trả đúng hạn nhưng webhook bị sót
+     *                vẫn khớp đơn nếu đơn chưa bị huỷ.
+     */
+    @Transactional
+    public void receive(SepayWebhookRequest request, String source, Instant paidAt) {
         requireConfiguration();
         validate(request);
         if (events.existsById(request.id())) {
@@ -127,6 +139,7 @@ public class BankPaymentService {
             return;
         }
         Instant now = clock.now();
+        Instant paidTime = paidAt == null || paidAt.isAfter(now) ? now : paidAt;
         String code = findCode(request.content());
         SepayWebhookEvent event = new SepayWebhookEvent();
         event.setTransactionId(request.id());
@@ -140,6 +153,8 @@ public class BankPaymentService {
         event.setResult("REVIEW");
         event.setReviewReason("UNMATCHED_ACCOUNT_OR_CODE");
         event.setReceivedAt(now);
+        event.setSource(source);
+        event.setContent(request.content() == null ? null : request.content().strip());
         event = events.saveAndFlush(event);
 
         if (!"BIDV".equalsIgnoreCase(request.gateway())
@@ -161,7 +176,7 @@ public class BankPaymentService {
             return;
         }
         event.setPaymentId(payment.getId());
-        if (reservationExpired(order, now)) {
+        if (reservationExpired(order, paidTime)) {
             event.setReviewReason("RESERVATION_EXPIRED");
             return;
         }
@@ -202,15 +217,6 @@ public class BankPaymentService {
 
     public void checkWebhookConfiguration() {
         requireConfiguration();
-    }
-
-    @Transactional(readOnly = true)
-    public List<SepayReviewResponse> listReviewEvents() {
-        return events.findTop100ByResultOrderByReceivedAtDesc("REVIEW").stream()
-                .map(event -> new SepayReviewResponse(event.getTransactionId(), event.getPaymentId(),
-                        event.getPaymentCode(), event.getAmount(), event.getReferenceCode(),
-                        event.getReviewReason(), event.getReceivedAt()))
-                .toList();
     }
 
     private void requireOwner(Order order, UUID customerId) {

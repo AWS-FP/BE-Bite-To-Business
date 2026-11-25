@@ -54,4 +54,34 @@ public class SepayWebhookEvent {
 
     @Column(name = "received_at", nullable = false)
     private Instant receivedAt;
+
+    /** WEBHOOK hoặc RECONCILIATION (job đối soát bù khi webhook bị sót). */
+    @Column(nullable = false)
+    private String source = "WEBHOOK";
+
+    /** Nội dung chuyển khoản gốc, để Admin đối chiếu khoản không khớp đơn. */
+    @Column(columnDefinition = "text")
+    private String content;
+
+    /** REFUNDED / RESTORED / IGNORED, null khi chưa xử lý. */
+    @Column
+    private String resolution;
+
+    @Column(name = "resolution_note", columnDefinition = "text")
+    private String resolutionNote;
+
+    @Column(name = "refund_reference")
+    private String refundReference;
+
+    @Column(name = "resolved_by")
+    private UUID resolvedBy;
+
+    @Column(name = "resolved_at")
+    private Instant resolvedAt;
+
+    @Column(name = "customer_notified_at")
+    private Instant customerNotifiedAt;
+
+    @Column(name = "resolution_notified_at")
+    private Instant resolutionNotifiedAt;
 }

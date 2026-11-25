@@ -124,16 +124,9 @@ public class SecurityConfig {
                 "/api/auth/forgot-password/verify-otp"
             ).permitAll();
 
-            authorize.requestMatchers(
-                HttpMethod.POST,
-                "/api/ai/agent"
-            ).permitAll();
-            // Sự kiện tương tác cho cá nhân hóa giao diện: Guest gửi kèm anonId,
-            // Customer đã đăng nhập được BE gắn user từ cookie.
-            authorize.requestMatchers(
-                HttpMethod.POST,
-                "/api/ui-events"
-            ).permitAll();
+            // /api/ai/agent và /api/ui-events KHÔNG mở công khai: AI và việc ghi hành vi chỉ dành cho Customer
+            // đã đăng nhập (AI cần ý định và thói quen gắn với đúng khách). Hai route này rơi vào luật cuối
+            // (tài khoản đang hoạt động); AgentService/UiEventService kiểm tra thêm role CUSTOMER.
 
             // Webhook dùng chữ ký HMAC của SePay
             // thay cho JWT của khách hàng.

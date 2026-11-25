@@ -3,7 +3,7 @@
  *
  * <h2>Luồng một request ({@code POST /api/ai/agent}, SSE theo sự kiện AG-UI)</h2>
  * <pre>
- * AgentController ─► AgentService (kiểm tra Guest/Customer, giới hạn lượt, chạy nền)
+ * AgentController ─► AgentService (chỉ Customer đăng nhập, giới hạn lượt, chạy nền)
  *   └─► GenerativeUiService
  *        1. Guardrail Bedrock kiểm tra câu người dùng (chặn nội dung ngoài phạm vi)
  *        2. classify(): Bedrock nhận diện ý định (prompts/intent.md) → JSON intent + slot
@@ -26,8 +26,8 @@
  *       ({@code updateDataModel}); model chỉ bind path như {@code {"path":"/products"}}, không viết số.</li>
  *   <li>Action trên giao diện chỉ thuộc allowlist của catalog; FE thực hiện qua router/giỏ hàng thật, backend
  *       kiểm tra lại giá/tồn/quyền khi tạo báo giá.</li>
- *   <li>Danh tính lấy từ JWT, không tin role/userId trong prompt. anonId chỉ dùng để đọc thói quen của chính
- *       trình duyệt đó.</li>
+ *   <li>Danh tính lấy từ JWT, không tin role/userId trong prompt. AI và việc ghi hành vi chỉ dành cho Customer
+ *       đã đăng nhập; Guest được FE chuyển sang trang đăng nhập.</li>
  * </ul>
  *
  * <h2>Tài nguyên (classpath)</h2>

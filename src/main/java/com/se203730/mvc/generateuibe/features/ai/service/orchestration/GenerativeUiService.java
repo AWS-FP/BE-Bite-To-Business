@@ -11,6 +11,7 @@ import com.se203730.mvc.generateuibe.features.ai.service.context.AiPromptLibrary
 import com.se203730.mvc.generateuibe.features.ai.service.context.UiProfileService;
 import com.se203730.mvc.generateuibe.features.ai.service.context.UiProfileService.UiProfile;
 import com.se203730.mvc.generateuibe.features.ai.service.tools.PageDataTool;
+import com.se203730.mvc.generateuibe.features.ecommerce.service.ProductKnowledgeService.AttributeQuery;
 import com.se203730.mvc.generateuibe.features.ai.service.tools.ProductSearchTool;
 import com.se203730.mvc.generateuibe.features.ai.service.tools.ProductSearchTool.SearchResult;
 import java.io.IOException;
@@ -48,7 +49,8 @@ public class GenerativeUiService {
         GENERATE_UI, NAVIGATE, ANSWER, UNSUPPORTED
     }
 
-    private static final Set<String> UI_INTENTS = Set.of("SEARCH_PRODUCT", "FILTER_PRODUCTS", "CHECK_TIER_PRICE",
+    private static final Set<String> UI_INTENTS = Set.of("SEARCH_PRODUCT", "FILTER_PRODUCTS", "ASK_PRODUCT_INFO",
+            "CHECK_TIER_PRICE",
             "CHECK_STOCK_AVAILABILITY", "CHECK_MOQ_AND_SPEC", "COMPARE_PRODUCTS", "CHANGE_UI_PREFERENCE",
             "ADD_TO_CART", "RECOMMEND_SUBSTITUTE", "RECOMMEND_BUNDLE");
     private static final Map<String, String> NAVIGATE_PAGES = Map.ofEntries(
@@ -255,15 +257,16 @@ public class GenerativeUiService {
             sort = state.lastSort();
         }
         boolean browseNewest = keywords.isEmpty() && "newest".equals(sort);
+        AttributeQuery attributes = attributes(intent, keywords);
         String question = intent.question();
         SearchResult result;
-        if (keywords.isEmpty() && !browseNewest) {
+        if (keywords.isEmpty() && !browseNewest && attributes == null) {
             result = products.empty();
             if (question == null || question.isBlank()) {
                 question = "en".equals(locale) ? "Which product are you looking for?" : "Bạn đang tìm sản phẩm nào?";
             }
         } else {
-            result = products.search(keywords, sort, browseNewest ? 8 : 12, locale);
+            result = findProducts(intent, keywords, attributes, sort, locale, browseNewest ? 8 : 12);
         }
 
         Map<String, Object> preference = preference(intent, state);
@@ -417,7 +420,11 @@ public class GenerativeUiService {
             keywords.add(name);
         }
         String sort = slot(intent, "sort");
-        PageDataTool.PageData data = pageData.build(keywords, sort, locale, customerId, profile);
+        AttributeQuery attributes = attributes(intent, keywords);
+        PageDataTool.PageData data = keywords.isEmpty() && attributes == null
+                ? pageData.build(keywords, sort, locale, customerId, profile)
+                : pageData.build(findProducts(intent, keywords, attributes, sort, locale, 12), locale, customerId,
+                        profile);
         Map<String, Object> preference = preference(intent, state);
         String surfaceId = newSurfaceId("page");
         List<String> diagnostics = new ArrayList<>();
@@ -527,6 +534,59 @@ public class GenerativeUiService {
         }
         components.add(0, Map.of("id", "root", "component", "Column", "children", sections));
         return updateComponents(surfaceId, components);
+    }
+
+    // ---------- Tra cứu thông tin sản phẩm (bảo quản, xuất xứ, thành phần, dinh dưỡng) ----------
+
+    /**
+     * Tìm sản phẩm cho cả hai chế độ:
+     * <ul>
+     *   <li>có slot {@code attributes} (xuất xứ, bảo quản, thành phần, dinh dưỡng, chứng nhận) → tìm theo thông tin
+     *       mô tả trong DB (ProductKnowledgeService), tên sản phẩm (nếu có) thành điều kiện "từ khóa";</li>
+     *   <li>ý định ASK_PRODUCT_INFO ("ba chỉ bò bảo quản thế nào?") → tìm theo tên rồi kèm facts cho vài
+     *       sản phẩm đầu để widget ProductFacts hiển thị;</li>
+     *   <li>còn lại → tìm theo tên/SKU/thương hiệu/danh mục như thường.</li>
+     * </ul>
+     */
+    private SearchResult findProducts(Intent intent, List<String> keywords, AttributeQuery attributes, String sort,
+            String locale, int size) {
+        if (attributes != null) {
+            return products.searchByAttributes(attributes, locale, size);
+        }
+        SearchResult result = products.search(keywords, sort, size, locale);
+        if (intent.intents().contains("ASK_PRODUCT_INFO") && result.resultCount() > 0) {
+            return products.withFacts(result, locale, 4);
+        }
+        return result;
+    }
+
+    /** Đọc slot attributes của bước ý định; không có điều kiện thuộc tính nào thì trả null (tìm theo tên). */
+    private static AttributeQuery attributes(Intent intent, List<String> keywords) {
+        JsonNode node = intent.slots().path("attributes");
+        if (!node.isObject()) {
+            return null;
+        }
+        AttributeQuery query = new AttributeQuery(words(node.path("origin")), words(node.path("storage")),
+                words(node.path("contains")), words(node.path("nutrient")), words(node.path("compliance")),
+                keywords.isEmpty() ? null : keywords);
+        AttributeQuery onlyAttributes = new AttributeQuery(query.origin(), query.storage(), query.contains(),
+                query.nutrient(), query.compliance(), null);
+        return onlyAttributes.isEmpty() ? null : query;
+    }
+
+    /** Slot có thể là chuỗi hoặc mảng chuỗi; tối đa 6 từ, bỏ chuỗi rỗng. */
+    private static List<String> words(JsonNode node) {
+        List<String> words = new ArrayList<>();
+        if (node.isString() && !node.asString().isBlank()) {
+            words.add(node.asString().trim());
+        } else if (node.isArray()) {
+            node.forEach(item -> {
+                if (item.isString() && !item.asString().isBlank() && words.size() < 6) {
+                    words.add(item.asString().trim());
+                }
+            });
+        }
+        return words.isEmpty() ? null : words;
     }
 
     // ---------- Trả lời bằng văn bản ----------

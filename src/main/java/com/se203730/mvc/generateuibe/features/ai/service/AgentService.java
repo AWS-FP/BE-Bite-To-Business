@@ -21,8 +21,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 /**
  * Cửa vào của pipeline AI cho SSE:
  * <ol>
- *   <li>Xác định người gọi: Guest (không đăng nhập) hoặc Customer đăng nhập bằng mật khẩu, tài khoản đang hoạt động.
- *       Nhân viên/Admin bị từ chối.</li>
+ *   <li>Chỉ Customer đã đăng nhập bằng mật khẩu, tài khoản đang hoạt động (AI cần ý định và thói quen gắn với
+ *       đúng khách). Guest nhận 401 để FE chuyển sang trang đăng nhập; nhân viên/Admin nhận 403.</li>
  *   <li>Kiểm tra tin nhắn cuối là của user và không rỗng.</li>
  *   <li>Giữ một lượt trong hạn mức (AiRequestLimitService), rồi chạy GenerativeUiService trên thread pool riêng.</li>
  *   <li>Bọc kết quả thành sự kiện AG-UI: RUN_STARTED … RUN_FINISHED; lỗi giữa chừng thành RUN_ERROR
@@ -46,32 +46,25 @@ public class AgentService {
     }
 
     public SseEmitter run(UUID userId, Authentication authentication, RunAgentInput input) {
-        if (userId != null) {
-            if (!(authentication instanceof JwtAuthenticationToken)) {
-                throw new BusinessException(ErrorCode.UNAUTHORIZED);
-            }
-            JwtAuthenticationToken token = (JwtAuthenticationToken) authentication;
-            AccountAccessService.requirePasswordLogin(token.getToken());
-            if (accounts.requireActiveUser(userId).getRole() != UserRole.CUSTOMER) {
-                throw new BusinessException(ErrorCode.ACCESS_DENIED);
-            }
+        if (userId == null || !(authentication instanceof JwtAuthenticationToken token)) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        AccountAccessService.requirePasswordLogin(token.getToken());
+        if (accounts.requireActiveUser(userId).getRole() != UserRole.CUSTOMER) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
         RunAgentInput.ChatMessage message = input.messages().get(input.messages().size() - 1);
         if (!"user".equals(message.role()) || message.content() == null || message.content().isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
 
-        UUID requestId = userId == null ? requestLimit.reserveGuest() : requestLimit.reserve(userId);
+        UUID requestId = requestLimit.reserve(userId);
         // Pipeline gọi model tối đa 3 lượt (ý định, UI, thử lại UI), mỗi lượt timeout 40 giây.
         SseEmitter emitter = new SseEmitter(150_000L);
         try {
             executor.execute(() -> answer(input, userId, emitter));
         } catch (RejectedExecutionException exception) {
-            if (userId == null) {
-                requestLimit.releaseGuest(requestId);
-            } else {
-                requestLimit.release(requestId);
-            }
+            requestLimit.release(requestId);
             throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
         }
         return emitter;

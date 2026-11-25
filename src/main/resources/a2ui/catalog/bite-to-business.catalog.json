@@ -350,7 +350,7 @@
             "columns": {
               "type": "array",
               "minItems": 2,
-              "maxItems": 7,
+              "maxItems": 8,
               "uniqueItems": true,
               "items": {
                 "type": "string",
@@ -358,6 +358,7 @@
                   "image",
                   "name",
                   "spec",
+                  "origin",
                   "price",
                   "priceTiers",
                   "moq",
@@ -469,6 +470,58 @@
           "required": [
             "component",
             "product"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ProductFacts": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ProductFacts"
+            },
+            "product": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Một sản phẩm trong một danh sách sản phẩm, dạng {\"path\": \"/products/<chỉ số>\"} (hoặc danh sách khác). Chỉ số phải nhỏ hơn số phần tử của danh sách đó."
+            },
+            "sections": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "storage",
+                  "origin",
+                  "nutrition",
+                  "technical",
+                  "compliance",
+                  "description"
+                ]
+              },
+              "description": "Thông tin mô tả cần hiện, theo thứ tự: storage (bảo quản/sơ chế), origin (xuất xứ/nguồn gốc), nutrition (bảng dinh dưỡng), technical (thông số), compliance (VSATTP/hóa đơn), description (mô tả). Nội dung lấy nguyên từ DB qua data model; AI không viết lại."
+            },
+            "showProduct": {
+              "type": "boolean",
+              "default": true,
+              "description": "Hiện kèm ảnh, tên, giá và nút thêm giỏ."
+            }
+          },
+          "required": [
+            "component",
+            "product",
+            "sections"
           ]
         }
       ],
@@ -1221,6 +1274,9 @@
         },
         {
           "$ref": "#/components/PriceTiers"
+        },
+        {
+          "$ref": "#/components/ProductFacts"
         },
         {
           "$ref": "#/components/InventoryBadge"
