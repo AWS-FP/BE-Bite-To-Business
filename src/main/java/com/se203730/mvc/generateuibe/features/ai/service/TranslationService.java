@@ -53,6 +53,11 @@ public class TranslationService {
         this.bedrock = bedrock;
     }
 
+    /**
+     * Kiểm tra người gọi là Logistics/E-commerce đăng nhập bằng mật khẩu, trừ một lượt trong hạn mức, rồi nhờ
+     * Bedrock dịch với prompt giữ nguyên số/đơn vị/SKU/thương hiệu. Văn bản nguồn được bọc &lt;source_text&gt;
+     * và coi là dữ liệu (chống chèn lệnh). Bedrock lỗi → EXTERNAL_SERVICE_UNAVAILABLE, FE báo "tự nhập".
+     */
     public TranslateResponse translate(UUID userId, Authentication authentication, TranslateRequest request) {
         if (!(authentication instanceof JwtAuthenticationToken token)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
@@ -81,6 +86,7 @@ public class TranslationService {
         return new TranslateResponse(translation, request.source(), target);
     }
 
+    /** Hạn mức 200 gợi ý/giờ mỗi nhân viên, đếm trong bộ nhớ của instance (cửa sổ trượt 1 giờ). */
     private synchronized void reserve(UUID userId) {
         Instant cutoff = Instant.now().minus(1, ChronoUnit.HOURS);
         Deque<Instant> times = usage.computeIfAbsent(userId, id -> new ArrayDeque<>());
@@ -97,6 +103,7 @@ public class TranslationService {
         return "vi".equals(code) ? "Vietnamese" : "English";
     }
 
+    /** Bỏ thẻ/ngoặc kép model có thể thêm và cắt theo độ dài tối đa của ô (tên 200, mô tả 2000…). */
     private static String clean(String raw, int maxLength) {
         String text = raw.replace("<source_text>", "").replace("</source_text>", "").trim();
         if (text.length() >= 2 && (text.startsWith("\"") && text.endsWith("\"")

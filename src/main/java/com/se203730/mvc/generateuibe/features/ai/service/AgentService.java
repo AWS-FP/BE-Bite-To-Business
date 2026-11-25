@@ -18,6 +18,17 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+/**
+ * Cửa vào của pipeline AI cho SSE:
+ * <ol>
+ *   <li>Xác định người gọi: Guest (không đăng nhập) hoặc Customer đăng nhập bằng mật khẩu, tài khoản đang hoạt động.
+ *       Nhân viên/Admin bị từ chối.</li>
+ *   <li>Kiểm tra tin nhắn cuối là của user và không rỗng.</li>
+ *   <li>Giữ một lượt trong hạn mức (AiRequestLimitService), rồi chạy GenerativeUiService trên thread pool riêng.</li>
+ *   <li>Bọc kết quả thành sự kiện AG-UI: RUN_STARTED … RUN_FINISHED; lỗi giữa chừng thành RUN_ERROR
+ *       (FE vẫn có trang mặc định).</li>
+ * </ol>
+ */
 @Service
 @Slf4j
 public class AgentService {
@@ -54,7 +65,7 @@ public class AgentService {
         // Pipeline gọi model tối đa 3 lượt (ý định, UI, thử lại UI), mỗi lượt timeout 40 giây.
         SseEmitter emitter = new SseEmitter(150_000L);
         try {
-            executor.execute(() -> answer(input, message.content(), emitter));
+            executor.execute(() -> answer(input, userId, emitter));
         } catch (RejectedExecutionException exception) {
             if (userId == null) {
                 requestLimit.releaseGuest(requestId);
@@ -66,10 +77,10 @@ public class AgentService {
         return emitter;
     }
 
-    private void answer(RunAgentInput input, String prompt, SseEmitter emitter) {
+    private void answer(RunAgentInput input, UUID customerId, SseEmitter emitter) {
         try {
             send(emitter, Map.of("type", "RUN_STARTED", "threadId", input.threadId(), "runId", input.runId()));
-            pipeline.run(input, event -> send(emitter, event));
+            pipeline.run(input, customerId, event -> send(emitter, event));
             send(emitter, Map.of("type", "RUN_FINISHED", "threadId", input.threadId(), "runId", input.runId()));
             emitter.complete();
         } catch (IOException exception) {

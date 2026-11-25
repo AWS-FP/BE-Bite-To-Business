@@ -11,6 +11,10 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Giới hạn số lượt AI mỗi giờ để kiểm soát chi phí Bedrock: Customer đếm theo DB (bền qua nhiều instance),
+ * Guest đếm chung trong bộ nhớ của instance. Lượt được giữ trước khi gọi model và trả lại nếu không chạy được.
+ */
 @Service
 public class AiRequestLimitService {
     private static final int HOURLY_LIMIT = 20;

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+/** Ghi log từng lần gọi model (bước, token, thời gian, mã lỗi) vào ai_model_requests để đo chi phí/độ trễ. */
 public interface AiModelRequestRepository extends JpaRepository<AiModelRequest, UUID> {
     @Modifying
     @Transactional

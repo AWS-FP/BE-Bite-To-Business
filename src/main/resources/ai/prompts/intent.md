@@ -69,6 +69,7 @@ Cột "Hệ thống xử lý" do backend quyết định sau bước này, khôn
 - Người dùng nói tiếng Anh thì giữ từ khóa tiếng Anh ("frozen salmon").
 
 - Người dùng chỉ nói mục đích ("đồ cho quán lẩu", "nguyên liệu làm bánh") mà không nêu sản phẩm: `product_name` là `null`, `purpose` giữ cụm đó, `needs_clarification: true` và hỏi nhóm hàng cụ thể.
+- Người dùng nêu **cả mục đích và nhóm hàng** ("mở quán lẩu, cần thịt bò và đồ nhúng"): đưa từng nhóm hàng vào `product_names` (mảng, mỗi phần tử là một cụm tìm kiếm ngắn: `["thịt bò", "bò", "viên"]`), giữ `purpose`, `needs_clarification: false`. Với cụm chung như "đồ nhúng lẩu", chọn từ thường có trong tên sản phẩm ("viên", "nấm", "đậu hũ"). Tối đa 4 cụm.
 
 ## Phân biệt dễ nhầm
 
