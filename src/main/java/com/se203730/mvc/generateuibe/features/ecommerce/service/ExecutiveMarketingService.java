@@ -228,19 +228,37 @@ public class ExecutiveMarketingService {
         """;
 
     private static MapSqlParameterSource filters(UUID campaignId, ExecutivePromotionProductFilterRequest f) {
-        String q = f.q()==null ? "" : f.q().strip();
-        if (q.length()>100) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        String q = f.q() == null ? "" : f.q().strip();
+        if (q.length() > 100) throw new BusinessException(ErrorCode.INVALID_REQUEST);
         return new MapSqlParameterSource("id", campaignId)
-            .addValue("q", q.isEmpty()?"%%":"%"+EcommerceExecutiveRepository.find(q,100)+"%")
+            .addValue("q", q)
             .addValue("brand", f.brandId())
             .addValue("category", f.categoryId())
             .addValue("stockOnly", f.inStockOnly())
             .addValue("discountOnly", f.discountOnly());
     }
 
+    // This predicate is shared by the visible product picker AND the bulk-select
+    // endpoint. Never use fuzzy ranking to expand a bulk price/selection scope.
+    // Punctuation/accents are normalized only for non-accented queries; explicitly
+    // accented searches remain literal to avoid confusing different Vietnamese words.
     private static final String PROMOTION_PRODUCT_FILTER = """
-        AND (:q='%%' OR p.sku ILIKE :q ESCAPE '\\'
-            OR p.name_vi ILIKE :q ESCAPE '\\' OR p.name_en ILIKE :q ESCAPE '\\')
+        AND (:q = '' OR CASE
+            WHEN octet_length(:q) > char_length(:q) THEN
+                position(lower(:q) IN lower(p.name_vi || ' ' || p.name_en || ' ' || p.sku)) > 0
+            ELSE
+                coalesce((
+                    SELECT bool_and(
+                        position(' ' || token IN ' ' ||
+                            catalog_search.fold_v1(p.name_vi || ' ' || p.name_en || ' ' || p.sku)) > 0
+                    )
+                    FROM unnest(string_to_array(catalog_search.fold_v1(:q), ' ')) AS token
+                    WHERE token <> ''
+                ), false)
+                OR (length(catalog_search.fold_v1(:q)) >= 3 AND
+                    position(replace(catalog_search.fold_v1(:q), ' ', '') IN
+                        replace(catalog_search.fold_v1(p.name_vi || ' ' || p.name_en || ' ' || p.sku), ' ', '')) > 0)
+            END)
         AND (NOT :stockOnly OR COALESCE(stock.available_quantity,0)>=p.min_order_quantity)
         AND (NOT :discountOnly OR (price.list_price>0 AND price.sale_price>=0
             AND price.sale_price<price.list_price))
