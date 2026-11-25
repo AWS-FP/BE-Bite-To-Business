@@ -6,6 +6,7 @@ import com.se203730.mvc.generateuibe.features.ecommerce.dto.request.ExecutivePro
 import com.se203730.mvc.generateuibe.features.ecommerce.dto.request.ExecutivePricingRequest;
 import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.EcommercePageResponse;
 import com.se203730.mvc.generateuibe.features.ecommerce.repository.EcommerceExecutiveRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.repository.ExecutiveCatalogSearchRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
@@ -17,24 +18,25 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ExecutiveProductService {
     private final EcommerceExecutiveRepository db;
+    private final ExecutiveCatalogSearchRepository searchDb;
     private static final Set<String> STATUSES = Set.of("DRAFT", "PUBLISHED", "ARCHIVED");
 
     @Transactional(readOnly = true)
     public EcommercePageResponse<Map<String,Object>> list(String q, String status, int page, int size) {
+        // Validate query length using the existing boundary before entering search SQL.
         String query = EcommerceExecutiveRepository.find(q, 100);
         if (status != null && !status.isBlank() && !STATUSES.contains(status))
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        if (query != null) {
+            // Pass the raw term: fold_v1 handles punctuation, accents and compact SKUs.
+            return searchDb.search(q.strip(), status, page, size);
+        }
         var p = new MapSqlParameterSource();
         StringBuilder from = new StringBuilder(" from public.products p " +
             "left join public.product_prices pp on pp.product_id=p.id where 1=1 ");
         if (status != null && !status.isBlank()) {
             from.append(" and p.status=:status ");
             p.addValue("status",status);
-        }
-        if (query != null) {
-            from.append(" and (p.name_vi ilike :q escape '\\' " +
-                "or p.name_en ilike :q escape '\\' or p.sku ilike :q escape '\\') ");
-            p.addValue("q","%" + query + "%");
         }
         return db.page("select p.id,p.sku,p.name_vi,p.name_en,p.brand_id,p.category_id,p.status,p.unit_code," +
             "p.image_url,p.vat_rate,p.min_order_quantity,p.quantity_step,p.origin," +

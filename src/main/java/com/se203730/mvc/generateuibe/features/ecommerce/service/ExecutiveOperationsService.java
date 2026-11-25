@@ -8,17 +8,21 @@ import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.EcommercePa
 import com.se203730.mvc.generateuibe.features.ecommerce.repository.EcommerceExecutiveRepository;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.customer.service.NotificationEventPublisher;
+import com.se203730.mvc.generateuibe.features.customer.service.ReviewImageStorage;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageRepository;
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteWorkflowService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.*;
 
-@Service @RequiredArgsConstructor
+@Service @RequiredArgsConstructor @Slf4j
 public class ExecutiveOperationsService {
     private final EcommerceExecutiveRepository db;
     private final QuoteRepository quotes;
@@ -27,6 +31,7 @@ public class ExecutiveOperationsService {
     private final QuoteWorkflowService workflow;
     private final DatabaseClock clock;
     private final NotificationEventPublisher notificationEvents;
+    private final ReviewImageStorage reviewImageStorage;
     private static final Set<String> QUOTE_STATES=Set.of(
         "DRAFT","PENDING_APPROVAL","APPROVED","REJECTED","ACCEPTED","EXPIRED","CANCELLED");
 
@@ -166,5 +171,38 @@ public class ExecutiveOperationsService {
         }
         return db.one("select id,product_id,customer_id,rating,content,deleted_at,deleted_by," +
             "deletion_reason,created_at,updated_at from public.product_reviews where id=:id",p);
+    }
+    /**
+     * Irreversibly deletes a review, including its stored rating.
+     * Review photos are removed from Cloudinary after the transaction commits.
+     * HIDE/RESTORE remain available for reversible moderation.
+     */
+    @Transactional
+    public void deleteReview(UUID id, UUID staff) {
+        var params = new MapSqlParameterSource("id", id);
+        // Lock to avoid losing image references while another request edits the review.
+        db.one("select id from public.product_reviews where id=:id for update", params);
+        List<String> imagePublicIds = db.list(
+            "select image->>'cloudinary_public_id' as cloudinary_public_id " +
+            "from public.product_reviews r cross join lateral jsonb_array_elements(r.images) image " +
+            "where r.id=:id and image->>'cloudinary_public_id' is not null",
+            params
+        ).stream()
+         .map(row -> (String) row.get("cloudinaryPublicId"))
+         .filter(value -> value != null && !value.isBlank())
+         .distinct()
+         .toList();
+
+        if (db.update("delete from public.product_reviews where id=:id", params) != 1) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (!imagePublicIds.isEmpty()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() {
+                    imagePublicIds.forEach(reviewImageStorage::deleteBestEffort);
+                }
+            });
+        }
+        log.info("E-commerce staff {} permanently deleted product review {}", staff, id);
     }
 }
