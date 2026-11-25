@@ -16,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Lưu tín hiệu tương tác cho cá nhân hóa giao diện. Chỉ ghi cho Guest (anonId) và Customer;
- * tài khoản nhân viên bị bỏ qua. Không bao giờ làm lỗi thao tác của người dùng: dữ liệu sai thì bỏ.
+ * Lưu tín hiệu tương tác cho cá nhân hóa giao diện, chỉ của Customer đã đăng nhập;
+ * Guest và tài khoản nhân viên bị bỏ qua. Không bao giờ làm lỗi thao tác của người dùng: dữ liệu sai thì bỏ.
  */
 @Service
 @Slf4j
@@ -39,11 +39,8 @@ public class UiEventService {
 
     @Transactional
     public int record(UUID userId, UiEventBatchRequest request) {
-        String anonId = request.anonId() == null || request.anonId().isBlank() ? null : request.anonId();
-        if (userId != null && accounts.requireActiveUser(userId).getRole() != UserRole.CUSTOMER) {
-            return 0;
-        }
-        if (userId == null && anonId == null) {
+        // Chỉ ghi hành vi của Customer đã đăng nhập (route đã yêu cầu đăng nhập; kiểm tra thêm role ở đây).
+        if (userId == null || accounts.requireActiveUser(userId).getRole() != UserRole.CUSTOMER) {
             return 0;
         }
         Instant now = Instant.now();
@@ -56,7 +53,7 @@ public class UiEventService {
             if (value == null) {
                 continue;
             }
-            saved += events.insertIgnoringDuplicate(event.eventId(), userId, userId == null ? anonId : null,
+            saved += events.insertIgnoringDuplicate(event.eventId(), userId, null,
                     event.type(), event.route(), event.surfaceId(), event.component(), event.target(), value,
                     event.occurredAt());
         }

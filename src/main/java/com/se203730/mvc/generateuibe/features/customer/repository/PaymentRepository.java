@@ -28,6 +28,12 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
             String number);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Payment p where p.id = :id")
+    Optional<Payment> findByIdForUpdate(
+            @Param("id")
+            UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Payment p where p.paymentNumber = :number")
     Optional<Payment> findByPaymentNumberForUpdate(
             @Param("number")

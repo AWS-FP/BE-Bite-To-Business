@@ -58,14 +58,22 @@ public class PageDataTool {
      * @param profile    hồ sơ thói quen (có thể rỗng); quyết định danh sách "xem gần đây" và "dành cho bạn"
      */
     public PageData build(List<String> keywords, String sort, String locale, UUID customerId, UiProfile profile) {
+        SearchResult found = keywords.isEmpty() && !"newest".equals(sort)
+                ? search.empty()
+                : search.search(keywords, sort, keywords.isEmpty() ? LIST_LIMIT : 12, locale);
+        return build(found, locale, customerId, profile);
+    }
+
+    /**
+     * Như trên nhưng nhận sẵn kết quả /products (ví dụ tìm theo thuộc tính: xuất xứ, bảo quản, dinh dưỡng,
+     * hoặc kết quả đã kèm facts khi khách hỏi thông tin sản phẩm).
+     */
+    public PageData build(SearchResult found, String locale, UUID customerId, UiProfile profile) {
         boolean en = "en".equals(locale);
         Map<String, Object> dataModel = new LinkedHashMap<>();
         Map<String, Object> summary = new LinkedHashMap<>();
         Map<String, Integer> lists = new LinkedHashMap<>();
 
-        SearchResult found = keywords.isEmpty() && !"newest".equals(sort)
-                ? search.empty()
-                : search.search(keywords, sort, keywords.isEmpty() ? LIST_LIMIT : 12, locale);
         dataModel.putAll(found.dataModel());
         summary.put("query", found.dataModel().get("query"));
         @SuppressWarnings("unchecked")

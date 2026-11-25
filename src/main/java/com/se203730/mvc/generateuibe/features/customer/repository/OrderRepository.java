@@ -15,6 +15,38 @@ import java.time.Instant;
 import java.util.UUID;
 
 public interface OrderRepository extends JpaRepository<Order, UUID> {
+    interface ProductQuantity {
+        UUID getProductId();
+
+        BigDecimal getQuantity();
+    }
+
+    /** Tổng số lượng từng sản phẩm của đơn, để giữ hàng lại khi khôi phục đơn đã huỷ. */
+    @Query(value = """
+            select product_id as "productId", sum(quantity) as quantity
+            from public.order_items where order_id = :orderId
+            group by product_id order by product_id
+            """, nativeQuery = true)
+    List<ProductQuantity> findProductQuantities(@Param("orderId") UUID orderId);
+
+    /**
+     * Admin khôi phục đơn từ khoản tiền khách đã chuyển (đơn đã hết hạn giữ hàng hoặc đã bị huỷ).
+     * Gỡ trạng thái huỷ, ghi đã thanh toán và ghi lượt dùng coupon giống luồng webhook.
+     */
+    @Modifying
+    @Query(value = """
+            update public.orders set status = COMPLETED, completed_at = :now,
+                cancelled_at = null, cancelled_by = null, cancellation_reason = null,
+                reservation_released_at = null,
+                coupon_redeemed_at = case when coupon_id is not null and coupon_redeemed_at is null
+                    then :now else coupon_redeemed_at end,
+                shipping_coupon_redeemed_at = case when shipping_coupon_id is not null
+                    and shipping_coupon_redeemed_at is null then :now else shipping_coupon_redeemed_at end,
+                updated_at = :now
+            where id = :orderId and status in (CONFIRMED, CANCELLED)
+            """, nativeQuery = true)
+    int restorePaid(@Param("orderId") UUID orderId, @Param("now") Instant now);
+
     @Query(value = "select id from public.orders where quote_id = :quoteId and customer_id = :customerId", nativeQuery = true)
     Optional<UUID> findIdByQuoteAndCustomer(@Param("quoteId") UUID quoteId, @Param("customerId") UUID customerId);
     @Query(value = """

@@ -10,7 +10,7 @@ Bạn nhận:
 - `<intent>`: kết quả nhận diện ý định.
 - `<data_model_summary>`: các danh sách backend đã ghi, mỗi danh sách có `count` và tóm tắt phần tử (không có giá). **Chỉ được bind danh sách có `count > 0`.**
 - `<ui_preference>`, `<ui_profile>`: lựa chọn hiển thị trong phiên và thói quen dài hạn (nếu có).
-- `<customer>`: `GUEST` hoặc `CUSTOMER`.
+- `<customer>`: luôn là `CUSTOMER` (AI chỉ dành cho khách đã đăng nhập).
 
 Xuất **một** message `updateComponents` (`version: "v0.9"`, giữ `surfaceId` được cấp).
 
@@ -42,10 +42,12 @@ Section.child = một component, hoặc Column bọc nhiều component
 | So sánh / muốn rẻ | `ProductTable` /products, `highlight: lowestPrice`, cột `price, priceTiers, moq, stock` | `ProductCarousel` /home/deepDiscount; `PromotionList` |
 | Mua số lượng lớn / giá sỉ | `ProductTable` với cột `priceTiers, moq` hoặc `ProductGrid` `showPriceTiers: true` | `ComboList`; `PromotionList` |
 | Hỏi còn hàng | `ProductTable` có cột `stock`, `highlight: inStock` | `ProductCarousel` sản phẩm thay thế cùng nhóm |
+| Hỏi thông tin sản phẩm (bảo quản, xuất xứ, dinh dưỡng, làm từ gì) | `ProductFacts` /products/0 với `sections` theo `info_topics` (chỉ mục có dữ liệu) | `ProductTable` /products (cột `name, origin, price, stock`) nếu có nhiều kết quả; `ProductCarousel` /home/bestSelling |
+| Tìm theo thuộc tính (đông lạnh, xuất xứ, làm từ thịt, giàu đạm, có chứng nhận…) | `ProductTable` /products với cột liên quan (`origin` khi lọc xuất xứ) hoặc `ProductGrid`; tiêu đề nêu điều kiện | `ProductFacts` cho sản phẩm đầu với section đúng điều kiện (`storage`/`origin`/`nutrition`); `CategoryGrid` |
 | Mô hình kinh doanh / dịp (quán lẩu, tiệm bánh, tiệc…) | `CategoryGrid` `showChildren: true` hoặc `ProductGrid` /products nếu đã tìm được | `ComboList`; `ProductCarousel` /home/bestSelling; `PromotionList` |
 | Săn khuyến mãi | `ProductCarousel` /home/flashSale hoặc /home/deepDiscount | `PromotionList`; `BannerCarousel` |
 | Xem chung / trang cá nhân hóa (không có yêu cầu) | `ReorderList` /reorder nếu có; ngược lại `ProductCarousel` /forYou; ngược lại /favorites; ngược lại /home/featured | `ProductCarousel` /recentlyViewed; `CartSummary` nếu khách đang mua dở; `CategoryGrid`; `ProductCarousel` /home/bestSelling; `ComboList` |
-| Đặt lại hàng ("mua lại như lần trước") | `ReorderList` /reorder (Customer) | `CartSummary`; `ProductCarousel` /forYou. Guest hoặc /reorder rỗng: `Notice` mời đăng nhập/đặt đơn đầu tiên + `ProductCarousel` /recentlyViewed |
+| Đặt lại hàng ("mua lại như lần trước") | `ReorderList` /reorder (Customer) | `CartSummary`; `ProductCarousel` /forYou. /reorder rỗng (chưa có đơn hoàn tất): `Notice` mời đặt đơn đầu tiên + `ProductCarousel` /recentlyViewed |
 | Không tìm thấy gì | `Notice` tone `empty` + `ClarifyQuestion` (2–6 từ khóa có trong danh mục) | `CategoryGrid`; `ProductCarousel` /home/bestSelling |
 
 **Yêu cầu chung** ("gợi ý cho tôi", "trang phù hợp với tôi", "trang chủ", để trống): luôn dựng trang đầy đủ theo dòng "Xem chung / trang cá nhân hóa" với ít nhất 3 Section có dữ liệu. **Không** trả về chỉ một `ClarifyQuestion`; `ClarifyQuestion` chỉ dùng khi người dùng đã tìm một thứ cụ thể mà `/products` rỗng, và khi đó vẫn kèm các Section gợi ý khác.
