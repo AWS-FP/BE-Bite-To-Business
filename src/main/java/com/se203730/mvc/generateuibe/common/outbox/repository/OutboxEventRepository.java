@@ -17,12 +17,19 @@ public class OutboxEventRepository {
     /** Ghi event; trùng idempotency_key thì bỏ qua và trả về false. */
     public boolean append(String eventType, String aggregateType, UUID aggregateId, String payloadJson,
             String idempotencyKey, String destination) {
+        return append(eventType, aggregateType, aggregateId, payloadJson, idempotencyKey, destination, null);
+    }
+
+    /** Như trên; notBefore khác null thì relay chỉ gửi event từ thời điểm đó (gửi trễ có chủ đích). */
+    public boolean append(String eventType, String aggregateType, UUID aggregateId, String payloadJson,
+            String idempotencyKey, String destination, Instant notBefore) {
         int inserted = jdbc.update("""
                 INSERT INTO public.outbox_events
-                    (event_type, aggregate_type, aggregate_id, payload, idempotency_key, destination)
-                VALUES (?, ?, ?, CAST(? AS jsonb), ?, ?)
+                    (event_type, aggregate_type, aggregate_id, payload, idempotency_key, destination, next_attempt_at)
+                VALUES (?, ?, ?, CAST(? AS jsonb), ?, ?, COALESCE(?, now()))
                 ON CONFLICT (idempotency_key) DO NOTHING
-                """, eventType, aggregateType, aggregateId, payloadJson, idempotencyKey, destination);
+                """, eventType, aggregateType, aggregateId, payloadJson, idempotencyKey, destination,
+                notBefore == null ? null : Timestamp.from(notBefore));
         return inserted == 1;
     }
 

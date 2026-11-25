@@ -25,14 +25,16 @@ public class QuoteResponseFactory {
 
     public QuoteDraftResponse create(Quote quote, List<QuoteItem> lines) {
         Map<UUID, BigDecimal> steps = new HashMap<>();
+        Map<UUID, BigDecimal> minimums = new HashMap<>();
         for (QuoteItemRepository.QuantityStep row : items.findQuantitySteps(quote.getId())) {
             steps.put(row.getProductId(), row.getQuantityStep());
+            minimums.put(row.getProductId(), row.getMinOrderQuantity());
         }
         // Only disclose already-applied codes to the owner of this quote.
         String productCode = quote.getCouponId() == null ? null :
                 coupons.findById(quote.getCouponId()).map(c -> c.getCode()).orElse(null);
         String shippingCode = quote.getShippingCouponId() == null ? null :
                 coupons.findById(quote.getShippingCouponId()).map(c -> c.getCode()).orElse(null);
-        return QuoteDraftResponse.from(quote, lines, steps, productCode, shippingCode);
+        return QuoteDraftResponse.from(quote, lines, steps, minimums, productCode, shippingCode);
     }
 }

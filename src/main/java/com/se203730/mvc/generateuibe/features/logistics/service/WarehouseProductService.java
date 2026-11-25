@@ -51,7 +51,6 @@ public class WarehouseProductService {
         if (categories.findById(request.categoryId()).filter(c -> c.isActive() && c.getParentId() != null).isEmpty()
                 || !brands.existsById(request.brandId())
                 || !distributors.existsById(request.distributorId())) throw new BusinessException(ErrorCode.INVALID_REQUEST);
-        if (request.minOrder().remainder(request.quantityStep()).signum() != 0) throw new BusinessException(ErrorCode.INVALID_REQUEST);
         var tiers = new ArrayList<>(request.tiers());
         tiers.sort(Comparator.comparing(CreateWarehouseProductRequest.Tier::min));
         for (int i = 0; i < tiers.size(); i++) {
