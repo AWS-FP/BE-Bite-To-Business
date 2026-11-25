@@ -20,12 +20,13 @@ public record QuoteDraftResponse(
         BigDecimal totalAmount, BigDecimal estimatedTotalAmount, List<Item> items
 ) {
     public record Item(UUID id, UUID productId, String sku, String nameVi, String nameEn,
-                       String unitCode, BigDecimal quantity, BigDecimal quantityStep, BigDecimal listUnitPrice,
+                       String unitCode, BigDecimal quantity, BigDecimal quantityStep, BigDecimal minOrderQuantity,
+                       BigDecimal listUnitPrice,
                        BigDecimal volumeUnitPrice, BigDecimal saleUnitPrice,
                        BigDecimal vatRate, BigDecimal productVatAmount) {
-        public static Item from(QuoteItem item, BigDecimal quantityStep) {
+        public static Item from(QuoteItem item, BigDecimal quantityStep, BigDecimal minOrderQuantity) {
             return new Item(item.getId(), item.getProductId(), item.getSku(), item.getNameVi(),
-                    item.getNameEn(), item.getUnitCode(), item.getQuantity(), quantityStep, item.getListUnitPrice(),
+                    item.getNameEn(), item.getUnitCode(), item.getQuantity(), quantityStep, minOrderQuantity, item.getListUnitPrice(),
                     item.getVolumeUnitPrice(), item.getSaleUnitPrice(),
                     item.isVatRateConfigured() ? item.getVatRate() : null,
                     item.isVatRateConfigured() ? item.getQuantity().multiply(item.getSaleUnitPrice())
@@ -35,6 +36,7 @@ public record QuoteDraftResponse(
     }
 
     public static QuoteDraftResponse from(Quote quote, List<QuoteItem> items, Map<UUID, BigDecimal> quantitySteps,
+                                          Map<UUID, BigDecimal> minOrderQuantities,
                                           String productCouponCode, String shippingCouponCode) {
         boolean vatComplete = !items.isEmpty() && items.stream().allMatch(QuoteItem::isVatRateConfigured);
         BigDecimal total = quote.getItemsSubtotal().subtract(quote.getVolumeDiscountAmount())
@@ -49,6 +51,7 @@ public record QuoteDraftResponse(
                 quote.getCouponDiscountAmount(), quote.getShippingFee(), quote.getShippingCouponDiscountAmount(),
                 vatComplete ? quote.getVatAmount() : null, quote.getVatAmount(),
                 vatComplete ? "COMPLETE" : "PRODUCT_RATES_MISSING",
-                null, total, items.stream().map(item -> Item.from(item, quantitySteps.get(item.getProductId()))).toList());
+                null, total, items.stream().map(item -> Item.from(item, quantitySteps.get(item.getProductId()),
+                        minOrderQuantities.get(item.getProductId()))).toList());
     }
 }

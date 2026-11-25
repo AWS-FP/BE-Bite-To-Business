@@ -11,6 +11,7 @@ import com.se203730.mvc.generateuibe.features.admin.dto.response.RegistrationSta
 import com.se203730.mvc.generateuibe.features.admin.client.SupabaseAuthClient;
 import com.se203730.mvc.generateuibe.features.admin.entity.RegistrationRequest;
 import com.se203730.mvc.generateuibe.features.admin.enums.RegistrationStatus;
+import com.se203730.mvc.generateuibe.features.admin.repository.RegistrationDuplicateAttemptRepository;
 import com.se203730.mvc.generateuibe.features.admin.repository.RegistrationRequestRepository;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.UserResponse;
@@ -33,7 +34,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -74,6 +77,9 @@ public class AdminRegistrationService {
     @Autowired
     private DatabaseClock clock;
 
+    @Autowired
+    private RegistrationDuplicateAttemptRepository duplicates;
+
     /** Danh sách hồ sơ theo trạng thái, có phân trang và sắp xếp hồ sơ mới nhất trước. */
     @Transactional(readOnly = true)
     public Page<RegistrationResponse> list(
@@ -97,8 +103,11 @@ public class AdminRegistrationService {
                 .collect(Collectors.toMap(User::getId, Function.identity()));
         Map<UUID, UserProfile> customerProfiles = profiles.findAllById(customerIds).stream()
                 .collect(Collectors.toMap(UserProfile::getUserId, Function.identity()));
+        Set<UUID> locked = customerIds.isEmpty() ? Set.of()
+                : new HashSet<>(duplicates.findEmailDuplicateUserIds(customerIds));
         return result.map(registration -> toResponse(registration,
-                customers.get(registration.getCustomerId()), customerProfiles.get(registration.getCustomerId())));
+                customers.get(registration.getCustomerId()), customerProfiles.get(registration.getCustomerId()),
+                locked.contains(registration.getCustomerId())));
     }
 
     @Transactional(readOnly = true)
@@ -145,6 +154,11 @@ public class AdminRegistrationService {
                     }
 
                     if (request.decision() == ReviewRegistrationRequest.Decision.APPROVE) {
+                        // Email đã bị đăng ký trùng và nhận mail từ chối tự động: duyệt nữa thì cùng hộp thư
+                        // sẽ nhận cả mail từ chối lẫn mail OTP. Chỉ cho phép từ chối.
+                        if (isApprovalLocked(registration.getCustomerId())) {
+                            throw new BusinessException(ErrorCode.REGISTRATION_APPROVAL_LOCKED);
+                        }
                         registration.setStatus(RegistrationStatus.AWAITING_ACTIVATION);
                         registration.setOtpDeliveryState("QUEUED");
                     } else {
@@ -298,10 +312,15 @@ public class AdminRegistrationService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         UserProfile profile = profiles.findById(customerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        return toResponse(registration, customer, profile);
+        return toResponse(registration, customer, profile, isApprovalLocked(customerId));
     }
 
-    private RegistrationResponse toResponse(RegistrationRequest registration, User customer, UserProfile profile) {
+    private boolean isApprovalLocked(UUID customerId) {
+        return !duplicates.findEmailDuplicateUserIds(List.of(customerId)).isEmpty();
+    }
+
+    private RegistrationResponse toResponse(RegistrationRequest registration, User customer, UserProfile profile,
+            boolean approvalLocked) {
         if (customer == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
@@ -330,6 +349,7 @@ public class AdminRegistrationService {
                 registration.getOtpGeneratedAt() == null
                         ? null
                         : registration.getOtpGeneratedAt().plus(properties.getOtpResendCooldown()),
-                registration.getActivatedAt());
+                registration.getActivatedAt(),
+                approvalLocked);
     }
 }

@@ -20,8 +20,9 @@ public class QuotePriceService {
     public Price calculate(UUID productId, BigDecimal quantity) {
         var product = catalog.findPrice(productId, quantity)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        // Valid quantities are MOQ, MOQ + step, MOQ + 2·step... (step is always 1 now), the same grid the cart uses.
         if (quantity.compareTo(product.getMinQuantity()) < 0
-                || quantity.remainder(product.getQuantityStep()).signum() != 0) {
+                || quantity.subtract(product.getMinQuantity()).remainder(product.getQuantityStep()).signum() != 0) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
 
