@@ -63,7 +63,9 @@ public enum ErrorCode {
                                                                                                     HttpStatus.CONFLICT,
                                                                                                     "This registration has already been reviewed."), REGISTRATION_ALREADY_ACTIVATED(
                                                                                                             HttpStatus.CONFLICT,
-                                                                                                            "This account has already been activated."), REJECTION_NOTE_REQUIRED(
+                                                                                                            "This account has already been activated."), REGISTRATION_APPROVAL_LOCKED(
+                                                                                                            HttpStatus.CONFLICT,
+                                                                                                            "This email was used again in a duplicate registration; approval is locked."), REJECTION_NOTE_REQUIRED(
                                                                                                                     HttpStatus.BAD_REQUEST,
                                                                                                                     "A reason is required when rejecting a registration."), EMAIL_DELIVERY_FAILED(
                                                                                                                             HttpStatus.SERVICE_UNAVAILABLE,

@@ -14,10 +14,12 @@ public interface QuoteItemRepository extends JpaRepository<QuoteItem, UUID> {
     interface QuantityStep {
         UUID getProductId();
         BigDecimal getQuantityStep();
+        BigDecimal getMinOrderQuantity();
     }
 
     @Query(value = """
-        select p.id as "productId", p.quantity_step as "quantityStep"
+        select p.id as "productId", p.quantity_step as "quantityStep",
+            p.min_order_quantity as "minOrderQuantity"
         from public.quote_items qi join public.products p on p.id = qi.product_id
         where qi.quote_id = :quoteId
         """, nativeQuery = true)
