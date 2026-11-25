@@ -16,12 +16,26 @@ import java.util.UUID;
 public interface CouponRepository extends JpaRepository<Coupon, UUID> {
     Optional<Coupon> findByCode(String code);
 
-    @Query("""
-        select c from Coupon c
-        where c.isActive = true and c.startsAt <= :now and c.endsAt > :now
-        order by c.endsAt asc, c.code asc
-        """)
-    List<Coupon> findLiveAt(@Param("now") Instant now, Pageable page);
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = """
+        insert into public.customer_coupon_history (customer_id, coupon_id, code)
+        values (:customerId, :couponId, :code)
+        on conflict (customer_id, coupon_id, code) do update set last_used_at = now()
+        """, nativeQuery = true)
+    void remember(@Param("customerId") UUID customerId, @Param("couponId") UUID couponId, @Param("code") String code);
+
+    @Query(value = """
+        select distinct c.* from public.coupons c
+        where c.is_active = true and (
+            exists (select 1 from public.customer_coupon_history h
+                    where h.customer_id = :customerId and h.coupon_id = c.id and h.code = c.code)
+            or exists (select 1 from public.orders o where o.customer_id = :customerId
+                       and ((o.coupon_id = c.id and o.coupon_code = c.code)
+                         or (o.shipping_coupon_id = c.id and o.shipping_coupon_code = c.code)))
+        )
+        order by c.code
+        """, nativeQuery = true)
+    List<Coupon> previouslyEntered(@Param("customerId") UUID customerId);
 
     @Query(value = "select product_id from public.coupon_products where coupon_id = :couponId", nativeQuery = true)
     List<UUID> findProductIds(@Param("couponId") UUID couponId);
