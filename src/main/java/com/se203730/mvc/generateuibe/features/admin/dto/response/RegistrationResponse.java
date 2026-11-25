@@ -40,6 +40,9 @@ public record RegistrationResponse(
         Instant otpSentAt,
         String otpDeliveryState,
         Instant otpResendAvailableAt,
-        Instant activatedAt
+        Instant activatedAt,
+
+        // true khi email này bị đăng ký trùng: admin không được duyệt, chỉ được từ chối.
+        boolean approvalLocked
 ) {
 }

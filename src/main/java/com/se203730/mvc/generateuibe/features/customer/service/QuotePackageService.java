@@ -152,11 +152,8 @@ public class QuotePackageService {
             if (!seen.add(allocation.quoteItemId())) throw new BusinessException(ErrorCode.INVALID_REQUEST);
             QuoteItem item = items.findByIdAndQuoteId(allocation.quoteItemId(), quoteId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-            var product = catalog.findPrice(item.getProductId(), item.getQuantity())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-            if (allocation.quantity().remainder(product.getQuantityStep()).signum() != 0) {
-                throw new BusinessException(ErrorCode.VALIDATION_FAILED);
-            }
+            // No step rule when splitting into packages: any amount (max 3 decimals, checked by the DTO)
+            // up to what is left of the line can go to a package.
             BigDecimal allocated = allocations.allocatedElsewhere(item.getId(), parcel.getId());
             if (allocated.add(allocation.quantity()).compareTo(item.getQuantity()) > 0) {
                 throw new BusinessException(ErrorCode.CONFLICT);

@@ -2,6 +2,7 @@ package com.se203730.mvc.generateuibe.features.admin.service;
 
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
+import com.se203730.mvc.generateuibe.common.outbox.service.OutboxEventService;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.config.security.AuthProperties;
 import com.se203730.mvc.generateuibe.features.admin.entity.UserProfile;
@@ -27,6 +28,7 @@ import com.se203730.mvc.generateuibe.features.admin.repository.RegistrationDupli
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -63,12 +65,16 @@ public class RegistrationService {
     @Autowired
     private RegistrationDuplicateAttemptRepository duplicates;
 
+    @Autowired
+    private OutboxEventService outbox;
+
     private static final SecureRandom RANDOM = new SecureRandom();
 
     /**
      * Tạo tài khoản chờ, lưu hồ sơ và yêu cầu PENDING; chỉ trả biên nhận, chưa cho phép đăng nhập mua hàng.
-     * Email/số điện thoại đã có tài khoản KHÔNG trả lỗi "đã tồn tại" (lỗi đó cho phép dò email nào đã đăng ký):
-     * vẫn trả biên nhận như thường, ghi lại để admin thấy và tự động gửi mail từ chối.
+     * Email đã có tài khoản KHÔNG trả lỗi "đã tồn tại" (lỗi đó cho phép dò email nào đã đăng ký):
+     * vẫn trả biên nhận như thường, ghi lại để admin thấy, tự động gửi mail từ chối và khóa nút duyệt
+     * hồ sơ của email đó. Số điện thoại trùng thì báo lỗi PHONE_ALREADY_EXISTS trên form.
      */
     public RegistrationReceipt register(RegisterRequest request) {
         String duplicate = duplicateField(request);
@@ -139,32 +145,34 @@ public class RegistrationService {
                         authUserId);
             }
             // Hai request cùng email/số điện thoại chạy song song: request thua cũng không được lộ lỗi trùng.
-            if (isUserUniqueViolation(ex)) {
-                String field = duplicateField(request);
-                return acceptDuplicate(request, field == null ? "EMAIL" : field);
-            }
+            String violated = userUniqueViolation(ex);
+            if ("ux_users_phone".equals(violated)) throw new BusinessException(ErrorCode.PHONE_ALREADY_EXISTS);
+            if ("ux_users_email_ci".equals(violated)) return acceptDuplicate(request, "EMAIL");
             throw ex;
         }
     }
 
+    /**
+     * Chỉ email trùng mới bị xử lý như đăng ký trùng (biên nhận giả + mail từ chối tự động).
+     * Số điện thoại trùng trả lỗi PHONE_ALREADY_EXISTS ngay trên form: nếu cũng tự gửi mail từ chối thì khách đổi
+     * sang email khác nhưng giữ số cũ sẽ nhận mail từ chối, trong khi admin vẫn có thể duyệt hồ sơ cũ.
+     */
     private String duplicateField(RegisterRequest request) {
-        boolean email = users.existsByEmailIgnoreCase(request.email());
-        boolean phone = users.existsByPhone(request.phone());
-        if (email && phone) return "EMAIL_AND_PHONE";
-        if (email) return "EMAIL";
-        if (phone) return "PHONE";
+        if (users.existsByEmailIgnoreCase(request.email())) return "EMAIL";
+        if (users.existsByPhone(request.phone())) throw new BusinessException(ErrorCode.PHONE_ALREADY_EXISTS);
         return null;
     }
 
-    private static boolean isUserUniqueViolation(Throwable ex) {
+    /** Tên ràng buộc unique của bảng users bị vi phạm (email hoặc số điện thoại), null nếu không phải lỗi đó. */
+    private static String userUniqueViolation(Throwable ex) {
         for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
             if (cause instanceof org.hibernate.exception.ConstraintViolationException constraint) {
                 String name = constraint.getConstraintName();
-                if ("ux_users_phone".equals(name) || "ux_users_email_ci".equals(name)) return true;
+                if ("ux_users_phone".equals(name) || "ux_users_email_ci".equals(name)) return name;
             }
             if (cause.getCause() == cause) break;
         }
-        return false;
+        return null;
     }
 
     /**
@@ -184,9 +192,21 @@ public class RegistrationService {
         attempt.setExistingUserId(users.findByEmailIgnoreCase(request.email()).map(User::getId).orElse(null));
         boolean recentMail = duplicates.hasRecentRejectionMail(request.email(), now.minus(Duration.ofHours(24)));
         attempt.setEmailStatus(recentMail ? "SKIPPED" : "PENDING");
-        attempt.setNextEmailAt(now.plusSeconds(180 + RANDOM.nextInt(421)));
+        Instant sendAt = now.plusSeconds(180 + RANDOM.nextInt(421));
+        boolean viaQueue = !recentMail && outbox.isEnabled();
+        // Qua SQS: relay chỉ đẩy event lúc sendAt, Lambda btb-customer-notifier gửi mail qua SES.
+        // Job trong BE (RegistrationDuplicateService) chỉ còn là dự phòng, sau 1 giờ mà mail chưa đi mới gửi.
+        attempt.setNextEmailAt(viaQueue ? sendAt.plus(Duration.ofHours(1)) : sendAt);
         attempt.setCreatedAt(now);
-        duplicates.saveAndFlush(attempt);
+        transaction.executeWithoutResult(status -> {
+            duplicates.saveAndFlush(attempt);
+            if (viaQueue) {
+                // Không đưa email vào event (EventBridge archive giữ event lâu): Lambda tự đọc theo attemptId.
+                outbox.recordAt("registration.duplicate_rejected", "REGISTRATION_DUPLICATE", attempt.getId(),
+                        Map.of("attemptId", attempt.getId().toString()),
+                        "registration.duplicate_rejected:" + attempt.getId(), sendAt);
+            }
+        });
         // Không ghi email/số điện thoại vào log.
         log.info("Duplicate registration recorded; attemptId={}, field={}", attempt.getId(), field);
         // Đăng ký thật gọi Supabase nên chậm hơn; thêm độ trễ để thời gian phản hồi không lộ kết quả.
