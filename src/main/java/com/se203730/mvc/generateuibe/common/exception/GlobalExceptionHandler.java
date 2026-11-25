@@ -46,7 +46,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if (code.getStatus().is5xxServerError()) {
             log.error("Business operation failed at {}", requestPath(request), ex);
         }
-        return respond(code, List.of(), request);
+        return respond(code, ex.getDetails(), request);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)

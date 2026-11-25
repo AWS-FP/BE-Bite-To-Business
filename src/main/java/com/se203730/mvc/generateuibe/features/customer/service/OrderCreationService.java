@@ -2,6 +2,7 @@ package com.se203730.mvc.generateuibe.features.customer.service;
 
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
+import com.se203730.mvc.generateuibe.common.exception.ErrorResponse;
 import com.se203730.mvc.generateuibe.common.outbox.service.OutboxEventService;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.admin.enums.UserRole;
@@ -134,9 +135,19 @@ public class OrderCreationService {
     private void reserveProducts(List<QuoteItem> lines, UUID orderId, UUID customerId, Instant now) {
         List<QuoteItem> products = new ArrayList<>(lines);
         products.sort(Comparator.comparing(QuoteItem::getProductId));
+        // Keep going after a failed reserve so the customer sees every short product at once;
+        // the exception at the end rolls back the reserves already made in this transaction.
+        List<ErrorResponse.ValidationError> shortages = new ArrayList<>();
         for (QuoteItem line : products) {
             if (inventory.reserve(line.getProductId(), line.getQuantity(), now) != 1) {
-                throw new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE);
+                BigDecimal onHand = inventory.findById(line.getProductId())
+                        .map(stock -> stock.getAvailableQuantity())
+                        .orElse(BigDecimal.ZERO);
+                shortages.add(StockShortage.of(line.getProductId(), onHand, line.getQuantity()));
+                continue;
+            }
+            if (!shortages.isEmpty()) {
+                continue;
             }
             InventoryMovement movement = new InventoryMovement();
             movement.setId(UUID.randomUUID());
@@ -147,6 +158,9 @@ public class OrderCreationService {
             movement.setCreatedBy(customerId);
             movement.setCreatedAt(now);
             movements.save(movement);
+        }
+        if (!shortages.isEmpty()) {
+            throw new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE, shortages);
         }
     }
 
