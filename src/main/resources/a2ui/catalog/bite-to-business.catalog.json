@@ -5,6 +5,141 @@
   "description": "Catalog A2UI v0.9 của Bite to Business cho hai chế độ: chat (khối nhỏ) và page (cả trang). AI chỉ sinh updateComponents; backend ghi updateDataModel (/query, /products, /home/*, /categories, /favorites). Component cơ bản lấy nguyên từ basic catalog của @a2ui/web_core 0.12.",
   "catalogId": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
   "components": {
+  "LayoutGrid": {
+    "type": "object",
+    "allOf": [
+      {
+        "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+      },
+      {
+        "$ref": "#/$defs/CatalogComponentCommon"
+      },
+      {
+        "type": "object",
+        "properties": {
+          "component": {
+            "const": "LayoutGrid"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentId"
+            },
+            "minItems": 1,
+            "maxItems": 6
+          },
+          "layout": {
+            "type": "string",
+            "enum": [
+              "equal",
+              "thirds",
+              "sidebar-left",
+              "sidebar-right"
+            ],
+            "default": "equal"
+          },
+          "gap": {
+            "type": "string",
+            "enum": [
+              "small",
+              "medium",
+              "large"
+            ],
+            "default": "medium"
+          },
+          "align": {
+            "type": "string",
+            "enum": [
+              "start",
+              "stretch"
+            ],
+            "default": "start"
+          }
+        },
+        "required": [
+          "component",
+          "children"
+        ]
+      }
+    ],
+    "unevaluatedProperties": false
+  },
+  "ProductList": {
+    "type": "object",
+    "allOf": [
+      {
+        "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+      },
+      {
+        "$ref": "#/$defs/CatalogComponentCommon"
+      },
+      {
+        "type": "object",
+        "properties": {
+          "component": {
+            "const": "ProductList"
+          },
+          "items": {
+            "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+          },
+          "maxItems": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 8
+          },
+          "showPriceTiers": {
+            "type": "boolean",
+            "default": false
+          },
+          "showAddToCart": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "component",
+          "items"
+        ]
+      }
+    ],
+    "unevaluatedProperties": false
+  },
+  "ProductSpotlight": {
+    "type": "object",
+    "allOf": [
+      {
+        "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+      },
+      {
+        "$ref": "#/$defs/CatalogComponentCommon"
+      },
+      {
+        "type": "object",
+        "properties": {
+          "component": {
+            "const": "ProductSpotlight"
+          },
+          "product": {
+            "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+          },
+          "showPriceTiers": {
+            "type": "boolean",
+            "default": false
+          },
+          "showAddToCart": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "component",
+          "product"
+        ]
+      }
+    ],
+    "unevaluatedProperties": false
+  },
     "Text": {
       "type": "object",
       "allOf": [

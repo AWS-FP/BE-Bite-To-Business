@@ -45,7 +45,7 @@ public record RunAgentInput(
             String density,
             @Size(max = 100)
             String lastQuery,
-            @Pattern(regexp = "name_asc|name_desc|newest|oldest")
+            @Pattern(regexp = "relevance|name_asc|name_desc|newest|oldest")
             String lastSort,
             /**
              * ID ẩn danh của trình duyệt (cùng giá trị FE gửi kèm /api/ui-events) để Guest cũng có hồ sơ thói quen.
@@ -53,6 +53,7 @@ public record RunAgentInput(
              */
             @Size(max = 64)
             @Pattern(regexp = "^[A-Za-z0-9-]*$")
-            String anonId) {
+            String anonId,
+            Boolean personalizationEnabled) {
     }
 }
