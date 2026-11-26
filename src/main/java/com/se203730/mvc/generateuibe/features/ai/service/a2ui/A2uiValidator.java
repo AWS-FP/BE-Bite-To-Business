@@ -41,7 +41,7 @@ public class A2uiValidator {
             "^(/products|/favorites|/recentlyViewed|/forYou|/reorder"
                     + "|/home/(?:featured|bestSelling|deepDiscount|topRated|flashSale))/(\\d+)$");
     private static final Set<String> PAGE_ONLY = Set.of("PageHeader", "Section");
-    private static final Set<String> PRODUCT_COMPONENTS = Set.of("ProductGrid", "ProductTable", "ProductCarousel");
+    private static final Set<String> PRODUCT_COMPONENTS = Set.of("ProductGrid", "ProductTable", "ProductCarousel", "ProductList");
     private static final int CHAT_MAX_COMPONENTS = 25;
     private static final int CHAT_MAX_DEPTH = 6;
     private static final int PAGE_MAX_SECTIONS = 6;
@@ -213,12 +213,16 @@ public class A2uiValidator {
                     errors.add(id + ": children phải là mảng id");
                     continue;
                 }
+                if ("LayoutGrid".equals(type)) checkArray(id + ".children", spec.props().get(key), value, errors);
                 for (JsonNode child : value) {
                     linkChild(id, child.asString(""), byId, parent, errors);
                 }
             } else if ("child".equals(key)) {
                 linkChild(id, value.asString(""), byId, parent, errors);
             } else if (spec.props().get(key) != null) {
+                if ("product".equals(key) && !LIST_INDEX.matcher(value.path("path").asString("")).matches()) {
+                    errors.add(id + ": product phải bind một phần tử của danh sách sản phẩm");
+                }
                 if ("items".equals(key)) {
                     checkItemsSource(id, type, value, errors);
                 }
