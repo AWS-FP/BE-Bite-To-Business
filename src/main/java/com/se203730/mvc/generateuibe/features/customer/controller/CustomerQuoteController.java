@@ -8,7 +8,6 @@ import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteCartRequ
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteContactRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuotePackageRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteCouponsRequest;
-import com.se203730.mvc.generateuibe.features.customer.dto.response.AvailableCouponResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.request.QuoteRevisionRequest;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteDraftResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteAvailabilityResponse;
@@ -180,14 +179,18 @@ public class CustomerQuoteController {
         return ok(service.removeItem(customerId, quoteId, itemId));
     }
 
-    @GetMapping("/{quoteId}/coupons/available")
-    public ResponseEntity<ResponseObject<List<AvailableCouponResponse>>> availableCoupons(
-            @CurrentUserUUID
-            UUID customerId,
-            @PathVariable
-            UUID quoteId) {
+    @GetMapping("/{quoteId}/coupons/reusable")
+    public ResponseEntity<ResponseObject<List<QuoteCouponService.SavedCoupon>>> reusableCoupons(
+            @CurrentUserUUID UUID customerId, @PathVariable UUID quoteId) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(new ResponseObject<>(200, "Success", coupons.available(customerId, quoteId)));
+                .body(new ResponseObject<>(200, "Success", coupons.reusable(customerId, quoteId)));
+    }
+
+    @PutMapping("/{quoteId}/cart")
+    public ResponseEntity<ResponseObject<QuoteDraftResponse>> replaceCart(
+            @CurrentUserUUID UUID customerId, @PathVariable UUID quoteId,
+            @RequestParam int revision, @Valid @RequestBody QuoteCartRequest request) {
+        return ok(packages.replaceCart(customerId, quoteId, revision, request));
     }
 
     @PutMapping("/{quoteId}/coupons")

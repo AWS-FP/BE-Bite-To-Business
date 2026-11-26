@@ -35,7 +35,8 @@ Cột "Hệ thống xử lý" do backend quyết định sau bước này, khôn
 | Intent | Ý nghĩa | Slots thường gặp | Cần hỏi khi thiếu | Hệ thống xử lý |
 | --- | --- | --- | --- | --- |
 | `SEARCH_PRODUCT` | Tìm, hỏi có bán sản phẩm | product_name, brand, unit, quantity | product_name (khi câu quá chung như "có gì bán không" thì không cần hỏi, hiện sản phẩm mới) | GENERATE_UI |
-| `FILTER_PRODUCTS` | Lọc/sắp xếp theo tên, mới nhất, thương hiệu, danh mục | product_name, brand, category, sort | — | GENERATE_UI |
+| `FILTER_PRODUCTS` | Lọc/sắp xếp theo tên, mới nhất, thương hiệu, danh mục, **hoặc theo thuộc tính** (xuất xứ, cách bảo quản, thành phần, dinh dưỡng, chứng nhận) | product_name, brand, category, sort, attributes | — | GENERATE_UI |
+| `ASK_PRODUCT_INFO` | Hỏi thông tin của một/vài sản phẩm cụ thể: bảo quản thế nào, xuất xứ đâu, làm từ gì, dinh dưỡng, thông số, giấy tờ VSATTP | product_name, info_topics | product_name | GENERATE_UI (widget ProductFacts) |
 | `CHECK_TIER_PRICE` | Hỏi giá, giá sỉ theo số lượng | product_name, quantity, unit | product_name | GENERATE_UI |
 | `CHECK_STOCK_AVAILABILITY` | Hỏi còn hàng, còn đủ số lượng không | product_name, quantity | product_name | GENERATE_UI |
 | `CHECK_MOQ_AND_SPEC` | Hỏi số lượng tối thiểu, quy cách | product_name | product_name | GENERATE_UI |
@@ -61,14 +62,33 @@ Cột "Hệ thống xử lý" do backend quyết định sau bước này, khôn
 | `UPDATE_DELIVERY_SLOT` / `UPDATE_ORDER_ADDRESS` | Đổi giờ/địa chỉ sau khi đặt | order_id | — | UNSUPPORTED |
 | `CHECK_CREDIT_LIMIT` / `CHECKOUT_WITH_CREDIT` / `CHECK_LOYALTY_TIER` / `SETUP_RECURRING_ORDER` / `REORDER_PAST_ORDER` / `REORDER_WITH_MODIFICATION` / `INQUIRE_SAMPLE_OR_MOQ` (phần mẫu thử) | Công nợ, hạng thành viên, đơn định kỳ, đặt lại, mẫu thử | — | — | UNSUPPORTED |
 
-`product_name` được backend dùng làm từ khóa tìm kiếm: hệ thống so khớp chuỗi con trên tên tiếng Việt, tên tiếng Anh và SKU, **có phân biệt dấu**. Vì vậy:
+`product_name` được backend dùng làm từ khóa tìm kiếm (Smart Search): so khớp tên Việt/Anh, SKU, thương hiệu, danh mục, đã bỏ dấu và xếp theo độ liên quan, ưu tiên khớp đúng dấu. Vì vậy:
 
-- Viết chữ thường, đủ dấu tiếng Việt, kể cả khi người dùng gõ không dấu ("sua tuoi" → "sữa tươi").
+- Viết chữ thường, đủ dấu tiếng Việt nếu biết, kể cả khi người dùng gõ không dấu ("sua tuoi" → "sữa tươi").
 - Dùng cụm ngắn thường có trong tên sản phẩm, bỏ từ thừa như "loại", "cho mình", "giá sỉ" ("ba chỉ bò Úc cuộn giá sỉ" → "ba chỉ bò úc cuộn").
-- Cụm chung như "thịt bò" sẽ không khớp "Ba chỉ bò"; khi người dùng nói chung chung, giữ đúng cụm họ nói và để bước giao diện gợi ý từ khóa khác nếu không có kết quả.
+- Khi người dùng nói chung chung, giữ đúng cụm họ nói và để bước giao diện gợi ý từ khóa khác nếu không có kết quả.
 - Người dùng nói tiếng Anh thì giữ từ khóa tiếng Anh ("frozen salmon").
 
+### Slot `attributes` — tìm theo thông tin mô tả trong DB
+
+Dùng khi người dùng lọc theo **đặc điểm** chứ không chỉ theo tên. Backend tìm trong mô tả sản phẩm (không dấu). Mỗi trường là **mảng cụm từ ngắn** có thể xuất hiện trong mô tả, ghi cả tiếng Việt và tiếng Anh khi hợp lý; trường nào không nói thì bỏ qua:
+
+| Trường | Tìm trong | Ví dụ câu → giá trị |
+| --- | --- | --- |
+| `origin` | Xuất xứ + câu chuyện nguồn gốc | "hàng Úc" → `["úc", "australia"]`; "nhập khẩu Mỹ" → `["mỹ", "usa"]`; "hàng Đà Lạt" → `["đà lạt"]` |
+| `storage` | Hướng dẫn bảo quản/sơ chế | "đồ đông lạnh" → `["đông lạnh", "frozen", "-18"]`; "để ngăn mát" → `["ngăn mát", "0-4", "chilled"]`; "để nhiệt độ phòng" → `["nhiệt độ phòng", "khô ráo"]` |
+| `contains` | Tên, mô tả, thông số, danh mục | "làm từ thịt" → `["thịt", "meat"]`; "có sữa" → `["sữa", "milk"]`; "chay" → `["chay", "vegetarian"]` |
+| `nutrient` | Tên thành phần trong bảng dinh dưỡng | "giàu đạm" → `["protein", "đạm"]`; "có chất xơ" → `["chất xơ", "fiber"]` |
+| `compliance` | Nội dung VSATTP/chứng nhận/hóa đơn | "có chứng nhận HACCP" → `["haccp"]`; "VietGAP" → `["vietgap"]` |
+
+Có thể kết hợp với `product_name` ("thịt bò nào xuất xứ Úc" → `product_name: "thịt bò"`, `attributes.origin: ["úc","australia"]`). Không suy ra thuộc tính người dùng không nói.
+
+### Slot `info_topics` cho `ASK_PRODUCT_INFO`
+
+Mảng trong `storage`, `origin`, `nutrition`, `technical`, `compliance`, `description` theo điều người dùng hỏi ("bảo quản sao, xuất xứ đâu" → `["storage","origin"]`; "làm từ gì" → `["description","technical"]`).
+
 - Người dùng chỉ nói mục đích ("đồ cho quán lẩu", "nguyên liệu làm bánh") mà không nêu sản phẩm: `product_name` là `null`, `purpose` giữ cụm đó, `needs_clarification: true` và hỏi nhóm hàng cụ thể.
+- Người dùng nêu **cả mục đích và nhóm hàng** ("mở quán lẩu, cần thịt bò và đồ nhúng"): đưa từng nhóm hàng vào `product_names` (mảng, mỗi phần tử là một cụm tìm kiếm ngắn: `["thịt bò", "bò", "viên"]`), giữ `purpose`, `needs_clarification: false`. Với cụm chung như "đồ nhúng lẩu", chọn từ thường có trong tên sản phẩm ("viên", "nấm", "đậu hũ"). Tối đa 4 cụm.
 
 ## Phân biệt dễ nhầm
 
@@ -78,6 +98,9 @@ Cột "Hệ thống xử lý" do backend quyết định sau bước này, khôn
 
 Ví dụ:
 
+- "Có sản phẩm nào đông lạnh xuất xứ Úc không?" → `{"intents":["FILTER_PRODUCTS"],"slots":{"product_name":null,"attributes":{"origin":["úc","australia"],"storage":["đông lạnh","frozen"]}},"needs_clarification":false,"clarification_question":null}`
+- "Ba chỉ bò Mỹ bảo quản thế nào, xuất xứ ở đâu?" → `{"intents":["ASK_PRODUCT_INFO"],"slots":{"product_name":"ba chỉ bò mỹ","info_topics":["storage","origin"]},"needs_clarification":false,"clarification_question":null}`
+- "Món nào giàu đạm làm từ thịt?" → `{"intents":["FILTER_PRODUCTS"],"slots":{"product_name":null,"attributes":{"contains":["thịt","meat"],"nutrient":["protein","đạm"]}},"needs_clarification":false,"clarification_question":null}`
 - "Cho mình xem đơn hàng của mình" → `{"intents":["SEARCH_ORDER_HISTORY"],"slots":{"order_id":null},"needs_clarification":false,"clarification_question":null}`
 - "Đơn hôm qua giao tới đâu rồi?" → `{"intents":["TRACK_ORDER"],"slots":{"order_id":null,"time_reference":"hôm qua"},"needs_clarification":false,"clarification_question":null}`
 - "Mở giỏ hàng giúp mình" → `{"intents":["VIEW_CART"],"slots":{},"needs_clarification":false,"clarification_question":null}`

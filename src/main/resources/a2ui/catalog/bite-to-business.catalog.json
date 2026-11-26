@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
   "title": "Bite to Business A2UI Catalog",
-  "description": "Catalog A2UI v0.9 cho POC Generate UI tìm sản phẩm. AI chỉ sinh updateComponents; backend ghi updateDataModel (/query, /products, /resultCount). Component cơ bản lấy nguyên từ basic catalog của @a2ui/web_core 0.12.",
+  "description": "Catalog A2UI v0.9 của Bite to Business cho hai chế độ: chat (khối nhỏ) và page (cả trang). AI chỉ sinh updateComponents; backend ghi updateDataModel (/query, /products, /home/*, /categories, /favorites). Component cơ bản lấy nguyên từ basic catalog của @a2ui/web_core 0.12.",
   "catalogId": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
   "components": {
     "Text": {
@@ -278,7 +278,7 @@
             },
             "items": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
-              "description": "Danh sách sản phẩm do backend ghi vào data model. Luôn là {\"path\": \"/products\"}; không tự liệt kê sản phẩm hay giá."
+              "description": "Danh sách sản phẩm backend đã ghi vào data model, một trong: /products, /favorites, /recentlyViewed, /forYou, /reorder, /home/featured, /home/bestSelling, /home/deepDiscount, /home/topRated, /home/flashSale. Chỉ bind danh sách có trong <data_model_summary>; không tự liệt kê sản phẩm hay giá."
             },
             "columns": {
               "type": "integer",
@@ -345,12 +345,12 @@
             },
             "items": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
-              "description": "Danh sách sản phẩm do backend ghi vào data model. Luôn là {\"path\": \"/products\"}; không tự liệt kê sản phẩm hay giá."
+              "description": "Danh sách sản phẩm backend đã ghi vào data model, một trong: /products, /favorites, /recentlyViewed, /forYou, /reorder, /home/featured, /home/bestSelling, /home/deepDiscount, /home/topRated, /home/flashSale. Chỉ bind danh sách có trong <data_model_summary>; không tự liệt kê sản phẩm hay giá."
             },
             "columns": {
               "type": "array",
               "minItems": 2,
-              "maxItems": 7,
+              "maxItems": 8,
               "uniqueItems": true,
               "items": {
                 "type": "string",
@@ -358,6 +358,7 @@
                   "image",
                   "name",
                   "spec",
+                  "origin",
                   "price",
                   "priceTiers",
                   "moq",
@@ -416,7 +417,7 @@
             },
             "product": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
-              "description": "Một sản phẩm trong danh sách backend đã cấp, dạng {\"path\": \"/products/<chỉ số>\"}. Chỉ số phải nhỏ hơn /resultCount."
+              "description": "Một sản phẩm trong một danh sách sản phẩm, dạng {\"path\": \"/products/<chỉ số>\"} (hoặc danh sách khác). Chỉ số phải nhỏ hơn số phần tử của danh sách đó."
             },
             "variant": {
               "type": "string",
@@ -460,7 +461,7 @@
             },
             "product": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
-              "description": "Một sản phẩm trong danh sách backend đã cấp, dạng {\"path\": \"/products/<chỉ số>\"}. Chỉ số phải nhỏ hơn /resultCount."
+              "description": "Một sản phẩm trong một danh sách sản phẩm, dạng {\"path\": \"/products/<chỉ số>\"} (hoặc danh sách khác). Chỉ số phải nhỏ hơn số phần tử của danh sách đó."
             },
             "title": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
@@ -469,6 +470,58 @@
           "required": [
             "component",
             "product"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ProductFacts": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ProductFacts"
+            },
+            "product": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Một sản phẩm trong một danh sách sản phẩm, dạng {\"path\": \"/products/<chỉ số>\"} (hoặc danh sách khác). Chỉ số phải nhỏ hơn số phần tử của danh sách đó."
+            },
+            "sections": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "storage",
+                  "origin",
+                  "nutrition",
+                  "technical",
+                  "compliance",
+                  "description"
+                ]
+              },
+              "description": "Thông tin mô tả cần hiện, theo thứ tự: storage (bảo quản/sơ chế), origin (xuất xứ/nguồn gốc), nutrition (bảng dinh dưỡng), technical (thông số), compliance (VSATTP/hóa đơn), description (mô tả). Nội dung lấy nguyên từ DB qua data model; AI không viết lại."
+            },
+            "showProduct": {
+              "type": "boolean",
+              "default": true,
+              "description": "Hiện kèm ảnh, tên, giá và nút thêm giỏ."
+            }
+          },
+          "required": [
+            "component",
+            "product",
+            "sections"
           ]
         }
       ],
@@ -491,7 +544,7 @@
             },
             "product": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
-              "description": "Một sản phẩm trong danh sách backend đã cấp, dạng {\"path\": \"/products/<chỉ số>\"}. Chỉ số phải nhỏ hơn /resultCount."
+              "description": "Một sản phẩm trong một danh sách sản phẩm, dạng {\"path\": \"/products/<chỉ số>\"} (hoặc danh sách khác). Chỉ số phải nhỏ hơn số phần tử của danh sách đó."
             }
           },
           "required": [
@@ -579,6 +632,316 @@
           "required": [
             "component",
             "question"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "PageHeader": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "PageHeader"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Tiêu đề trang theo mục đích người dùng, ngắn, không số liệu."
+            },
+            "subtitle": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Một câu giải thích vì sao trang được sắp như vậy."
+            }
+          },
+          "required": [
+            "component",
+            "title"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Section": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Section"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "description": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "variant": {
+              "type": "string",
+              "enum": [
+                "plain",
+                "card",
+                "highlight"
+              ],
+              "default": "plain",
+              "description": "highlight: section quan trọng nhất của trang (tối đa 1)."
+            },
+            "child": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentId",
+              "description": "Nội dung section; nhiều phần tử thì bọc trong Column/Row."
+            }
+          },
+          "required": [
+            "component",
+            "title",
+            "child"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ProductCarousel": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ProductCarousel"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Danh sách sản phẩm backend đã ghi vào data model, một trong: /products, /favorites, /recentlyViewed, /forYou, /reorder, /home/featured, /home/bestSelling, /home/deepDiscount, /home/topRated, /home/flashSale. Chỉ bind danh sách có trong <data_model_summary>; không tự liệt kê sản phẩm hay giá."
+            },
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12,
+              "default": 8
+            },
+            "showAddToCart": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "BannerCarousel": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "BannerCarousel"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Banner khuyến mãi đã đăng. Luôn là {\"path\": \"/home/banners\"}."
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "CategoryGrid": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "CategoryGrid"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Danh mục cha kèm danh mục con và số sản phẩm. Luôn là {\"path\": \"/categories\"}."
+            },
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16,
+              "default": 8
+            },
+            "showChildren": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ComboList": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ComboList"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Combo đang bán, kèm món và số suất. Luôn là {\"path\": \"/home/combos\"}."
+            },
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8,
+              "default": 4
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ReorderList": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ReorderList"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Sản phẩm từ các đơn đã hoàn tất của chính khách, kèm số lượng lần trước và số lần đặt; giá/tồn là giá hiện hành. Luôn là {\"path\": \"/reorder\"}."
+            },
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8,
+              "default": 6
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "CartSummary": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "CartSummary"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Tiêu đề ngắn. Nội dung (số món, tạm tính) do renderer đọc từ giỏ hàng trên trình duyệt, AI không ghi số."
+            }
+          },
+          "required": [
+            "component"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "PromotionList": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "PromotionList"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Chương trình khuyến mãi đang chạy kèm thời gian. Luôn là {\"path\": \"/home/promotions\"}."
+            },
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6,
+              "default": 3
+            }
+          },
+          "required": [
+            "component",
+            "items"
           ]
         }
       ],
@@ -843,6 +1206,40 @@
             "event"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "const": "open_category"
+                },
+                "context": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "name",
+                "context"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "event"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -879,6 +1276,9 @@
           "$ref": "#/components/PriceTiers"
         },
         {
+          "$ref": "#/components/ProductFacts"
+        },
+        {
           "$ref": "#/components/InventoryBadge"
         },
         {
@@ -886,6 +1286,33 @@
         },
         {
           "$ref": "#/components/ClarifyQuestion"
+        },
+        {
+          "$ref": "#/components/PageHeader"
+        },
+        {
+          "$ref": "#/components/Section"
+        },
+        {
+          "$ref": "#/components/ProductCarousel"
+        },
+        {
+          "$ref": "#/components/BannerCarousel"
+        },
+        {
+          "$ref": "#/components/CategoryGrid"
+        },
+        {
+          "$ref": "#/components/ComboList"
+        },
+        {
+          "$ref": "#/components/ReorderList"
+        },
+        {
+          "$ref": "#/components/CartSummary"
+        },
+        {
+          "$ref": "#/components/PromotionList"
         },
         {
           "$ref": "#/components/SuggestedPrompts"

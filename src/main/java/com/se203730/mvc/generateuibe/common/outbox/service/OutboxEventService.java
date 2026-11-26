@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -36,11 +37,23 @@ public class OutboxEventService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void record(String eventType, String aggregateType, UUID aggregateId, Map<String, Object> payload,
             String idempotencyKey) {
+        recordAt(eventType, aggregateType, aggregateId, payload, idempotencyKey, null);
+    }
+
+    /** Ghi event mà relay chỉ được gửi từ notBefore trở đi (null = gửi ngay). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordAt(String eventType, String aggregateType, UUID aggregateId, Map<String, Object> payload,
+            String idempotencyKey, Instant notBefore) {
         if (!enabled) {
             return;
         }
         String json = objectMapper.writeValueAsString(payload == null ? Map.of() : payload);
         events.append(eventType, aggregateType, aggregateId, json, idempotencyKey,
-                defaultDestination.trim().toUpperCase(Locale.ROOT));
+                defaultDestination.trim().toUpperCase(Locale.ROOT), notBefore);
+    }
+
+    /** true khi event thật sự được ghi và gửi đi (app.outbox.enabled). */
+    public boolean isEnabled() {
+        return enabled;
     }
 }

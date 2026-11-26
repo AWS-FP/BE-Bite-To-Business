@@ -16,6 +16,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Gợi ý dịch Việt ↔ Anh cho các ô song ngữ khi nhân viên tạo/sửa sản phẩm ({@code POST /api/ai/translate}).
+ * Chỉ trả gợi ý; nhân viên phải bấm "Dùng gợi ý" ở FE thì mới điền vào form.
+ */
 @RestController
 @RequestMapping("/api/ai/translate")
 @Tag(name = "AI")

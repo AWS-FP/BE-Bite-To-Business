@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>Kết quả xử lý thanh toán | Bite to Business</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;color:#18181b;font-family:Arial,Helvetica,sans-serif;">
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;overflow:hidden;">Khoản thanh toán của bạn đã được xử lý.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
+    <tr>
+        <td align="center" style="padding:24px 12px;">
+            <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+                   style="width:100%;max-width:560px;background-color:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+                <tr th:replace="~{email/fragments/brand :: header}"></tr>
+                <tr>
+                    <td style="padding:28px 32px;color:#3f3f46;font-size:15px;line-height:24px;">
+                        <th:block th:if="${refunded}">
+                            <h1 style="margin:0 0 16px;color:#18181b;font-size:20px;line-height:28px;">Chúng tôi đã hoàn tiền cho bạn</h1>
+                            <p style="margin:0 0 16px;">Xin chào <span th:text="${contactName}">quý khách</span>,</p>
+                            <p style="margin:0 0 16px;">Khoản chuyển khoản chưa ghi nhận được cho đơn hàng đã được hoàn lại vào tài khoản của bạn:</p>
+                        <div style="padding:16px 20px;background-color:#f4f4f5;border-radius:6px;margin:0 0 16px;">
+                            <p style="margin:0;color:#18181b;overflow-wrap:anywhere;">Đơn hàng: <strong th:text="${orderNumber}">BTB-0001</strong></p>
+                            <p style="margin:0;color:#18181b;overflow-wrap:anywhere;">Số tiền hoàn: <strong th:text="${amount}">1.000.000 đ</strong></p>
+                            <p style="margin:0;color:#18181b;overflow-wrap:anywhere;">Mã giao dịch hoàn: <strong th:text="${refundReference}">FT123456</strong></p>
+                        </div>
+                            <p style="margin:0;">Tuỳ ngân hàng, tiền có thể mất vài giờ để hiển thị trong tài khoản của bạn.</p>
+                        </th:block>
+                        <th:block th:unless="${refunded}">
+                            <h1 style="margin:0 0 16px;color:#18181b;font-size:20px;line-height:28px;">Đơn hàng của bạn đã được khôi phục</h1>
+                            <p style="margin:0 0 16px;">Xin chào <span th:text="${contactName}">quý khách</span>,</p>
+                            <p style="margin:0 0 16px;">Chúng tôi đã ghi nhận khoản chuyển khoản và khôi phục đơn hàng. Đơn được coi là đã thanh toán và sẽ được giao như bình thường.</p>
+                        <div style="padding:16px 20px;background-color:#f4f4f5;border-radius:6px;margin:0 0 16px;">
+                            <p style="margin:0;color:#18181b;overflow-wrap:anywhere;">Đơn hàng: <strong th:text="${orderNumber}">BTB-0001</strong></p>
+                            <p style="margin:0;color:#18181b;overflow-wrap:anywhere;">Đã thanh toán: <strong th:text="${amount}">1.000.000 đ</strong></p>
+                        </div>
+                            <p style="margin:0;">Bạn có thể theo dõi đơn trong mục "Đơn hàng của bạn" trên website.</p>
+                        </th:block>
+                    </td>
+                </tr>
+                <tr th:replace="~{email/fragments/brand :: footer(note='Bạn nhận được email này vì đã chuyển khoản cho một đơn hàng trên Bite to Business.')}"></tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

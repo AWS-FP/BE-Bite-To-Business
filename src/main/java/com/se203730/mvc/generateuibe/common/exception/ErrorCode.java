@@ -63,7 +63,9 @@ public enum ErrorCode {
                                                                                                     HttpStatus.CONFLICT,
                                                                                                     "This registration has already been reviewed."), REGISTRATION_ALREADY_ACTIVATED(
                                                                                                             HttpStatus.CONFLICT,
-                                                                                                            "This account has already been activated."), REJECTION_NOTE_REQUIRED(
+                                                                                                            "This account has already been activated."), REGISTRATION_APPROVAL_LOCKED(
+                                                                                                            HttpStatus.CONFLICT,
+                                                                                                            "This email was used again in a duplicate registration; approval is locked."), REJECTION_NOTE_REQUIRED(
                                                                                                                     HttpStatus.BAD_REQUEST,
                                                                                                                     "A reason is required when rejecting a registration."), EMAIL_DELIVERY_FAILED(
                                                                                                                             HttpStatus.SERVICE_UNAVAILABLE,
@@ -97,11 +99,14 @@ public enum ErrorCode {
     REFUND_PACKAGE_NOT_CANCELLABLE(HttpStatus.CONFLICT, "This package is already out for delivery, delivered or cancelled."),
     REFUND_INVALID_STATE(HttpStatus.CONFLICT, "The cancellation request is not in the required state."),
     RETURN_NOT_ALLOWED(HttpStatus.CONFLICT, "This package can no longer be returned."),
+    DELIVERY_LOCATION_UNREACHABLE(HttpStatus.UNPROCESSABLE_CONTENT, "The selected location is too far from a road."),
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "The payment was not found."),
     PAYMENT_ALREADY_PAID(HttpStatus.CONFLICT, "This order has already been paid."),
     PAYMENT_INVALID_STATE(HttpStatus.CONFLICT, "The order or payment is not in a valid state."),
     PAYMENT_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "The payment service is not configured."),
-    PAYMENT_WEBHOOK_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "The payment notification could not be verified.");
+    PAYMENT_WEBHOOK_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "The payment notification could not be verified."),
+    PAYMENT_REVIEW_ALREADY_RESOLVED(HttpStatus.CONFLICT, "This payment has already been handled."),
+    PAYMENT_REVIEW_NOT_RESTORABLE(HttpStatus.CONFLICT, "This payment cannot restore its order. Refund it instead.");
 
     private final HttpStatus status;
 

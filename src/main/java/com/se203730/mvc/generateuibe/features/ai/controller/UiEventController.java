@@ -13,6 +13,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Nhận lô sự kiện tương tác từ storefront ({@code POST /api/ui-events}): xem trang, thời gian ở lại, back nhanh,
+ * tìm kiếm, thêm giỏ, render/bấm widget A2UI. Đây là nguồn dữ liệu cho hồ sơ thói quen (UiProfileService).
+ * Chỉ ghi cho Customer đã đăng nhập (user gắn từ cookie); route yêu cầu đăng nhập. Luôn trả 204 để không
+ * ảnh hưởng thao tác mua hàng.
+ */
 @RestController
 @RequestMapping("/api/ui-events")
 @Tag(name = "AI")

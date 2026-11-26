@@ -19,12 +19,34 @@ import tools.jackson.databind.JsonNode;
  */
 @Component
 public class A2uiValidator {
-    private static final Pattern BINDABLE = Pattern.compile("^/(query/(text|sort)|resultCount|products(/\\d{1,2})?)$");
-    private static final Pattern PRODUCT_INDEX = Pattern.compile("^/products/(\\d+)$");
+    /** Danh sách sản phẩm backend có thể ghi; component sản phẩm chỉ được bind các path này. */
+    public static final Set<String> PRODUCT_LISTS = Set.of("/products", "/favorites", "/home/featured",
+            "/home/bestSelling", "/home/deepDiscount", "/home/topRated", "/home/flashSale", "/recentlyViewed",
+            "/forYou", "/reorder");
+    /** Danh sách không phải sản phẩm và component duy nhất được dùng nó. */
+    private static final Map<String, String> OTHER_LISTS = Map.of("/categories", "CategoryGrid", "/home/combos",
+            "ComboList", "/home/banners", "BannerCarousel", "/home/promotions", "PromotionList");
+    /** Component chỉ được bind đúng một danh sách sản phẩm riêng. */
+    private static final Map<String, String> DEDICATED_PRODUCT_LIST = Map.of("ReorderList", "/reorder");
+    private static final Set<String> LIST_PATHS = new HashSet<>();
+    static {
+        LIST_PATHS.addAll(PRODUCT_LISTS);
+        LIST_PATHS.addAll(OTHER_LISTS.keySet());
+    }
+    private static final Pattern BINDABLE = Pattern.compile(
+            "^/(query/(text|sort)|resultCount|products|favorites|categories|recentlyViewed|forYou|reorder"
+                    + "|home/(featured|bestSelling|deepDiscount|topRated|flashSale|combos|banners|promotions))"
+                    + "(/\\d{1,2})?$");
+    private static final Pattern LIST_INDEX = Pattern.compile(
+            "^(/products|/favorites|/recentlyViewed|/forYou|/reorder"
+                    + "|/home/(?:featured|bestSelling|deepDiscount|topRated|flashSale))/(\\d+)$");
+    private static final Set<String> PAGE_ONLY = Set.of("PageHeader", "Section");
+    private static final Set<String> PRODUCT_COMPONENTS = Set.of("ProductGrid", "ProductTable", "ProductCarousel");
+    private static final int CHAT_MAX_COMPONENTS = 25;
+    private static final int CHAT_MAX_DEPTH = 6;
+    private static final int PAGE_MAX_SECTIONS = 6;
     private static final Pattern MONEY = Pattern.compile("\\d[\\d.,]*\\s*(đ|vnd|₫|%)", Pattern.CASE_INSENSITIVE);
-    private static final Pattern ID = Pattern.compile("^[a-z][a-z0-9-]*$");
-    private static final Set<String> PRODUCT_COMPONENTS = Set.of("ProductGrid", "ProductTable", "ProductCard",
-            "PriceTiers", "InventoryBadge");
+    private static final Pattern ID = Pattern.compile("^[A-Za-z][A-Za-z0-9_-]{0,63}$");
 
     private record ComponentSpec(Map<String, JsonNode> props, Set<String> required) {
     }
@@ -36,6 +58,10 @@ public class A2uiValidator {
     private final int maxDepth;
     private final int maxTextLength;
 
+    /**
+     * Đọc catalog JSON Schema một lần: gom thuộc tính cho phép/bắt buộc của từng component (gộp các phần allOf)
+     * và context cho phép của từng action trong $defs.BtbAction; giới hạn lấy từ ai/catalog.json.
+     */
     public A2uiValidator(AiPromptLibrary library) {
         JsonNode catalog = library.catalogSchema();
         for (Map.Entry<String, JsonNode> entry : catalog.path("components").properties()) {
@@ -66,7 +92,20 @@ public class A2uiValidator {
     }
 
     /** Trả danh sách lỗi; rỗng nghĩa là message hợp lệ. */
+    /** Chế độ chat: khối nhỏ trong khung trợ lý. */
     public List<String> validate(JsonNode message, int resultCount) {
+        return validate(message, Map.of("/products", resultCount), false);
+    }
+
+    /**
+     * Trả danh sách lỗi; rỗng nghĩa là message hợp lệ.
+     *
+     * @param lists số phần tử của từng danh sách backend đã ghi vào data model (path → số phần tử)
+     * @param page  true với chế độ dựng cả trang (giới hạn số component/độ sâu lớn hơn)
+     */
+    public List<String> validate(JsonNode message, Map<String, Integer> lists, boolean page) {
+        int maxComponents = page ? this.maxComponents : CHAT_MAX_COMPONENTS;
+        int maxDepth = page ? this.maxDepth : CHAT_MAX_DEPTH;
         List<String> errors = new ArrayList<>();
         if (message == null || !message.isObject()) {
             errors.add("Kết quả không phải JSON object");
@@ -106,21 +145,47 @@ public class A2uiValidator {
         }
         Map<String, String> parent = new HashMap<>();
         for (JsonNode component : list) {
-            checkComponent(component, byId, parent, resultCount, errors);
+            checkComponent(component, byId, parent, lists, errors);
         }
-        checkTree(byId, parent, errors);
-        if (resultCount == 0) {
-            for (JsonNode component : list) {
-                if (PRODUCT_COMPONENTS.contains(component.path("component").asString(""))) {
-                    errors.add("Không có sản phẩm nhưng vẫn dùng " + component.path("component").asString());
-                }
-            }
-        }
+        checkTree(byId, parent, maxDepth, errors);
+        checkPageRules(list, page, errors);
         return errors;
     }
 
+    /** Quy tắc bố cục: chat không dùng khung trang; trang có tối đa 1 PageHeader, 6 Section, 1 Section highlight. */
+    private void checkPageRules(JsonNode list, boolean page, List<String> errors) {
+        int headers = 0;
+        int sections = 0;
+        int highlights = 0;
+        for (JsonNode component : list) {
+            String type = component.path("component").asString("");
+            if (!page && PAGE_ONLY.contains(type)) {
+                errors.add(type + " chỉ dùng khi dựng cả trang");
+            }
+            if ("PageHeader".equals(type)) {
+                headers++;
+            }
+            if ("Section".equals(type)) {
+                sections++;
+                if ("highlight".equals(component.path("variant").asString(""))) {
+                    highlights++;
+                }
+            }
+        }
+        if (headers > 1) {
+            errors.add("Chỉ được 1 PageHeader");
+        }
+        if (sections > PAGE_MAX_SECTIONS) {
+            errors.add("Tối đa " + PAGE_MAX_SECTIONS + " Section");
+        }
+        if (highlights > 1) {
+            errors.add("Chỉ được 1 Section highlight");
+        }
+    }
+
+    /** Kiểm một component: có trong catalog, đủ thuộc tính bắt buộc, không có thuộc tính lạ, child tham chiếu đúng. */
     private void checkComponent(JsonNode component, Map<String, JsonNode> byId, Map<String, String> parent,
-            int resultCount, List<String> errors) {
+            Map<String, Integer> lists, List<String> errors) {
         String id = component.path("id").asString("");
         String type = component.path("component").asString("");
         ComponentSpec spec = components.get(type);
@@ -154,11 +219,26 @@ public class A2uiValidator {
             } else if ("child".equals(key)) {
                 linkChild(id, value.asString(""), byId, parent, errors);
             } else if (spec.props().get(key) != null) {
-                checkValue(id + "." + key, key, spec.props().get(key), value, resultCount, errors);
+                if ("items".equals(key)) {
+                    checkItemsSource(id, type, value, errors);
+                }
+                checkValue(id + "." + key, key, spec.props().get(key), value, lists, errors);
             }
         }
     }
 
+    /** Component danh sách chỉ được bind loại dữ liệu đúng của nó (sản phẩm, danh mục, combo, banner, khuyến mãi). */
+    private void checkItemsSource(String id, String type, JsonNode value, List<String> errors) {
+        String path = value.path("path").asString("");
+        boolean ok = PRODUCT_COMPONENTS.contains(type) ? PRODUCT_LISTS.contains(path)
+                : DEDICATED_PRODUCT_LIST.containsKey(type) ? DEDICATED_PRODUCT_LIST.get(type).equals(path)
+                : type.equals(OTHER_LISTS.get(path));
+        if (!ok) {
+            errors.add(id + ": " + type + " không được bind " + path);
+        }
+    }
+
+    /** Ghi quan hệ cha–con; id con phải tồn tại và chỉ có một cha (cây, không phải đồ thị). */
     private void linkChild(String id, String child, Map<String, JsonNode> byId, Map<String, String> parent,
             List<String> errors) {
         if (!byId.containsKey(child)) {
@@ -168,7 +248,9 @@ public class A2uiValidator {
         }
     }
 
-    private void checkTree(Map<String, JsonNode> byId, Map<String, String> parent, List<String> errors) {
+    /** Mọi component phải nối về root, không vòng lặp, không sâu quá giới hạn của chế độ. */
+    private void checkTree(Map<String, JsonNode> byId, Map<String, String> parent, int maxDepth,
+            List<String> errors) {
         if (parent.containsKey("root")) {
             errors.add("root không được là con của component khác");
         }
@@ -193,7 +275,11 @@ public class A2uiValidator {
         }
     }
 
-    private void checkValue(String where, String key, JsonNode schema, JsonNode value, int resultCount,
+    /**
+     * Kiểm giá trị một thuộc tính theo schema: const/enum/kiểu/khoảng, DataBinding, DynamicString (literal hoặc
+     * path), action allowlist. Literal chữ còn bị kiểm không chứa số tiền/% và HTML.
+     */
+    private void checkValue(String where, String key, JsonNode schema, JsonNode value, Map<String, Integer> lists,
             List<String> errors) {
         if (schema.has("const") && !schema.path("const").equals(value)) {
             errors.add(where + " phải là " + schema.path("const"));
@@ -236,13 +322,14 @@ public class A2uiValidator {
             }
         }
         if (isBinding(value)) {
-            checkBinding(where, key, value.path("path").asString(""), resultCount, errors);
+            checkBinding(where, key, value.path("path").asString(""), lists, errors);
         }
         if (ref.endsWith("BtbAction")) {
             checkAction(where, value, errors);
         }
     }
 
+    /** Mảng chuỗi (cột bảng, lựa chọn, gợi ý): số phần tử, không trùng, giá trị thuộc enum, độ dài. */
     private void checkArray(String where, JsonNode schema, JsonNode value, List<String> errors) {
         if (!value.isArray()) {
             errors.add(where + " phải là mảng");
@@ -274,6 +361,7 @@ public class A2uiValidator {
         }
     }
 
+    /** Literal do model viết: giới hạn độ dài, cấm số tiền/% (phải bind data model) và cấm thẻ HTML. */
     private void checkText(String where, String text, List<String> errors) {
         if (text.length() > maxTextLength) {
             errors.add(where + " dài quá " + maxTextLength + " ký tự");
@@ -286,20 +374,26 @@ public class A2uiValidator {
         }
     }
 
-    private void checkBinding(String where, String key, String path, int resultCount, List<String> errors) {
+    /** Path bind phải nằm trong danh sách cho phép, phần tử /list/N phải tồn tại, danh sách được bind không rỗng. */
+    private void checkBinding(String where, String key, String path, Map<String, Integer> lists, List<String> errors) {
         if (!BINDABLE.matcher(path).matches()) {
             errors.add(where + " bind path không cho phép: " + path);
             return;
         }
-        if ("items".equals(key) && !"/products".equals(path)) {
-            errors.add(where + " phải bind /products");
+        Matcher index = LIST_INDEX.matcher(path);
+        if (index.matches()) {
+            Integer count = lists.get(index.group(1));
+            if (count == null || Integer.parseInt(index.group(2)) >= count) {
+                errors.add(where + " trỏ tới phần tử không tồn tại: " + path);
+            }
+            return;
         }
-        Matcher index = PRODUCT_INDEX.matcher(path);
-        if (index.matches() && Integer.parseInt(index.group(1)) >= resultCount) {
-            errors.add(where + " trỏ tới sản phẩm không tồn tại: " + path);
+        if (LIST_PATHS.contains(path) && lists.getOrDefault(path, 0) == 0) {
+            errors.add(where + " bind danh sách rỗng hoặc không có dữ liệu: " + path);
         }
     }
 
+    /** Action phải là event có tên trong allowlist, đủ context bắt buộc, không có context lạ, enum hợp lệ. */
     private void checkAction(String where, JsonNode value, List<String> errors) {
         JsonNode event = value.path("event");
         String name = event.path("name").asString("");

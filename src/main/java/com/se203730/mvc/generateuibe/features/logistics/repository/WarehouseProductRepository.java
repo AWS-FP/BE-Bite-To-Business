@@ -22,7 +22,7 @@ public class WarehouseProductRepository {
                 .addValue("descriptionVi", r.descriptionVi()).addValue("descriptionEn", r.descriptionEn())
                 .addValue("note", r.note()).addValue("origin", r.origin()).addValue("specVi", r.specVi())
                 .addValue("specEn", r.specEn()).addValue("unit", r.unit()).addValue("minOrder", r.minOrder())
-                .addValue("quantityStep", r.quantityStep()).addValue("vat", r.vat())
+                .addValue("quantityStep", java.math.BigDecimal.ONE).addValue("vat", r.vat())
                 .addValue("imageUrl", imageUrl).addValue("imageId", imageId).addValue("price", r.price())
                 .addValue("netWeight", r.netWeight()).addValue("tareWeight", r.tareWeight()).addValue("volume", r.volume())
                 .addValue("length", r.length()).addValue("width", r.width()).addValue("height", r.height())

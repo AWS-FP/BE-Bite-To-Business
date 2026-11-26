@@ -1,85 +1,164 @@
 {
-  "contractVersion": "btb-genui-product-search-1",
+  "contractVersion": "btb-genui-4",
   "a2uiVersion": "v0.9",
   "catalogId": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
   "catalogSchema": "classpath:a2ui/catalog/bite-to-business.catalog.json",
-  "useCase": "PRODUCT_SEARCH",
-  "roles": ["GUEST", "CUSTOMER"],
+  "roles": [
+    "CUSTOMER"
+  ],
   "surface": {
-    "idPattern": "^chat-[a-z0-9-]{1,40}$",
-    "modelGenerates": ["updateComponents"],
-    "backendGenerates": ["createSurface", "updateDataModel", "deleteSurface"]
+    "idPattern": "^(chat|page)-[a-z0-9-]{1,40}$",
+    "modelGenerates": [
+      "updateComponents"
+    ],
+    "backendGenerates": [
+      "createSurface",
+      "updateDataModel",
+      "deleteSurface"
+    ]
+  },
+  "modes": {
+    "chat": {
+      "maxComponents": 25,
+      "maxDepth": 6,
+      "maxSections": 0
+    },
+    "page": {
+      "maxComponents": 45,
+      "maxDepth": 7,
+      "maxSections": 6
+    }
   },
   "limits": {
-    "maxComponents": 25,
-    "maxDepth": 6,
+    "maxComponents": 45,
+    "maxDepth": 7,
     "maxTextLength": 300,
     "maxProducts": 20
   },
   "dataModel": {
-    "description": "Backend ghi toàn bộ data model sau khi gọi ProductService và ProductPricingService. AI không ghi data model và không chép số từ đây vào literal.",
+    "description": "Backend ghi data model từ service catalog/pricing/home/favorites. AI không ghi data model và không chép số từ đây vào literal. Chỉ bind danh sách có mặt trong <data_model_summary>.",
+    "productLists": [
+      "/products",
+      "/favorites",
+      "/recentlyViewed",
+      "/forYou",
+      "/reorder",
+      "/home/featured",
+      "/home/bestSelling",
+      "/home/deepDiscount",
+      "/home/topRated",
+      "/home/flashSale"
+    ],
+    "otherLists": {
+      "/categories": "CategoryGrid",
+      "/home/combos": "ComboList",
+      "/home/banners": "BannerCarousel",
+      "/home/promotions": "PromotionList"
+    },
     "bindablePaths": [
       "/query/text",
       "/query/sort",
       "/resultCount",
-      "/products",
-      "/products/{index}"
+      "/<productList>",
+      "/<productList>/{index}",
+      "/categories",
+      "/home/combos",
+      "/home/banners",
+      "/home/promotions"
     ],
-    "shape": {
-      "query": {
-        "text": "string | null — từ khóa đã dùng cho GET /api/catalog/products?q=",
-        "sort": "name_asc | name_desc | newest | oldest"
-      },
-      "resultCount": "integer — số phần tử trong /products",
-      "products": [
+    "productShape": {
+      "productId": "UUID",
+      "sku": "string",
+      "name": "string — theo locale",
+      "spec": "string | null",
+      "origin": "string | null",
+      "unitCode": "KG | BOTTLE | PIECE | PACK | TRAY | BOX | BAG | CAN | TIN | TUB | CASE",
+      "imageUrl": "string | null",
+      "currency": "VND",
+      "priceAvailable": "boolean",
+      "listPrice": "number | null — chưa gồm VAT",
+      "salePrice": "number | null",
+      "saleActive": "boolean",
+      "saleEndsAt": "ISO time | null",
+      "minOrderQuantity": "number",
+      "quantityStep": "number",
+      "priceTiers": [
         {
-          "productId": "UUID",
-          "sku": "string",
-          "name": "string — nameVi hoặc nameEn theo locale",
-          "spec": "string | null — packageSpecVi/En",
-          "origin": "string | null",
-          "unitCode": "KG | BOTTLE | PIECE | PACK | TRAY | BOX | BAG | CAN | TIN | TUB | CASE",
-          "imageUrl": "string | null",
-          "currency": "VND",
-          "priceAvailable": "boolean",
-          "listPrice": "number | null — chưa gồm VAT",
-          "salePrice": "number | null",
-          "saleActive": "boolean",
-          "minOrderQuantity": "number",
-          "quantityStep": "number",
-          "priceTiers": [{ "minQuantity": "number", "maxQuantity": "number | null", "unitPrice": "number" }],
-          "inventoryAvailable": "boolean",
-          "availableQuantity": "number | null"
+          "minQuantity": "number",
+          "maxQuantity": "number | null",
+          "unitPrice": "number"
         }
-      ]
+      ],
+      "inventoryAvailable": "boolean",
+      "availableQuantity": "number | null",
+      "averageRating": "number | null",
+      "reviewCount": "number",
+      "facts": {
+        "origin": "string | null — xuất xứ ngắn",
+        "brand": "string",
+        "category": "string",
+        "distributor": "string",
+        "description": "string",
+        "netWeightKg": "number | null",
+        "storage": "string | null — hướng dẫn bảo quản/sơ chế",
+        "technical": "string | null",
+        "originDetail": "string | null — câu chuyện nguồn gốc",
+        "compliance": "string | null — VSATTP/hóa đơn",
+        "nutritionBasis": "string | null — ví dụ 100g",
+        "nutrition": [
+          {
+            "nutrient": "string",
+            "amount": "string"
+          }
+        ],
+        "_note": "Chỉ có khi tra cứu thông tin (tìm theo thuộc tính hoặc ASK_PRODUCT_INFO)."
+      },
+      "matchedOn": "[origin|storage|contains|nutrient|compliance] — nhóm điều kiện khớp khi tìm theo thuộc tính"
+    },
+    "personalLists": {
+      "/recentlyViewed": "Sản phẩm khách vừa xem gần đây (lịch sử duyệt web thật).",
+      "/forYou": "Sản phẩm khách quan tâm nhiều nhất theo thói quen (xem lâu, thêm giỏ); chỉ có khi đủ bằng chứng.",
+      "/reorder": "Customer: sản phẩm từ đơn đã hoàn tất, kèm lastQuantity, timesOrdered."
     }
   },
   "components": {
-    "Text": "Văn bản; text là literal ngắn hoặc {path:'/query/text'}. variant: h1–h5, caption, body.",
+    "Text": "Văn bản ngắn; text là literal hoặc {path:'/query/text'}. variant: h1–h5, caption, body.",
     "Row": "Xếp ngang; children là mảng id.",
-    "Column": "Xếp dọc; children là mảng id. Thường dùng làm root.",
+    "Column": "Xếp dọc; children là mảng id. Dùng làm root.",
     "Card": "Khung bao một child.",
     "Divider": "Đường phân cách.",
     "Button": "Nút; child là id của Text; action chỉ trong danh sách actions.",
-    "ProductGrid": "Lưới thẻ sản phẩm từ items={path:'/products'}; columns 2|3|4; density; showPriceTiers; showAddToCart.",
-    "ProductTable": "Bảng so sánh từ items={path:'/products'}; columns chọn trong image,name,spec,price,priceTiers,moq,stock; highlight none|lowestPrice|inStock.",
+    "PageHeader": "[page] Đầu trang: title theo mục đích người dùng, subtitle giải thích cách sắp trang. Đặt đầu tiên, tối đa 1.",
+    "Section": "[page] Một khối nội dung có tiêu đề; child là một component (bọc nhiều phần tử trong Column). variant plain|card|highlight (highlight tối đa 1).",
+    "ProductGrid": "Lưới thẻ sản phẩm từ một danh sách sản phẩm; columns 2|3|4; density; showPriceTiers; showAddToCart.",
+    "ProductTable": "Bảng so sánh từ một danh sách sản phẩm; columns trong image,name,spec,origin,price,priceTiers,moq,stock; highlight none|lowestPrice|inStock.",
+    "ProductCarousel": "[page] Dải sản phẩm cuộn ngang từ một danh sách sản phẩm; hợp với khối phụ (bán chạy, giảm sâu, yêu thích).",
     "ProductCard": "Một sản phẩm nổi bật, product={path:'/products/0'}.",
     "PriceTiers": "Bảng giá theo bậc số lượng của một sản phẩm.",
-    "InventoryBadge": "Nhãn còn hàng/hết hàng của một sản phẩm (renderer tính từ availableQuantity).",
+    "ProductFacts": "Thông tin mô tả của một sản phẩm lấy nguyên từ DB: sections trong storage, origin, nutrition, technical, compliance, description; product={path:'/products/0'}. Dùng khi khách hỏi bảo quản, xuất xứ, thành phần, dinh dưỡng.",
+    "InventoryBadge": "Nhãn còn hàng/hết hàng của một sản phẩm.",
+    "BannerCarousel": "[page] Banner khuyến mãi đã đăng, items={path:'/home/banners'}.",
+    "CategoryGrid": "[page] Lối tắt danh mục, items={path:'/categories'}; showChildren hiện danh mục con.",
+    "ComboList": "[page] Combo đang bán kèm món và số suất, items={path:'/home/combos'}.",
+    "ReorderList": "[page] Mua lại: sản phẩm từ đơn đã hoàn tất của khách kèm số lượng lần trước, items={path:'/reorder'}. Chỉ dùng khi /reorder có dữ liệu.",
+    "CartSummary": "[page] Tóm tắt giỏ hàng hiện tại trên trình duyệt (số món, tạm tính) và nút mở giỏ. Không bind dữ liệu; chỉ có title.",
+    "PromotionList": "[page] Chương trình khuyến mãi đang chạy kèm thời gian, items={path:'/home/promotions'}.",
     "Notice": "Thông báo info|success|warning|empty; không chứa số liệu tự bịa.",
-    "ClarifyQuestion": "Câu hỏi làm rõ kèm tối đa 6 lựa chọn.",
+    "ClarifyQuestion": "Câu hỏi làm rõ kèm tối đa 6 lựa chọn là từ khóa ngắn.",
     "SuggestedPrompts": "1–4 câu gợi ý bước tiếp theo."
   },
   "actions": {
-    "view_product": "Mở /products/:productId. context.productId phải bind tới sản phẩm trong /products.",
-    "add_to_cart": "Thêm vào giỏ local (cartStore), mặc định số lượng = MOQ. Giá và tồn được kiểm tra lại khi tạo Quote.",
-    "refine_search": "Tìm lại với q/sort mới; backend gọi lại API và ghi data model mới.",
-    "send_prompt": "Gửi một câu như tin nhắn mới của người dùng.",
-    "open_page": "Điều hướng: catalog | cart | orders | favorites | profile | brands."
+    "view_product": "Mở trang chi tiết sản phẩm. Renderer tự gắn cho thẻ/bảng sản phẩm.",
+    "add_to_cart": "Thêm vào giỏ với số lượng = MOQ. Giá và tồn được kiểm tra lại khi tạo báo giá.",
+    "refine_search": "Tìm lại với q/sort mới; backend dựng lại giao diện.",
+    "send_prompt": "Gửi một câu như yêu cầu mới của người dùng.",
+    "open_page": "Mở trang có sẵn: catalog | cart | orders | favorites | profile | brands.",
+    "open_category": "Mở trang danh mục theo code. Renderer tự gắn cho CategoryGrid."
   },
   "fallback": {
-    "onModelError": "Gửi RUN_ERROR và để FE hiển thị trang /products với từ khóa đã nhận.",
-    "onValidationError": "Thử lại tối đa 1 lần kèm danh sách lỗi đã lọc; sau đó dùng bố cục mặc định ProductGrid.",
-    "defaultLayout": "Column[root] → Text(h3, tiêu đề) + ProductGrid(/products) + SuggestedPrompts"
+    "onModelError": "Chat: RUN_ERROR, FE gợi ý trang /products. Page: dùng bố cục mặc định theo dữ liệu đã có.",
+    "onValidationError": "Thử lại tối đa 1 lần kèm danh sách lỗi; sau đó dùng bố cục mặc định.",
+    "defaultChatLayout": "Column → Text(tiêu đề) + ProductGrid(/products)",
+    "defaultPageLayout": "Column → PageHeader + Section(ProductGrid /products nếu có) + Section(ProductCarousel /home/bestSelling) + Section(CategoryGrid /categories)"
   }
 }
