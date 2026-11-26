@@ -26,7 +26,7 @@ public interface CouponRepository extends JpaRepository<Coupon, UUID> {
 
     @Query(value = """
         select distinct c.* from public.coupons c
-        where c.is_active = true and (
+        where (
             exists (select 1 from public.customer_coupon_history h
                     where h.customer_id = :customerId and h.coupon_id = c.id and h.code = c.code)
             or exists (select 1 from public.orders o where o.customer_id = :customerId
@@ -44,17 +44,45 @@ public interface CouponRepository extends JpaRepository<Coupon, UUID> {
     @Query("select c from Coupon c where c.id = :id")
     Optional<Coupon> findForUpdate(@Param("id") UUID id);
 
+    interface Usage {
+        UUID getCouponId();
+        long getTotal();
+        long getUsed();
+        long getReserved();
+    }
+
+    // The same rules serve both display and enforcement, including unexpired reservations.
     @Query(value = """
-        select count(*) from public.orders o
-        where ((:scope = 'PRODUCT' and o.coupon_id = :couponId and o.coupon_redeemed_at is not null)
-            or (:scope = 'SHIPPING' and o.shipping_coupon_id = :couponId and o.shipping_coupon_redeemed_at is not null)
-            or (o.status in ('CONFIRMED', 'PROCESSING')
-                and (o.reservation_expires_at is null or o.reservation_expires_at > clock_timestamp())
-                and o.reservation_released_at is null
-                and ((:scope = 'PRODUCT' and o.coupon_id = :couponId)
-                  or (:scope = 'SHIPPING' and o.shipping_coupon_id = :couponId))))
-          and (cast(:customerId as uuid) is null or o.customer_id = :customerId)
+        select u.id as "couponId", count(*) as total,
+               count(*) filter (where u.customer_id=:customerId and u.redeemed is not null) as used,
+               count(*) filter (where u.customer_id=:customerId and u.redeemed is null) as reserved
+        from (
+            select coupon_id as id, 'PRODUCT' as scope, customer_id, coupon_redeemed_at as redeemed,
+                   status, reservation_expires_at, reservation_released_at
+            from public.orders where coupon_id in (:ids)
+            union all
+            select shipping_coupon_id, 'SHIPPING', customer_id, shipping_coupon_redeemed_at,
+                   status, reservation_expires_at, reservation_released_at
+            from public.orders where shipping_coupon_id in (:ids)
+        ) u join public.coupons c on c.id=u.id and c.applies_to=u.scope
+        where u.redeemed is not null or (u.status in ('CONFIRMED','PROCESSING')
+              and (u.reservation_expires_at is null or u.reservation_expires_at > clock_timestamp())
+              and u.reservation_released_at is null)
+        group by u.id
         """, nativeQuery = true)
-    long countUsedOrReserved(@Param("couponId") UUID couponId, @Param("scope") String scope,
-                             @Param("customerId") UUID customerId);
+    List<Usage> usage(@Param("ids") List<UUID> ids, @Param("customerId") UUID customerId);
+
+    interface ScopedProduct {
+        UUID getCouponId();
+        UUID getProductId();
+        String getNameVi();
+        String getNameEn();
+    }
+
+    @Query(value = """
+        select cp.coupon_id as "couponId", p.id as "productId", p.name_vi as "nameVi", p.name_en as "nameEn"
+        from public.coupon_products cp join public.products p on p.id=cp.product_id
+        where cp.coupon_id in (:ids) and p.status='PUBLISHED' order by p.name_vi,p.id
+        """, nativeQuery = true)
+    List<ScopedProduct> scopedProducts(@Param("ids") List<UUID> ids);
 }

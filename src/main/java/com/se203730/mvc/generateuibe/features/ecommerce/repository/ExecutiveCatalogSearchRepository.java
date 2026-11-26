@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Map;
 
 /**
- * Read-only executive search. Reuses the Customer's V51 ranked search for PUBLISHED
+ * Read-only executive search. Reuses the Customer's ranked search for PUBLISHED
  * products, and performs conservative normalized matching on DRAFT/ARCHIVED products.
  * Never exposes unpublished products through the public catalog endpoint.
  */
@@ -33,7 +33,7 @@ public class ExecutiveCatalogSearchRepository {
         ) d
         CROSS JOIN LATERAL (
             SELECT CASE
-                -- For published products, obey precisely the same V51 relevance gate as Customer.
+                -- For published products, obey precisely the same relevance gate as Customer.
                 WHEN p.status = 'PUBLISHED' THEN coalesce(r.relevance, 0)
                 -- Unpublished products are management-only. Match their names/SKUs
                 -- conservatively, without fuzzy expansion or unrelated suggestions.
@@ -43,11 +43,8 @@ public class ExecutiveCatalogSearchRepository {
                 WHEN lower(p.name_vi) = lower(trim(:term)) OR lower(p.name_en) = lower(trim(:term)) THEN 135
                 WHEN d.q <> '' AND (catalog_search.fold_v1(p.name_vi) = d.q
                     OR catalog_search.fold_v1(p.name_en) = d.q) THEN 125
-                WHEN d.q <> '' AND position(' ' || d.q IN ' ' || d.name_key) > 0 THEN 110
-                WHEN d.q <> '' AND NOT EXISTS (
-                    SELECT 1 FROM unnest(string_to_array(d.q, ' ')) AS token
-                    WHERE token <> '' AND position(' ' || token IN ' ' || d.name_key) = 0
-                ) THEN 90
+                WHEN d.q <> '' AND to_tsvector('simple',p.catalog_terms)
+                    @@ plainto_tsquery('simple',catalog_search.label_v2(:term)) THEN 90
                 WHEN d.q <> '' AND (d.brand_key = d.q OR d.category_key = d.q) THEN 60
                 ELSE 0
             END AS relevance

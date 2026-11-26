@@ -40,13 +40,19 @@ public interface WarehouseStockRepository extends JpaRepository<WarehouseStock, 
                    coalesce(s.on_hand_quantity, 0) as "onHand", coalesce(s.reserved_quantity, 0) as reserved,
                    coalesce(s.available_quantity, 0) as available
             from public.products p left join public.inventory s on p.id = s.product_id
-            where :keyword is null or lower(p.name_vi) like lower(concat('%', :keyword, '%'))
-                or lower(p.sku) like lower(concat('%', :keyword, '%'))
-            order by p.name_vi, p.id
+            left join catalog_search.ranked(cast(:keyword as text)) r on r.product_id=p.id
+            where cast(:keyword as text) is null or r.product_id is not null
+               or (p.status <> 'PUBLISHED' and catalog_search.fold_v1(:keyword) <> '' and
+                   (catalog_search.fold_v1(p.sku)=catalog_search.fold_v1(:keyword)
+                    or to_tsvector('simple',p.catalog_terms) @@ plainto_tsquery('simple',catalog_search.label_v2(:keyword))))
+            order by r.relevance desc nulls last, p.name_vi, p.id
             """, countQuery = """
             select count(*) from public.products p
-            where :keyword is null or lower(p.name_vi) like lower(concat('%', :keyword, '%'))
-                or lower(p.sku) like lower(concat('%', :keyword, '%'))
+            left join catalog_search.ranked(cast(:keyword as text)) r on r.product_id=p.id
+            where cast(:keyword as text) is null or r.product_id is not null
+               or (p.status <> 'PUBLISHED' and catalog_search.fold_v1(:keyword) <> '' and
+                   (catalog_search.fold_v1(p.sku)=catalog_search.fold_v1(:keyword)
+                    or to_tsvector('simple',p.catalog_terms) @@ plainto_tsquery('simple',catalog_search.label_v2(:keyword))))
             """, nativeQuery = true)
     Page<StockView> search(@Param("keyword") String keyword, Pageable pageable);
 }

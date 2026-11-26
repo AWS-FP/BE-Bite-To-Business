@@ -43,23 +43,72 @@ public class QuoteCouponService {
     @Autowired
     private QuoteResponseFactory responses;
 
-    public record SavedCoupon(String code, String scope) {}
+    public record EligibleProduct(UUID id, String nameVi, String nameEn) {}
+    public record SavedCoupon(String code, String scope, String nameVi, String nameEn,
+            String discountType, BigDecimal discountValue, BigDecimal maxDiscountAmount, BigDecimal minOrderAmount,
+            Integer usageLimitPerUser, Integer usageLimit, long used, long reserved, Long remaining,
+            Instant startsAt, Instant endsAt, String productScope, List<EligibleProduct> products,
+            boolean valid, String reason) {}
 
-    @Transactional(readOnly = true)
-    public List<SavedCoupon> reusable(UUID customerId, UUID quoteId) {
+    private Quote ownedQuote(UUID customerId, UUID quoteId) {
         if (accounts.requireActiveUser(customerId).getRole() != UserRole.CUSTOMER) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
-        Quote quote = quotes.findById(quoteId).filter(q -> customerId.equals(q.getCustomerId()))
+        return quotes.findById(quoteId).filter(q -> customerId.equals(q.getCustomerId()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
+    public List<SavedCoupon> reusable(UUID customerId, UUID quoteId) {
+        Quote quote = ownedQuote(customerId, quoteId);
+        return describe(quote, coupons.previouslyEntered(customerId));
+    }
+
+    @Transactional
+    public SavedCoupon inspect(UUID customerId, UUID quoteId, String code) {
+        Quote quote = ownedQuote(customerId, quoteId);
+        if (code == null || !code.matches("[A-Za-z0-9]{8}")) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        Coupon coupon = coupons.findByCode(code.toUpperCase(Locale.ROOT))
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REQUEST));
+        coupons.remember(customerId, coupon.getId(), coupon.getCode());
+        return describe(quote, List.of(coupon)).getFirst();
+    }
+
+    private List<SavedCoupon> describe(Quote quote, List<Coupon> known) {
+        if (known.isEmpty()) return List.of();
+        var ids = known.stream().map(Coupon::getId).toList();
+        Map<UUID, CouponRepository.Usage> usage = new HashMap<>();
+        coupons.usage(ids, quote.getCustomerId()).forEach(row -> usage.put(row.getCouponId(), row));
+        Map<UUID, List<EligibleProduct>> scopes = new HashMap<>();
+        for (var row : coupons.scopedProducts(ids)) {
+            scopes.computeIfAbsent(row.getCouponId(), ignored -> new java.util.ArrayList<>())
+                    .add(new EligibleProduct(row.getProductId(), row.getNameVi(), row.getNameEn()));
+        }
+        Set<UUID> paidLines = new HashSet<>();
+        items.findAllByQuoteIdOrderByCreatedAtAsc(quote.getId()).stream()
+                .filter(line -> lineBase(line).signum() > 0).forEach(line -> paidLines.add(line.getProductId()));
         Instant now = clock.now();
-        BigDecimal amount = merchandise(quote);
-        List<QuoteItem> lines = items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId);
-        return coupons.previouslyEntered(customerId).stream()
-                .filter(c -> valid(c, c.getAppliesTo(), amount, now, customerId))
-                .filter(c -> !"PRODUCT".equals(c.getAppliesTo()) || eligibleBase(c, lines).signum() > 0)
-                .map(c -> new SavedCoupon(c.getCode(), c.getAppliesTo()))
-                .toList();
+        return known.stream().map(c -> {
+            var counts = usage.get(c.getId());
+            long used = counts == null ? 0 : counts.getUsed();
+            long reserved = counts == null ? 0 : counts.getReserved();
+            Long remaining = c.getUsageLimitPerUser() == null ? null
+                    : Math.max(0L, c.getUsageLimitPerUser() - used - reserved);
+            if (c.getUsageLimit() != null) {
+                long globalRemaining = Math.max(0L, c.getUsageLimit() - (counts == null ? 0 : counts.getTotal()));
+                remaining = remaining == null ? globalRemaining : Math.min(remaining, globalRemaining);
+            }
+            var products = scopes.getOrDefault(c.getId(), List.of());
+            String reason = reason(c, merchandise(quote), now, counts);
+            if (reason == null && "PRODUCT".equals(c.getAppliesTo()) && (paidLines.isEmpty()
+                    || ("SELECTED".equals(c.getProductScope()) && products.stream().noneMatch(p -> paidLines.contains(p.id()))))) {
+                reason = "PRODUCT_SCOPE";
+            }
+            return new SavedCoupon(c.getCode(), c.getAppliesTo(), c.getNameVi(), c.getNameEn(), c.getDiscountType(),
+                    c.getDiscountValue(), c.getMaxDiscountAmount(), c.getMinOrderAmount(), c.getUsageLimitPerUser(), c.getUsageLimit(),
+                    used, reserved, remaining, c.getStartsAt(), c.getEndsAt(), c.getProductScope(), products,
+                    reason == null, reason);
+        }).toList();
     }
 
     @Transactional
@@ -159,17 +208,21 @@ public class QuoteCouponService {
     }
 
     private boolean valid(Coupon coupon, String scope, BigDecimal merchandise, Instant now, UUID customerId) {
-        boolean valid = coupon.isActive() && scope.equals(coupon.getAppliesTo())
-                && !now.isBefore(coupon.getStartsAt()) && now.isBefore(coupon.getEndsAt())
-                && merchandise.compareTo(coupon.getMinOrderAmount()) >= 0;
-        return valid && withinUsageLimits(coupon, scope, customerId);
+        if (!scope.equals(coupon.getAppliesTo())) return false;
+        var usage = coupon.getUsageLimit() == null && coupon.getUsageLimitPerUser() == null ? null
+                : coupons.usage(List.of(coupon.getId()), customerId).stream().findFirst().orElse(null);
+        return reason(coupon, merchandise, now, usage) == null;
     }
 
-    private boolean withinUsageLimits(Coupon coupon, String scope, UUID customerId) {
-        if (coupon.getUsageLimit() != null
-                && coupons.countUsedOrReserved(coupon.getId(), scope, null) >= coupon.getUsageLimit()) return false;
-        return coupon.getUsageLimitPerUser() == null
-                || coupons.countUsedOrReserved(coupon.getId(), scope, customerId) < coupon.getUsageLimitPerUser();
+    private String reason(Coupon coupon, BigDecimal merchandise, Instant now, CouponRepository.Usage usage) {
+        if (!coupon.isActive()) return "INACTIVE";
+        if (now.isBefore(coupon.getStartsAt())) return "NOT_STARTED";
+        if (!now.isBefore(coupon.getEndsAt())) return "EXPIRED";
+        if (usage != null && coupon.getUsageLimit() != null && usage.getTotal() >= coupon.getUsageLimit()) return "GLOBAL_LIMIT";
+        if (usage != null && coupon.getUsageLimitPerUser() != null
+                && usage.getUsed() + usage.getReserved() >= coupon.getUsageLimitPerUser()) return "USER_LIMIT";
+        if (merchandise.compareTo(coupon.getMinOrderAmount()) < 0) return "MINIMUM";
+        return null;
     }
 
     private BigDecimal merchandise(Quote quote) {
