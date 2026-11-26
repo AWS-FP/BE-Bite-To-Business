@@ -3,6 +3,8 @@ package com.se203730.mvc.generateuibe.features.admin.service;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.ApiDiagnosticsResponse;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.ApiDiagnosticsResponse.Row;
 import jakarta.annotation.PreDestroy;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -14,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -31,38 +34,7 @@ public class ApiDiagnosticsService {
     private final AthenaClient athena;
     private final String output;
     private final String alb;
-    private static final String SQL = """
-WITH access AS (
-    SELECT request_verb AS method, TRY(url_extract_path(request_url)) AS path,
-           elb_status_code AS status,
-           CASE WHEN TRY_CAST(target_status_code AS integer) = elb_status_code
-                THEN 'BACKEND' ELSE 'ALB' END AS source,
-           IF(target_processing_time >= 0, target_processing_time * 1000, NULL) AS duration,
-           TRY(from_iso8601_timestamp(time)) AS seen
-    FROM btb_logs.alb_access_logs
-    WHERE day BETWEEN '{firstDay}' AND '{lastDay}'
-      AND elb = '{alb}'
-), routes AS (
-    SELECT method, {routeCase} AS route, status, source, duration, seen
-    FROM access
-    WHERE starts_with(path, '/api/') AND seen >= from_iso8601_timestamp('{from}')
-      AND seen < from_iso8601_timestamp('{to}')
-), counts AS (
-    SELECT method, route, status, source, grouping(status) AS group_level,
-           count(*) AS requests, avg(duration) AS average_ms,
-           approx_percentile(duration, 0.95) AS p95_ms, max(seen) AS last_seen
-    FROM routes
-    GROUP BY GROUPING SETS ((method, route), (method, route, status, source))
-), ranked AS (
-    SELECT *, row_number() OVER (PARTITION BY group_level, status / 100 ORDER BY
-        IF(group_level = 0, requests, NULL) DESC NULLS LAST,
-        p95_ms DESC NULLS LAST, method, route, status, source) AS rank_no
-    FROM counts
-    WHERE (group_level = 1 AND p95_ms IS NOT NULL) OR status BETWEEN 400 AND 599
-)
-SELECT method, route, status, source, requests, average_ms, p95_ms, to_iso8601(last_seen), group_level
-FROM ranked WHERE rank_no <= 30 ORDER BY group_level, rank_no
-            """;
+    private final String sql;
     private final Map<Integer, Job> jobs = new HashMap<>();
 
     private record Job(Instant to, String id, Instant retryAfter, ApiDiagnosticsResponse result) {}
@@ -71,11 +43,12 @@ FROM ranked WHERE rank_no <= 30 ORDER BY group_level, rank_no
             @Qualifier("requestMappingHandlerMapping") ObjectProvider<RequestMappingHandlerMapping> mappings,
             @Value("${app.monitoring.region:ap-southeast-1}") String region,
             @Value("${app.monitoring.athena-output:}") String output,
-            @Value("${app.monitoring.alb:}") String alb) {
+            @Value("${app.monitoring.alb:}") String alb) throws IOException {
         this.accounts = accounts;
         this.mappings = mappings;
         this.output = output;
         this.alb = alb;
+        this.sql = new ClassPathResource("monitoring/api-diagnostics.sql").getContentAsString(StandardCharsets.UTF_8);
         this.athena = AthenaClient.builder().region(Region.of(region))
                 .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofSeconds(6))).build();
     }
@@ -95,7 +68,7 @@ FROM ranked WHERE rank_no <= 30 ORDER BY group_level, rank_no
         try {
             if (job == null || !job.to().equals(to) ||
                     (job.retryAfter() != null && !now.isBefore(job.retryAfter()))) {
-                String query = SQL.replace("{from}", from.toString()).replace("{to}", to.toString())
+                String query = sql.replace("{from}", from.toString()).replace("{to}", to.toString())
                         .replace("{firstDay}", DAY.format(from)).replace("{lastDay}", DAY.format(to.minusNanos(1)))
                         .replace("{alb}", alb.replace("'", "''")).replace("{routeCase}", routeCase());
                 String id = athena.startQueryExecution(r -> r.queryString(query)
