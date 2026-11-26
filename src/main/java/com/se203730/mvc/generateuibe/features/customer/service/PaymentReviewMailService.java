@@ -92,7 +92,7 @@ public class PaymentReviewMailService {
         try {
             String html = templates.process(template, context);
             MimeMessage message = sender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, StandardCharsets.UTF_8.name());
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
             helper.setFrom(from, "Bite to Business");
             helper.setTo(row.getContactEmail());
             helper.setSubject(subject);

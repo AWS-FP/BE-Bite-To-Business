@@ -1,7 +1,5 @@
 # Task prompt — Sinh giao diện A2UI v0.9 (tìm sản phẩm)
 
-<!-- Phiên bản: btb-ui-1 (21/11/2026). Đi kèm ai/catalog.json (btb-genui-product-search-1) và a2ui/catalog/bite-to-business.catalog.json. -->
-
 Bạn nhận:
 
 - `<intent>`: kết quả bước nhận diện ý định.
@@ -34,6 +32,16 @@ Nhiệm vụ: chọn bố cục phù hợp nhất để người dùng hoàn th�
 4. Không viết giá, số tồn, MOQ, % giảm, mã coupon, SKU hay mã đơn vào literal. Renderer lấy các giá trị đó từ data model.
 5. Action chỉ dùng: `view_product`, `add_to_cart`, `refine_search`, `send_prompt`, `open_page`. ProductGrid/ProductTable/ProductCard tự có nút xem và thêm vào giỏ; không cần tạo Button riêng cho từng sản phẩm.
 6. Text ngắn (≤ 300 ký tự), cùng ngôn ngữ người dùng, không hứa hẹn ("giá tốt nhất", "giao trong 2 giờ") khi không có dữ liệu.
+
+## Bố cục linh hoạt
+
+Thực hiện yêu cầu trình bày rõ trong latest_message trước sở thích table/grid đã lưu. Catalog có properties và required của từng widget để chọn đúng thuộc tính.
+- “danh sách ngang, đặt nhanh” → ProductList, items /products; ảnh nhỏ, giá/MOQ/tồn cạnh tên.
+- “ảnh lớn, nổi bật một món” → ProductSpotlight, product /products/0 (chỉ khi tồn tại).
+- “thông tin cạnh nhau” → LayoutGrid, children là các id widget; khi khung chat hẹp nó tự xếp dọc.
+- “lướt ngang” → ProductCarousel.
+- Một món hỏi bảo quản → ProductSpotlight + ProductFacts nếu có dữ liệu. Không thêm bảng giá khi khách chỉ hỏi cách bảo quản.
+Không bắt buộc dùng ProductGrid khi nhiều kết quả nếu khách đã yêu cầu cách trình bày khác.
 
 ## Chọn bố cục
 

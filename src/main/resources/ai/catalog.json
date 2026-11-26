@@ -1,5 +1,5 @@
 {
-  "contractVersion": "btb-genui-4",
+  "contractVersion": "btb-genui-5",
   "a2uiVersion": "v0.9",
   "catalogId": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
   "catalogSchema": "classpath:a2ui/catalog/bite-to-business.catalog.json",
@@ -122,6 +122,9 @@
     }
   },
   "components": {
+    "LayoutGrid": "Bố cục tự co theo chiều rộng vùng chứa. children: 1–6 id; layout equal (hai vùng bằng nhau), thirds (ba vùng), sidebar-left (phụ trái, chính phải), sidebar-right (chính trái, phụ phải); gap small|medium|large; align start|stretch. Chat và mobile tự xếp dọc. Mỗi vùng là Section/Column/widget; không dùng Row cho các khối rộng.",
+    "ProductList": "Danh sách dọc với thẻ ngang: ảnh nhỏ cạnh tên, giá, MOQ và tồn thật. items bind một danh sách sản phẩm, maxItems 1–20 mặc định 8; showPriceTiers, showAddToCart. Hợp đặt nhanh, màn hình hẹp hoặc khi khách muốn đọc danh sách thay lưới.",
+    "ProductSpotlight": "Một sản phẩm nổi bật với ảnh lớn và vùng thông tin cạnh nhau khi đủ chỗ, tự xếp dọc trên mobile/chat. product bind /products/{index} hoặc phần tử của danh sách sản phẩm có dữ liệu; showPriceTiers, showAddToCart. Chọn theo yêu cầu khách hoặc vai trò trong trang, không tự gán nhãn tốt nhất.",
     "Text": "Văn bản ngắn; text là literal hoặc {path:'/query/text'}. variant: h1–h5, caption, body.",
     "Row": "Xếp ngang; children là mảng id.",
     "Column": "Xếp dọc; children là mảng id. Dùng làm root.",
