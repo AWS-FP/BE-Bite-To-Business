@@ -56,8 +56,12 @@ public class PackageReturnService {
             throw new BusinessException(ErrorCode.RETURN_NOT_ALLOWED);
         }
         UUID id = UUID.randomUUID();
+        var amounts = returns.calculateAmounts(packageId);
+        if (amounts == null) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
         returns.insert(id, packageId, customerId, request.reason().strip(), request.bank().strip(),
-                request.accountNumber().strip(), request.accountName().strip(), now);
+                request.accountNumber().strip(), request.accountName().strip(), now, amounts);
         return returns.find(id).orElseThrow();
     }
 
@@ -83,6 +87,9 @@ public class PackageReturnService {
     public ReturnView accept(UUID adminId, UUID id) {
         accounts.requireAdmin(adminId);
         ReturnView current = lockRequested(id);
+        if (current.refundAmount() == null) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
         Instant now = clock.now();
         returns.review(id, "ACCEPTED", adminId, null, now);
         stock.restockReturned(current.orderId(), current.packageId(), adminId, now);
@@ -110,6 +117,24 @@ public class PackageReturnService {
                 "Yêu cầu trả kiện \"" + current.packageName() + "\" không được chấp nhận: " + reason,
                 "The return request for package \"" + current.packageName() + "\" was declined: " + reason,
                 reason);
+        return returns.find(id).orElseThrow();
+    }
+
+    @Transactional
+    public ReturnView confirmRefund(UUID adminId, UUID id) {
+        accounts.requireAdmin(adminId);
+        String status = returns.lockStatus(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        ReturnView current = returns.find(id).orElseThrow();
+        if (!"ACCEPTED".equals(status) || current.refundedAt() != null || current.refundAmount() == null) {
+            throw new BusinessException(ErrorCode.CONFLICT);
+        }
+        Instant now = clock.now();
+        returns.recordRefund(id, adminId, now);
+        notifications.publish(current.customerId(), null, null, "ORDER", "Đã ghi nhận hoàn tiền", "Refund recorded",
+                "Khoản hoàn cho kiện \"" + current.packageName() + "\" đã được ghi nhận.",
+                "The refund for package \"" + current.packageName() + "\" was recorded.",
+                "/orders/" + current.orderId());
         return returns.find(id).orElseThrow();
     }
 
