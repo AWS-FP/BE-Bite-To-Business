@@ -20,6 +20,8 @@ public class Coupon {
     @Id
     private UUID id;
     private String code;
+    private String nameVi;
+    private String nameEn;
     private String appliesTo;
     private String productScope;
     private String discountType;

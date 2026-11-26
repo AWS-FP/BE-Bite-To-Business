@@ -15,6 +15,7 @@ import com.se203730.mvc.generateuibe.features.customer.entity.Quote;
 import com.se203730.mvc.generateuibe.features.customer.entity.QuoteItem;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteRepository;
+import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductInventoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +27,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.UUID;
 
 @Service
@@ -36,6 +38,8 @@ public class QuoteDraftService {
     private QuoteItemRepository items;
     @Autowired
     private QuotePriceService prices;
+    @Autowired
+    private ProductInventoryRepository inventory;
     @Autowired
     private UserRepository users;
     @Autowired
@@ -70,6 +74,12 @@ public class QuoteDraftService {
         var productIds = new HashSet<UUID>();
         for (UpdateQuoteItemRequest line : request.items()) {
             if (!productIds.add(line.productId())) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        var available = new HashMap<UUID, BigDecimal>();
+        inventory.findAllById(productIds).forEach(stock -> available.put(stock.getProductId(), stock.getAvailableQuantity()));
+        if (request.items().stream().anyMatch(line ->
+                available.getOrDefault(line.productId(), BigDecimal.ZERO).compareTo(line.quantity()) < 0)) {
+            throw new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE);
         }
         Quote quote = quotes.findFirstByCustomerIdAndStatusOrderByUpdatedAtDesc(customerId, "DRAFT")
                 .orElse(null);
