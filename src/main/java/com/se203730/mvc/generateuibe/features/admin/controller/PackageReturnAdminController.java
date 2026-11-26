@@ -69,4 +69,10 @@ public class PackageReturnAdminController {
             @RequestBody RejectRequest request) {
         return ok(returns.reject(adminId, id, request.note()));
     }
+
+    @PatchMapping("/{id}/refunded")
+    public ResponseEntity<ResponseObject<ReturnView>> confirmRefund(
+            @CurrentUserUUID UUID adminId, @PathVariable UUID id) {
+        return ok(returns.confirmRefund(adminId, id));
+    }
 }

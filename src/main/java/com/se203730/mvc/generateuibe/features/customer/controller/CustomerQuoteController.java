@@ -186,6 +186,16 @@ public class CustomerQuoteController {
                 .body(new ResponseObject<>(200, "Success", coupons.reusable(customerId, quoteId)));
     }
 
+    public record CouponLookup(@jakarta.validation.constraints.NotBlank
+            @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z0-9]{8}") String code) {}
+
+    @PostMapping("/{quoteId}/coupons/inspect")
+    public ResponseEntity<ResponseObject<QuoteCouponService.SavedCoupon>> inspectCoupon(
+            @CurrentUserUUID UUID customerId, @PathVariable UUID quoteId, @Valid @RequestBody CouponLookup request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Success", coupons.inspect(customerId, quoteId, request.code())));
+    }
+
     @PutMapping("/{quoteId}/cart")
     public ResponseEntity<ResponseObject<QuoteDraftResponse>> replaceCart(
             @CurrentUserUUID UUID customerId, @PathVariable UUID quoteId,

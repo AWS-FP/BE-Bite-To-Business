@@ -22,7 +22,7 @@ public class ExecutiveMarketingService {
 
     @Transactional(readOnly = true)
     public EcommercePageResponse<Map<String,Object>> coupons(int page,int size) {
-        return db.page("select c.id,c.code,c.discount_type,c.discount_value,c.min_order_amount," +
+        return db.page("select c.id,c.code,c.name_vi,c.name_en,c.discount_type,c.discount_value,c.min_order_amount," +
                 "c.max_discount_amount,c.starts_at,c.ends_at,c.usage_limit,c.usage_limit_per_user," +
                 "c.is_active,c.applies_to,c.product_scope,c.created_by,c.created_at,c.updated_at," +
                 "(select count(*) from public.orders o where (o.coupon_id=c.id or o.shipping_coupon_id=c.id) " +
@@ -32,7 +32,7 @@ public class ExecutiveMarketingService {
     @Transactional(readOnly=true)
     public Map<String,Object> coupon(UUID id) {
         var p = new MapSqlParameterSource("id",id);
-        var row = db.one("select id,code,discount_type,discount_value,min_order_amount,max_discount_amount," +
+        var row = db.one("select id,code,name_vi,name_en,discount_type,discount_value,min_order_amount,max_discount_amount," +
             "starts_at,ends_at,usage_limit,usage_limit_per_user,is_active,applies_to,product_scope,created_at " +
             "from public.coupons where id=:id",p);
         row.put("productIds",db.queryForList("select product_id from public.coupon_products " +
@@ -55,6 +55,7 @@ public class ExecutiveMarketingService {
     }
     private MapSqlParameterSource couponParams(ExecutiveCouponRequest r) {
         return new MapSqlParameterSource().addValue("code",r.code().toUpperCase(Locale.ROOT))
+            .addValue("nameVi",r.nameVi()).addValue("nameEn",r.nameEn())
             .addValue("type",r.discountType()).addValue("value",r.discountValue())
             .addValue("min",r.minOrderAmount()).addValue("max",r.maxDiscountAmount())
             .addValue("start",r.startsAt()).addValue("end",r.endsAt())
@@ -82,9 +83,9 @@ public class ExecutiveMarketingService {
         var p=couponParams(r).addValue("staff",staffId);
         try {
             UUID id=db.queryForObject("insert into public.coupons " +
-                "(code,discount_type,discount_value,min_order_amount,max_discount_amount," +
+                "(code,name_vi,name_en,discount_type,discount_value,min_order_amount,max_discount_amount," +
                 "starts_at,ends_at,usage_limit,usage_limit_per_user,is_active,applies_to,product_scope,created_by) " +
-                "values(:code,:type,:value,:min,:max,:start,:end,:usage,:perUser,:active,:applies,:scope,:staff) " +
+                "values(:code,:nameVi,:nameEn,:type,:value,:min,:max,:start,:end,:usage,:perUser,:active,:applies,:scope,:staff) " +
                 "returning id",p,UUID.class);
             replaceCouponProducts(id,r);
             return coupon(id);
@@ -97,7 +98,7 @@ public class ExecutiveMarketingService {
         db.one("select id from public.coupons where id=:id for update",p);
         // No retroactive changes to confirmed order snapshots; new quotes use the current rules.
         try {
-            db.update("update public.coupons set code=:code,discount_type=:type,discount_value=:value," +
+            db.update("update public.coupons set code=:code,name_vi=coalesce(:nameVi,name_vi),name_en=coalesce(:nameEn,name_en),discount_type=:type,discount_value=:value," +
                 "min_order_amount=:min,max_discount_amount=:max,starts_at=:start,ends_at=:end," +
                 "usage_limit=:usage,usage_limit_per_user=:perUser,is_active=:active," +
                 "applies_to=:applies,product_scope=:scope,updated_at=now() where id=:id",p);

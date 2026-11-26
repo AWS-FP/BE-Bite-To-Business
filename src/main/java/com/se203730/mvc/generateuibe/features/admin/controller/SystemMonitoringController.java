@@ -4,6 +4,8 @@ import com.se203730.mvc.generateuibe.common.annotation.CurrentUserUUID;
 import com.se203730.mvc.generateuibe.common.api.ResponseObject;
 import com.se203730.mvc.generateuibe.features.admin.dto.response.SystemMonitoringResponse;
 import com.se203730.mvc.generateuibe.features.admin.service.SystemMonitoringService;
+import com.se203730.mvc.generateuibe.features.admin.service.ApiDiagnosticsService;
+import com.se203730.mvc.generateuibe.features.admin.dto.response.ApiDiagnosticsResponse;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,8 +15,21 @@ import org.springframework.web.bind.annotation.*;
 public class SystemMonitoringController {
     private final SystemMonitoringService monitoring;
 
-    public SystemMonitoringController(SystemMonitoringService monitoring) {
+    private final ApiDiagnosticsService diagnostics;
+    public SystemMonitoringController(SystemMonitoringService monitoring, ApiDiagnosticsService diagnostics) {
         this.monitoring = monitoring;
+        this.diagnostics = diagnostics;
+    }
+
+    @GetMapping("/api-diagnostics")
+    public ResponseEntity<ResponseObject<ApiDiagnosticsResponse>> diagnostics(@CurrentUserUUID UUID adminId,
+            @RequestParam(defaultValue = "24") int hours) {
+        if (hours != 24 && hours != 168 && hours != 720) return ResponseEntity.badRequest().build();
+        ResponseObject<ApiDiagnosticsResponse> response = new ResponseObject<>();
+        response.setStatus(200);
+        response.setMessage("Success");
+        response.setData(diagnostics.get(adminId, hours));
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(response);
     }
 
     @GetMapping

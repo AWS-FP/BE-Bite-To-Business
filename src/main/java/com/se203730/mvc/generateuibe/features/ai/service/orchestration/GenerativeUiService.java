@@ -1,5 +1,9 @@
 package com.se203730.mvc.generateuibe.features.ai.service.orchestration;
 
+import com.se203730.mvc.generateuibe.features.admin.entity.UserProfile;
+import com.se203730.mvc.generateuibe.features.admin.entity.UserSearchHistory;
+import com.se203730.mvc.generateuibe.features.admin.repository.UserProfileRepository;
+import com.se203730.mvc.generateuibe.features.admin.repository.UserSearchHistoryRepository;
 import com.se203730.mvc.generateuibe.features.ai.client.BedrockClient;
 import com.se203730.mvc.generateuibe.features.ai.client.BedrockClient.ModelReply;
 import com.se203730.mvc.generateuibe.features.ai.dto.RunAgentInput;
@@ -15,9 +19,11 @@ import com.se203730.mvc.generateuibe.features.ecommerce.service.ProductKnowledge
 import com.se203730.mvc.generateuibe.features.ai.service.tools.ProductSearchTool;
 import com.se203730.mvc.generateuibe.features.ai.service.tools.ProductSearchTool.SearchResult;
 import java.io.IOException;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -42,7 +48,7 @@ public class GenerativeUiService {
         void send(Map<String, Object> event) throws IOException;
     }
 
-    record Intent(List<String> intents, JsonNode slots, boolean needsClarification, String question) {
+    record Intent(List<String> intents, JsonNode slots, JsonNode requests, boolean needsClarification, String question) {
     }
 
     private enum Route {
@@ -77,10 +83,15 @@ public class GenerativeUiService {
 
     private final PageDataTool pageData;
     private final UiProfileService profiles;
+    private final UserProfileRepository customers;
+    private final UserSearchHistoryRepository searches;
 
     public GenerativeUiService(BedrockClient bedrock, AiPromptLibrary library, A2uiValidator validator,
             ProductSearchTool products, PageDataTool pageData, UiProfileService profiles,
+            UserProfileRepository customers, UserSearchHistoryRepository searches,
             AiModelRequestRepository modelRequests, ObjectMapper mapper) {
+        this.customers = customers;
+        this.searches = searches;
         this.bedrock = bedrock;
         this.library = library;
         this.validator = validator;
@@ -124,12 +135,13 @@ public class GenerativeUiService {
             return;
         }
 
-        Intent intent = classify(history, latest);
-        // Hồ sơ thói quen (long-term memory) của chính người đang hỏi: Customer theo userId, Guest theo anonId.
-        UiProfile profile = profiles.profile(customerId, state == null ? null : state.anonId());
+        boolean personalize = customerId != null && state != null && Boolean.TRUE.equals(state.personalizationEnabled());
+        UiProfile profile = personalize ? profiles.profile(customerId, null) : UiProfile.empty();
+        Map<String, Object> context = personalize ? shoppingContext(customerId, profile) : Map.of();
+        Intent intent = classify(history, latest, state, context);
         if ("page".equals(input.mode())) {
             log.info("AI page intent {}", intent.intents());
-            generatePage(intent, latest, state, locale, customerId, profile, sink);
+            generatePage(intent, latest, state, locale, customerId, personalize, profile, sink);
             return;
         }
         Route route = route(intent);
@@ -188,15 +200,33 @@ public class GenerativeUiService {
      * (product_name có dấu, product_names, target_view…). Model trả JSON hỏng thì coi như không rõ ý định
      * (intents rỗng) để luồng trả lời văn bản xử lý, không làm vỡ request.
      */
-    Intent classify(String history, String latest) {
+    private Map<String, Object> shoppingContext(UUID customerId, UiProfile profile) {
+        Map<String, Object> context = new LinkedHashMap<>();
+        try {
+            customers.findById(customerId).map(UserProfile::getCustomerType)
+                    .ifPresent(type -> context.put("customer_type", type.name()));
+            List<String> recent = searches.findTop5ByUserIdOrderBySearchedAtDescIdDesc(customerId).stream()
+                    .map(UserSearchHistory::getKeyword).toList();
+            if (!recent.isEmpty()) context.put("recent_searches", recent);
+        } catch (org.springframework.dao.DataAccessException exception) {
+            log.warn("Customer shopping context unavailable: {}", exception.getClass().getSimpleName());
+        }
+        if (profile.personalized()) context.put("ui_profile", profile.toPrompt(Map.of()));
+        return context;
+    }
+
+    private Intent classify(String history, String latest, AgentState state, Map<String, Object> context) {
         String system = library.systemPrompt() + "\n\n" + library.intentPrompt();
-        String user = "<conversation>\n" + history + "\n</conversation>\n<latest_message>\n" + latest
-                + "\n</latest_message>";
-        ModelReply reply = callModel(system, user, 400, 0F, "INTENT");
+        Map<String, Object> input = new LinkedHashMap<>();
+        input.put("latest_message", latest);
+        input.put("conversation", history);
+        if (state != null && state.lastQuery() != null) input.put("last_query", state.lastQuery());
+        input.put("shopping_context", context);
+        ModelReply reply = callModel(system, json(input), 1100, 0F, "INTENT");
         JsonNode json = parseJson(reply.text());
         if (json == null || !json.path("intents").isArray()) {
             record(reply, "FAILED", "INTENT_PARSE");
-            return new Intent(List.of(), mapper.createObjectNode(), false, null);
+            return new Intent(List.of(), mapper.createObjectNode(), mapper.createArrayNode(), false, null);
         }
         record(reply, "SUCCEEDED", null);
         List<String> intents = new ArrayList<>();
@@ -205,7 +235,22 @@ public class GenerativeUiService {
         String question = json.path("clarification_question").isString()
                 ? json.path("clarification_question").asString()
                 : null;
-        return new Intent(intents, slots, json.path("needs_clarification").asBoolean(false), question);
+        var requests = mapper.createArrayNode();
+        JsonNode parts = json.path("requests");
+        if (parts.isArray()) {
+            for (JsonNode part : parts) {
+                if (!part.isObject() || !intents.contains(part.path("intent").asString(""))) continue;
+                ObjectNode item = requests.addObject();
+                for (String key : List.of("intent", "subject", "constraint", "subject_source", "unit")) {
+                    JsonNode field = part.path(key);
+                    if (field.isString() && field.asString().length() <= 160) item.put(key, field.asString());
+                }
+                JsonNode quantity = part.path("quantity");
+                if (quantity.isNumber() && quantity.decimalValue().signum() > 0) item.set("quantity", quantity);
+                if (requests.size() == 6) break;
+            }
+        }
+        return new Intent(intents, slots, requests, json.path("needs_clarification").asBoolean(false), question);
     }
 
     /**
@@ -247,8 +292,9 @@ public class GenerativeUiService {
                 keywords.add(name);
             }
         }
-        boolean reuseLast = keywords.isEmpty() && state != null && state.lastQuery() != null
-                && !state.lastQuery().isBlank() && !intent.needsClarification();
+        boolean reuseLast = intent.intents().contains("CHANGE_UI_PREFERENCE") && keywords.isEmpty()
+                && state != null && state.lastQuery() != null && !state.lastQuery().isBlank()
+                && !intent.needsClarification();
         if (reuseLast) {
             keywords.add(state.lastQuery());
         }
@@ -260,7 +306,9 @@ public class GenerativeUiService {
         AttributeQuery attributes = attributes(intent, keywords);
         String question = intent.question();
         SearchResult result;
-        if (keywords.isEmpty() && !browseNewest && attributes == null) {
+        if (isBroadHealthyRequest(latest)) {
+            result = products.search(List.of("rau", "củ", "quả"), sort, 12, locale);
+        } else if (keywords.isEmpty() && !browseNewest && attributes == null) {
             result = products.empty();
             if (question == null || question.isBlank()) {
                 question = "en".equals(locale) ? "Which product are you looking for?" : "Bạn đang tìm sản phẩm nào?";
@@ -271,7 +319,7 @@ public class GenerativeUiService {
 
         Map<String, Object> preference = preference(intent, state);
         String surfaceId = newSurfaceId("chat");
-        Intent shown = new Intent(intent.intents(), intent.slots(), question != null && result.resultCount() == 0,
+        Intent shown = new Intent(intent.intents(), intent.slots(), intent.requests(), question != null && result.resultCount() == 0,
                 result.resultCount() == 0 ? question : null);
         String profilePrompt = profile.personalized() ? json(profile.toPrompt(Map.of())) : "null";
         JsonNode components = generateComponents(shown, latest, result, preference, profilePrompt, surfaceId);
@@ -326,16 +374,32 @@ public class GenerativeUiService {
         return defaultLayout(result, surfaceId);
     }
 
-    /**
-     * System prompt cho bước sinh UI (chat): system-prompt.md + prompts/ui.md + catalog rút gọn + tối đa 4 ví dụ
-     * few-shot gần nhất với tình huống (cùng intent, cùng kiểu kết quả rỗng/1/nhiều).
-     */
+    /** Thuộc tính và giới hạn lấy cùng schema mà validator dùng để tránh prompt lệch catalog. */
+    private ObjectNode componentCatalog() {
+        ObjectNode guide = mapper.createObjectNode();
+        for (Map.Entry<String, JsonNode> entry : library.catalogSchema().path("components").properties()) {
+            ObjectNode component = guide.putObject(entry.getKey());
+            component.set("description", library.contract().path("components").path(entry.getKey()));
+            ObjectNode props = component.putObject("properties");
+            var required = component.putArray("required");
+            for (JsonNode part : entry.getValue().path("allOf")) {
+                for (Map.Entry<String, JsonNode> property : part.path("properties").properties()) {
+                    if (!"component".equals(property.getKey())) props.set(property.getKey(), property.getValue());
+                }
+                part.path("required").forEach(field -> {
+                    if (!"component".equals(field.asString())) required.add(field.asString());
+                });
+            }
+        }
+        return guide;
+    }
+
     private String uiSystemPrompt(Intent intent, int resultCount, boolean hasPreference) {
         JsonNode contract = library.contract();
         ObjectNode catalog = mapper.createObjectNode();
-        catalog.set("components", contract.path("components"));
+        catalog.set("components", componentCatalog());
         catalog.set("actions", contract.path("actions"));
-        catalog.set("limits", contract.path("limits"));
+        catalog.set("limits", contract.path("modes").path("chat"));
         catalog.set("bindablePaths", contract.path("dataModel").path("bindablePaths"));
         StringBuilder system = new StringBuilder()
                 .append(library.systemPrompt()).append("\n\n")
@@ -408,7 +472,8 @@ public class GenerativeUiService {
      * STATE_SNAPSHOT kèm pageFallback/validationErrors/personalized để bảng cây widget và nghiên cứu theo dõi.
      */
     private void generatePage(Intent intent, String latest, AgentState state, String locale, UUID customerId,
-            UiProfile profile, EventSink sink) throws IOException {
+            boolean personalize, UiProfile profile, EventSink sink) throws IOException {
+        UUID recommendationOwner = personalize ? customerId : null;
         List<String> keywords = new ArrayList<>();
         intent.slots().path("product_names").forEach(node -> {
             if (!node.asString("").isBlank()) {
@@ -421,9 +486,11 @@ public class GenerativeUiService {
         }
         String sort = slot(intent, "sort");
         AttributeQuery attributes = attributes(intent, keywords);
-        PageDataTool.PageData data = keywords.isEmpty() && attributes == null
-                ? pageData.build(keywords, sort, locale, customerId, profile)
-                : pageData.build(findProducts(intent, keywords, attributes, sort, locale, 12), locale, customerId,
+        PageDataTool.PageData data = isBroadHealthyRequest(latest)
+                ? pageData.build(products.search(List.of("rau", "củ", "quả"), sort, 12, locale), locale, recommendationOwner, profile)
+                : keywords.isEmpty() && attributes == null
+                ? pageData.build(keywords, sort, locale, recommendationOwner, profile)
+                : pageData.build(findProducts(intent, keywords, attributes, sort, locale, 12), locale, recommendationOwner,
                         profile);
         Map<String, Object> preference = preference(intent, state);
         String surfaceId = newSurfaceId("page");
@@ -457,9 +524,10 @@ public class GenerativeUiService {
             List<String> diagnostics) {
         JsonNode contract = library.contract();
         ObjectNode catalog = mapper.createObjectNode();
-        catalog.set("components", contract.path("components"));
+        catalog.set("components", componentCatalog());
         catalog.set("actions", contract.path("actions"));
-        catalog.set("dataModel", contract.path("dataModel").path("productLists"));
+        catalog.set("dataModel", contract.path("dataModel"));
+        catalog.set("limits", contract.path("modes").path("page"));
         String system = library.systemPrompt() + "\n\n<business_context>\n" + library.businessContext()
                 + "\n</business_context>\n\n" + library.pagePrompt() + "\n\n<catalog>\n" + json(catalog)
                 + "\n</catalog>";
@@ -560,6 +628,19 @@ public class GenerativeUiService {
         return result;
     }
 
+    /** Only broaden general healthy requests; never discard a specific dietary condition. */
+    private static boolean isBroadHealthyRequest(String text) {
+        String normalized = Normalizer.normalize(text.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").replace('đ', 'd')
+                .replaceAll("[^a-z0-9]+", " ").trim();
+        boolean healthIntent = normalized.matches(".*\\b(healthy|health|khoe|lanh manh|dinh duong)\\b.*");
+        if (!healthIntent) return false;
+        String remainder = normalized.replaceAll(
+                "\\b(san|pham|thuc|an|do|mon|hang|loai|nao|co|khong|ko|khong|k|tot|cho|suc|khoe|healthy|health|lanh|manh|dinh|duong|tu|nhien|ban|tim|kiem|minh|toi|tui|gi|goi|y|muon|can|xin|xem|voi|nhe|a|duoc|of|food|foods|product|products|healthy|health|for|me|any|some|are|there|do|you|have|please|recommend|show)\\b", " ")
+                .replaceAll("\\s+", "").trim();
+        return remainder.isEmpty();
+    }
+
     /** Đọc slot attributes của bước ý định; không có điều kiện thuộc tính nào thì trả null (tìm theo tên). */
     private static AttributeQuery attributes(Intent intent, List<String> keywords) {
         JsonNode node = intent.slots().path("attributes");
@@ -608,6 +689,7 @@ public class GenerativeUiService {
                 + " như [NÚT].";
         String user = "<conversation>\n" + history + "\n</conversation>\n<latest_message>\n" + latest
                 + "\n</latest_message>";
+        user += "\n<intent>\n" + json(intentJson(intent)) + "\n</intent>";
         ModelReply reply = callModel(system, user, 500, 0.3F, "ANSWER");
         record(reply, "SUCCEEDED", null);
         return reply.text().trim();
@@ -718,6 +800,7 @@ public class GenerativeUiService {
         Map<String, Object> value = new LinkedHashMap<>();
         value.put("intents", intent.intents());
         value.put("slots", intent.slots());
+        value.put("requests", intent.requests());
         value.put("needs_clarification", intent.needsClarification());
         value.put("clarification_question", intent.question());
         return value;

@@ -1,7 +1,5 @@
 # Task prompt — Dựng cả trang (chế độ Page, A2UI v0.9)
 
-<!-- Phiên bản: btb-page-2 (25/11/2026). Đi kèm ai/catalog.json (btb-genui-3). -->
-
 Người dùng không muốn trang mặc định. Bạn ghép **một trang** thay thế, phục vụ đúng mục đích của họ, từ thư viện component trong `<catalog>` và dữ liệu backend đã chuẩn bị.
 
 Bạn nhận:
@@ -14,15 +12,27 @@ Bạn nhận:
 
 Xuất **một** message `updateComponents` (`version: "v0.9"`, giữ `surfaceId` được cấp).
 
+## Tự chọn bố cục từ yêu cầu
+
+Catalog gồm mô tả, `properties` và `required` của từng widget. Chỉ chọn thuộc tính ở đúng widget, tuân thủ enum, giới hạn và kiểu binding. Các ví dụ bên dưới là tham khảo, không phải khuôn cố định.
+
+- Đọc yêu cầu về bố cục trong latest_message trước khi áp sở thích grid/table của phiên. Khách muốn ảnh lớn, danh sách ngang hoặc khu vực phụ thì đáp ứng bằng widget tương ứng.
+- `LayoutGrid` ghép các vùng tự co theo chiều rộng: `equal` hai vùng, `thirds` ba vùng, `sidebar-left` vùng phụ bên trái, `sidebar-right` vùng phụ bên phải. children chứa id của Section hoặc widget. Màn hình hẹp tự xếp dọc theo thứ tự children. Nội dung chính nên xuất hiện trước trong thứ tự đọc nếu khách không chỉ định bên trái/phải.
+- `ProductSpotlight` trình bày một sản phẩm với ảnh lớn cạnh thông tin. Chọn index thật trong tóm tắt, dùng showPriceTiers khi hỏi giá sỉ. Không nhắc là tốt nhất khi chưa có chứng cứ.
+- `ProductList` là danh sách thẻ nằm ngang xếp dọc, phù hợp đặt nhanh, đọc nhiều tên hoặc vùng phụ. Chọn maxItems theo chỗ trống và lượng dữ liệu. Dùng ProductCarousel khi người dùng muốn lướt ngang.
+- Có thể phối hợp spotlight + ProductFacts, danh sách chính + CartSummary, hai vùng giá sỉ + thông tin bảo quản, hoặc ba Section danh mục/ưu đãi/mua lại. Bỏ phần không có dữ liệu hoặc không liên quan.
+- Không tự chia kết quả thành nhóm bằng cách đổi tiêu đề. Mỗi danh sách bind là nguyên danh sách BE cung cấp. Nếu làm nổi một phần tử rồi hiện danh sách chứa nó, chỉ lặp khi khách muốn một món nổi bật kèm toàn bộ kết quả.
+- Chat hẹp: dùng một vùng, tối đa một spotlight và một khối facts/tiers liên quan. Page rộng: chọn 1–3 vùng có chủ đích. Tránh bọc quá nhiều Card/Section gây khung lồng khung.
+
 ## Ngữ pháp trang
 
 ```
 root: Column
  ├─ PageHeader            (bắt buộc, đầu tiên)
- ├─ Section (highlight)   (khối trả lời trực tiếp mục đích — tối đa 1)
+ ├─ Section hoặc LayoutGrid chứa các Section (khối trả lời trực tiếp mục đích)
  ├─ Section ...           (khối hỗ trợ quyết định, tối đa 6 Section cả trang)
  └─ SuggestedPrompts      (tùy chọn, cuối trang)
-Section.child = một component, hoặc Column bọc nhiều component
+Section.child = một widget, Column hoặc LayoutGrid ghép nhiều widget
 ```
 
 - `PageHeader.title`: nói rõ trang này dành cho việc gì ("Nguyên liệu cho quán lẩu", "So sánh whipping cream"). `subtitle`: một câu giải thích cách sắp xếp ("Xếp theo nhóm hàng quán lẩu hay dùng, sản phẩm còn hàng lên trước").
@@ -50,7 +60,7 @@ Section.child = một component, hoặc Column bọc nhiều component
 | Đặt lại hàng ("mua lại như lần trước") | `ReorderList` /reorder (Customer) | `CartSummary`; `ProductCarousel` /forYou. /reorder rỗng (chưa có đơn hoàn tất): `Notice` mời đặt đơn đầu tiên + `ProductCarousel` /recentlyViewed |
 | Không tìm thấy gì | `Notice` tone `empty` + `ClarifyQuestion` (2–6 từ khóa có trong danh mục) | `CategoryGrid`; `ProductCarousel` /home/bestSelling |
 
-**Yêu cầu chung** ("gợi ý cho tôi", "trang phù hợp với tôi", "trang chủ", để trống): luôn dựng trang đầy đủ theo dòng "Xem chung / trang cá nhân hóa" với ít nhất 3 Section có dữ liệu. **Không** trả về chỉ một `ClarifyQuestion`; `ClarifyQuestion` chỉ dùng khi người dùng đã tìm một thứ cụ thể mà `/products` rỗng, và khi đó vẫn kèm các Section gợi ý khác.
+**Yêu cầu chung** ("gợi ý cho tôi", "trang phù hợp với tôi", "trang chủ", để trống): chọn các Section có dữ liệu theo dòng "Xem chung / trang cá nhân hóa". Thông thường dùng 3 khối, giảm khi khách muốn gọn hoặc có ít dữ liệu. Chỉ thêm ClarifyQuestion khi cần làm rõ tìm kiếm, không dùng nó thay toàn bộ trang khám phá.
 
 ## Cá nhân hóa theo thói quen (`<ui_profile>`)
 
@@ -76,7 +86,33 @@ Section.child = một component, hoặc Column bọc nhiều component
 3. Không viết giá, %, số tồn, MOQ, ngày, mã coupon, SKU vào literal.
 4. Action chỉ trong catalog. Component sản phẩm/danh mục tự có nút xem, thêm giỏ, mở danh mục; không tạo Button lặp lại các nút đó. Chỉ dùng Button cho `open_page` (giỏ hàng, đơn hàng…).
 5. Không dựng bước xác nhận đơn, thanh toán, hủy, hoàn tiền. Cần thì đặt Button `open_page`.
-6. Chỉ dùng thuộc tính có trong catalog của đúng component: `variant` chỉ có ở `Section` (plain|card|highlight), `Text`, `Button`; `Notice` dùng `tone` (info|success|warning|empty); `PageHeader` chỉ có `title`, `subtitle`.
+6. Chỉ dùng thuộc tính có trong properties của đúng component trong catalog. LayoutGrid dùng layout/gap/align; ProductList và ProductSpotlight dùng showPriceTiers/showAddToCart; Notice dùng tone; Section dùng variant.
+
+## Ví dụ bố cục theo prompt
+
+Khách muốn “Cá hồi ảnh to bên trái, cách bảo quản bên phải, gọn thôi”. Khi /products/0 có hasStorageGuide:
+
+```json
+{"version":"v0.9","updateComponents":{"surfaceId":"page-demo","components":[
+{"id":"root","component":"Column","children":["heading","details"]},
+{"id":"heading","component":"PageHeader","title":"Cá hồi và cách bảo quản"},
+{"id":"details","component":"LayoutGrid","layout":"equal","gap":"medium","children":["featured","facts"]},
+{"id":"featured","component":"ProductSpotlight","product":{"path":"/products/0"}},
+{"id":"facts","component":"ProductFacts","product":{"path":"/products/0"},"sections":["storage"]}
+]}}
+```
+
+Khách muốn “Đặt nhanh bằng danh sách, có giỏ nhỏ bên phải”. Khi /products có kết quả:
+
+```json
+{"version":"v0.9","updateComponents":{"surfaceId":"page-demo","components":[
+{"id":"root","component":"Column","children":["heading","shopping"]},
+{"id":"heading","component":"PageHeader","title":"Chọn hàng để đặt"},
+{"id":"shopping","component":"LayoutGrid","layout":"sidebar-right","children":["results","basket"]},
+{"id":"results","component":"ProductList","items":{"path":"/products"},"maxItems":8,"showPriceTiers":true},
+{"id":"basket","component":"CartSummary","title":"Giỏ hàng"}
+]}}
+```
 
 ## Ví dụ
 
