@@ -45,12 +45,17 @@ public class SystemMonitoringService {
         queries.add(query("pageviews", "AWS/RUM", "PageViewCount", "Sum", Map.of("application_name", rum)));
         queries.add(query("sessions", "AWS/RUM", "SessionCount", "Sum", Map.of("application_name", rum)));
         queries.add(query("jserrors", "AWS/RUM", "JsErrorCount", "Sum", Map.of("application_name", rum)));
+        queries.add(query("pageLoad", "AWS/RUM", "PerformanceNavigationDuration", "p95", Map.of("application_name", rum)));
+        queries.add(query("lcp", "AWS/RUM", "WebVitalsLargestContentfulPaint", "p75", Map.of("application_name", rum)));
         Map<String, String> ecs = Map.of("ClusterName", cluster, "ServiceName", service);
         queries.add(query("cpu", "AWS/ECS", "CPUUtilization", "Average", ecs));
         queries.add(query("memory", "AWS/ECS", "MemoryUtilization", "Average", ecs));
         if (!alb.isBlank()) {
             queries.add(query("requests", "AWS/ApplicationELB", "RequestCount", "Sum", Map.of("LoadBalancer", alb)));
             queries.add(query("errors", "AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "Sum", Map.of("LoadBalancer", alb)));
+            queries.add(query("clientErrors", "AWS/ApplicationELB", "HTTPCode_Target_4XX_Count", "Sum", Map.of("LoadBalancer", alb)));
+            queries.add(query("alb4xx", "AWS/ApplicationELB", "HTTPCode_ELB_4XX_Count", "Sum", Map.of("LoadBalancer", alb)));
+            queries.add(query("alb5xx", "AWS/ApplicationELB", "HTTPCode_ELB_5XX_Count", "Sum", Map.of("LoadBalancer", alb)));
             queries.add(query("latency", "AWS/ApplicationELB", "TargetResponseTime", "p95", Map.of("LoadBalancer", alb)));
         }
     }
@@ -97,7 +102,12 @@ public class SystemMonitoringService {
                 next = result.nextToken();
             } while (next != null && !next.isBlank());
             points.forEach((id, values) -> metrics.add(new MetricSeries(id,
-                    id.equals("latency") ? "seconds" : id.equals("cpu") || id.equals("memory") ? "percent" : "count",
+                    switch (id) {
+                        case "latency" -> "seconds";
+                        case "pageLoad", "lcp" -> "milliseconds";
+                        case "cpu", "memory" -> "percent";
+                        default -> "count";
+                    },
                     values.stream().sorted(java.util.Comparator.comparing(Point::time)).toList())));
         } catch (SdkException exception) {
             // AWS failures must not hide the independent database usage figures.
