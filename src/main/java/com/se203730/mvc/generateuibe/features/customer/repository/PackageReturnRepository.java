@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -27,9 +28,8 @@ public class PackageReturnRepository {
                    o.contact_phone, o.contact_email, o.company_name,
                    (select pay.payment_number from public.payments pay
                      where pay.order_id = o.id and pay.status = 'SUCCESS' limit 1) as payment_number,
-                   (select coalesce(sum(round(oi.line_total * pi.quantity / oi.quantity, 0)), 0)
-                      from public.package_items pi join public.order_items oi on oi.id = pi.order_item_id
-                     where pi.order_package_id = p.id) as package_amount
+                   r.merchandise_amount as package_amount, r.return_fee, r.refund_amount,
+                   r.refunded_at, r.refunded_by, r.transfer_reference
             from public.package_returns r
             join public.order_packages p on p.id = r.order_package_id
             join public.orders o on o.id = p.order_id
@@ -47,7 +47,23 @@ public class PackageReturnRepository {
                              UUID packageId, String packageName, LocalDate deliveryDate, String deliveryAddress,
                              String packageRecipient, String recipientPhone, Instant deliveredAt, UUID orderId,
                              UUID customerId, String contactName, String contactPhone, String contactEmail,
-                             String companyName, String paymentNumber, BigDecimal packageAmount) {}
+                             String companyName, String paymentNumber, BigDecimal packageAmount,
+                             BigDecimal returnFee, BigDecimal refundAmount, Instant refundedAt,
+                             UUID refundedBy, String transferReference) {}
+
+    public record ReturnAmounts(BigDecimal packageAmount, BigDecimal returnFee, BigDecimal refundAmount) {}
+
+    public ReturnAmounts calculateAmounts(UUID packageId) {
+        BigDecimal amount = jdbc.queryForObject("""
+                select merchandise_amount - product_coupon_discount_amount + vat_amount
+                from public.order_packages where id = :packageId
+                """, new MapSqlParameterSource("packageId", packageId), BigDecimal.class);
+        if (amount == null) {
+            return null;
+        }
+        BigDecimal fee = amount.multiply(new BigDecimal("0.02")).setScale(0, RoundingMode.HALF_UP);
+        return new ReturnAmounts(amount, fee, amount.subtract(fee));
+    }
 
     public record PackageState(UUID packageId, UUID orderId, UUID customerId, Instant cancelledAt,
                                Instant deliveredAt, boolean hasReturn) {}
@@ -66,13 +82,15 @@ public class PackageReturnRepository {
             instant(rs.getTimestamp("delivered_at")), rs.getObject("order_id", UUID.class),
             rs.getObject("customer_id", UUID.class), rs.getString("contact_name"), rs.getString("contact_phone"),
             rs.getString("contact_email"), rs.getString("company_name"), rs.getString("payment_number"),
-            rs.getBigDecimal("package_amount"));
+            rs.getBigDecimal("package_amount"), rs.getBigDecimal("return_fee"), rs.getBigDecimal("refund_amount"),
+            instant(rs.getTimestamp("refunded_at")), rs.getObject("refunded_by", UUID.class), rs.getString("transfer_reference"));
 
     /** Khóa package và đọc trạng thái giao / trả để kiểm tra trước khi tạo yêu cầu. */
     public Optional<PackageState> lockPackage(UUID packageId) {
         return jdbc.query("""
                 select p.id, p.order_id, o.customer_id, p.cancelled_at, c.delivered_at,
-                       exists(select 1 from public.package_returns r where r.order_package_id = p.id) as has_return
+                       exists(select 1 from public.package_returns r
+                              where r.order_package_id = p.id and r.status in ('REQUESTED', 'ACCEPTED')) as has_return
                 from public.order_packages p join public.orders o on o.id = p.order_id
                 left join public.delivery_package_claims c on c.package_id = p.id
                 where p.id = :packageId for update of p
@@ -84,14 +102,18 @@ public class PackageReturnRepository {
     }
 
     public void insert(UUID id, UUID packageId, UUID customerId, String reason, String bank, String account,
-                       String name, Instant now) {
+                       String name, Instant now, ReturnAmounts amounts) {
         jdbc.update("""
                 insert into public.package_returns (id, order_package_id, requested_by, status, reason,
-                    recipient_bank, recipient_account, recipient_name, created_at, updated_at)
-                values (:id, :packageId, :customerId, 'REQUESTED', :reason, :bank, :account, :name, :now, :now)
+                    recipient_bank, recipient_account, recipient_name, created_at, updated_at,
+                    merchandise_amount, return_fee, refund_amount)
+                values (:id, :packageId, :customerId, 'REQUESTED', :reason, :bank, :account, :name, :now, :now,
+                    :amount, :fee, :refund)
                 """, new MapSqlParameterSource("id", id).addValue("packageId", packageId)
                 .addValue("customerId", customerId).addValue("reason", reason).addValue("bank", bank)
-                .addValue("account", account).addValue("name", name).addValue("now", Timestamp.from(now)));
+                .addValue("account", account).addValue("name", name).addValue("now", Timestamp.from(now))
+                .addValue("amount", amounts.packageAmount()).addValue("fee", amounts.returnFee())
+                .addValue("refund", amounts.refundAmount()));
     }
 
     public Optional<ReturnView> find(UUID id) {
@@ -125,5 +147,13 @@ public class PackageReturnRepository {
                     review_note = :note, updated_at = :now where id = :id and status = 'REQUESTED'
                 """, new MapSqlParameterSource("id", id).addValue("status", status).addValue("admin", adminId)
                 .addValue("note", note).addValue("now", Timestamp.from(now)));
+    }
+
+    public void recordRefund(UUID id, UUID adminId, Instant now) {
+        jdbc.update("""
+                update public.package_returns set refunded_at = :now, refunded_by = :admin,
+                    updated_at = :now where id = :id
+                """, new MapSqlParameterSource("id", id).addValue("admin", adminId)
+                .addValue("now", Timestamp.from(now)));
     }
 }

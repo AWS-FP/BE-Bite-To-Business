@@ -94,15 +94,27 @@ public class CustomerOrderQueryRepository {
                        op.delivery_address, op.recipient_name, op.recipient_phone,
                        op.cancelled_at, c.package_id AS claimed_package, c.delivered_at,
                        r.status AS return_status,
-                       (c.delivered_at IS NOT NULL AND op.cancelled_at IS NULL AND r.id IS NULL
+                       op.merchandise_amount - op.product_coupon_discount_amount + op.vat_amount AS package_amount,
+                       (c.delivered_at IS NOT NULL AND op.cancelled_at IS NULL
+                        AND (r.id IS NULL OR r.status = 'REJECTED')
                         AND NOW() < c.delivered_at + INTERVAL '24 hours') AS returnable
                 FROM public.order_packages op JOIN public.orders o ON o.id = op.order_id
                 LEFT JOIN public.delivery_package_claims c ON c.package_id = op.id
-                LEFT JOIN public.package_returns r ON r.order_package_id = op.id
+                LEFT JOIN LATERAL (
+                    SELECT id, status FROM public.package_returns
+                    WHERE order_package_id = op.id
+                    ORDER BY CASE WHEN status IN ('REQUESTED', 'ACCEPTED') THEN 0 ELSE 1 END,
+                             created_at DESC, id DESC LIMIT 1
+                ) r ON TRUE
                 WHERE o.id = ? AND o.customer_id = ?
                 ORDER BY op.delivery_date, op.package_number, op.id
-                """, (rs, row) -> new CustomerOrderPackageResponse(
-                rs.getObject("id", UUID.class), rs.getString("package_number"),
+                """, (rs, row) -> {
+            UUID packageId = rs.getObject("id", UUID.class);
+            var amount = rs.getBigDecimal("package_amount");
+            var fee = amount == null ? null : amount.multiply(new java.math.BigDecimal("0.02"))
+                    .setScale(0, java.math.RoundingMode.HALF_UP);
+            return new CustomerOrderPackageResponse(
+                packageId, rs.getString("package_number"),
                 rs.getString("package_name"), rs.getObject("delivery_date", java.time.LocalDate.class),
                 rs.getString("delivery_address"), rs.getString("recipient_name"),
                 rs.getString("recipient_phone"), rs.getTimestamp("cancelled_at") != null,
@@ -110,6 +122,7 @@ public class CustomerOrderQueryRepository {
                         : rs.getTimestamp("delivered_at") != null ? "DELIVERED"
                         : rs.getObject("claimed_package") != null ? "IN_DELIVERY" : "WAITING",
                 instant(rs.getTimestamp("delivered_at")), rs.getString("return_status"),
-                rs.getBoolean("returnable")), orderId, customerId);
+                rs.getBoolean("returnable"), amount, fee, amount == null ? null : amount.subtract(fee));
+        }, orderId, customerId);
     }
 }
