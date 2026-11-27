@@ -4,7 +4,13 @@ import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
@@ -27,7 +33,7 @@ import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
  * Cổng duy nhất gọi AWS Bedrock (Converse API). Mọi chỗ dùng model trong module AI đi qua class này để:
  * <ul>
  *   <li>dùng chung cấu hình region/model ({@code app.bedrock.*}), timeout 40–45 giây và credentials
- *       (task role trên ECS, profile khi chạy local, hoặc assume role sang tài khoản Bedrock khác);</li>
+ *       (task role trên ECS, cấu hình credentials/profile khi chạy local, hoặc assume role sang tài khoản Bedrock khác);</li>
  *   <li>trả kèm số token và thời gian ({@link ModelReply}) để ghi bảng ai_model_requests;</li>
  *   <li>áp Guardrail của Bedrock (nếu cấu hình) lên câu người dùng trước khi tốn lượt gọi model.</li>
  * </ul>
@@ -44,7 +50,8 @@ public class BedrockClient {
 
     /**
      * Bedrock có thể nằm ở tài khoản AWS khác. Khi app.bedrock.assume-role-arn có giá trị, client assume role
-     * đó bằng STS (tự gia hạn trước khi hết hạn); để trống thì dùng credentials mặc định (task role / profile local).
+     * đó bằng STS (tự gia hạn trước khi hết hạn). Credentials nguồn lấy từ cấu hình local nếu có,
+     * còn lại dùng chuỗi credentials mặc định của SDK (task role / AWS profile).
      */
     public BedrockClient(
             @Value("${app.bedrock.region}") String region,
@@ -52,20 +59,29 @@ public class BedrockClient {
             @Value("${app.bedrock.assume-role-arn:}") String assumeRoleArn,
             @Value("${app.bedrock.external-id:}") String externalId,
             @Value("${app.bedrock.guardrail-id:}") String guardrailId,
-            @Value("${app.bedrock.guardrail-version:}") String guardrailVersion) {
+            @Value("${app.bedrock.guardrail-version:}") String guardrailVersion,
+            Environment environment) {
         this.modelId = modelId;
         this.guardrailId = guardrailId == null ? "" : guardrailId.trim();
         this.guardrailVersion = guardrailVersion == null ? "" : guardrailVersion.trim();
+        AwsCredentialsProvider localCredentials = localCredentials(environment);
         BedrockRuntimeClientBuilder builder = BedrockRuntimeClient.builder()
                 .region(Region.of(region))
                 .overrideConfiguration(ClientOverrideConfiguration.builder()
                         .apiCallTimeout(Duration.ofSeconds(45))
                         .apiCallAttemptTimeout(Duration.ofSeconds(40))
                         .build());
+        if (localCredentials != null) {
+            builder.credentialsProvider(localCredentials);
+        }
         if (assumeRoleArn == null || assumeRoleArn.isBlank()) {
             this.sts = null;
         } else {
-            this.sts = StsClient.builder().region(Region.of(region)).build();
+            var stsBuilder = StsClient.builder().region(Region.of(region));
+            if (localCredentials != null) {
+                stsBuilder.credentialsProvider(localCredentials);
+            }
+            this.sts = stsBuilder.build();
             builder.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
                     .stsClient(sts)
                     .refreshRequest(request -> {
@@ -79,6 +95,27 @@ public class BedrockClient {
                     .build());
         }
         this.client = builder.build();
+    }
+
+    /** Credentials nhập trong file local chỉ được dùng khi profile local hoạt động và prod tắt. */
+    private static AwsCredentialsProvider localCredentials(Environment environment) {
+        if (!environment.acceptsProfiles(Profiles.of("local & !prod"))) {
+            return null;
+        }
+        String accessKey = environment.getProperty("app.bedrock.access-key-id", "").trim();
+        String secretKey = environment.getProperty("app.bedrock.secret-access-key", "").trim();
+        String sessionToken = environment.getProperty("app.bedrock.session-token", "").trim();
+        if (accessKey.isEmpty() && secretKey.isEmpty() && sessionToken.isEmpty()) {
+            return null;
+        }
+        if (accessKey.isEmpty() || secretKey.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Local Bedrock credentials require both app.bedrock.access-key-id and app.bedrock.secret-access-key");
+        }
+        if (sessionToken.isEmpty()) {
+            return StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
+        }
+        return StaticCredentialsProvider.create(AwsSessionCredentials.create(accessKey, secretKey, sessionToken));
     }
 
     /** Trả lời một câu đơn với prompt mặc định (cách dùng cũ trước pipeline; giữ cho tương thích). */
