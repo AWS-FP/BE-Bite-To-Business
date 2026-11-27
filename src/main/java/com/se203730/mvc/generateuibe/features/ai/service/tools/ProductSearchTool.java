@@ -58,7 +58,7 @@ public class ProductSearchTool {
         int limit = Math.max(1, Math.min(size, MAX_PRODUCTS));
         List<String> terms = keywords.stream()
                 .filter(term -> term != null && !term.isBlank())
-                .map(term -> term.trim().length() > 100 ? term.trim().substring(0, 100) : term.trim())
+                .map(ProductSearchTool::searchTerm)
                 .distinct()
                 .toList();
         if (Set.of("price_asc", "most_reviewed").contains(safeSort)) {
@@ -191,6 +191,16 @@ public class ProductSearchTool {
                 .replaceAll("\\s+", " ").trim();
     }
 
+    /** Vietnamese fruit classifiers are not part of a product name; keep the category "trái cây". */
+    public static String searchTerm(String text) {
+        String term = text.trim().replaceAll("\\s+", " ");
+        String key = normalizedWords(term);
+        if (key.matches("^(trai|qua) .+") && !key.matches("^(trai|qua) cay(?: .*)?")) {
+            term = term.substring(term.indexOf(' ') + 1);
+        }
+        return term.length() > 100 ? term.substring(0, 100).trim() : term;
+    }
+
     /**
      * Dựng thẻ sản phẩm (cùng hình dạng với /products) cho danh sách ID cho trước, giữ nguyên thứ tự.
      * Dùng cho "xem gần đây" và "mua lại": ID đến từ lịch sử của chính khách, còn giá/tồn luôn lấy mới
@@ -236,8 +246,44 @@ public class ProductSearchTool {
             item.put("facts", facts(product, english));
             items.add(item);
         }
+        Map<UUID, com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductAttributeSearchRepository.Evidence> evidence = new LinkedHashMap<>();
+        knowledge.evidence(items.stream().map(row -> UUID.fromString((String) row.get("productId"))).toList())
+                .forEach(row -> evidence.put(row.productId(), row));
+        for (Map<String, Object> item : items) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> facts = (Map<String, Object>) item.get("facts");
+            var record = evidence.get(UUID.fromString((String) item.get("productId")));
+            boolean verified = record != null && record.nutritionVerified();
+            facts.put("nutritionVerified", verified);
+            facts.put("notes", record == null ? (english ? "Product details have not been verified against a source." : "Chi tiết sản phẩm chưa được đối chiếu nguồn.")
+                    : pick(english, record.notesVi(), record.notesEn()));
+            if (!verified) facts.put("nutrition", List.of());
+        }
         addRatings(items);
         return items;
+    }
+
+    public SearchResult searchNutrition(String request, List<String> keywords, String locale) {
+        NutritionCriteria criteria = NutritionCriteria.parse(request);
+        Map<UUID, Map<String, Double>> amounts = new LinkedHashMap<>();
+        for (var fact : knowledge.verifiedNutrition()) {
+            if (!NutritionCriteria.per100g(fact.basis())) continue;
+            Double value = NutritionCriteria.grams(fact.amount());
+            if (value == null) continue;
+            String nutrient = NutritionCriteria.nutrient(fact.nutrientEn());
+            if ("other".equals(nutrient)) nutrient = NutritionCriteria.nutrient(fact.nutrient());
+            amounts.computeIfAbsent(fact.productId(), ignored -> new LinkedHashMap<>()).put(nutrient, value);
+        }
+        Set<UUID> named = keywords.isEmpty() ? null : ((List<Map<String, Object>>) search(keywords, "relevance", 20, locale)
+                .dataModel().get("products")).stream().map(row -> UUID.fromString((String) row.get("productId"))).collect(java.util.stream.Collectors.toSet());
+        List<UUID> ids = amounts.entrySet().stream()
+                .filter(entry -> named == null || named.contains(entry.getKey()))
+                .filter(entry -> criteria.matches(entry.getValue().get("protein"), entry.getValue().get("fiber")))
+                .sorted(java.util.Comparator.<Map.Entry<UUID, Map<String, Double>>>comparingDouble(entry ->
+                        (criteria.protein() ? entry.getValue().getOrDefault("protein", 0D) : 0D)
+                        + (criteria.fiber() ? entry.getValue().getOrDefault("fiber", 0D) : 0D)).reversed())
+                .limit(MAX_PRODUCTS).map(Map.Entry::getKey).toList();
+        return result(byIds(ids, locale), request, "relevance");
     }
 
     private void addRatings(List<Map<String, Object>> items) {

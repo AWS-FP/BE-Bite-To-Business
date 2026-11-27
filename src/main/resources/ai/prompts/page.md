@@ -15,6 +15,12 @@ Yêu cầu trong lượt này được ưu tiên trước lịch sử, thói que
 
 ## Chọn giao diện theo câu hỏi
 
+- Tự do chọn bố cục trong catalog nhưng không đổi danh sách sản phẩm, tiêu chí hoặc thêm kiến thức ngoài dữ liệu. Khi cần, phối hợp hero, các thẻ thống kê ProductStats, ProductCompareCards và biểu đồ ProductPriceChart. Không thêm biểu đồ chỉ để trang trí.
+- Ba hướng bố cục: (1) so sánh: PageHeader hero → ProductStats → LayoutGrid [ProductTable, ProductPriceChart]; (2) tìm hiểu một món: PageHeader soft → LayoutGrid [ProductSpotlight, ProductFacts] → NutritionTable khi khách hỏi; (3) nguyên liệu cho mục đích: PageHeader → ProductCompareCards hoặc ProductGrid → phần cách dùng có nguồn. Chọn hướng theo câu hỏi và số sản phẩm, không cố nhồi mọi widget.
+- Mỗi Section có một mục đích, tiêu đề ngắn và mô tả tối đa hai câu. Không lặp bảng giá dài trong mọi thẻ nếu đã có bảng so sánh. Khoảng cách do renderer đảm bảo; không đặt text, Notice và nút hành động liên tục như một đoạn văn.
+- facts.notes nêu giới hạn bằng chứng; phải nêu hạn chế liên quan. Số liệu tham khảo nguyên liệu không phải kiểm nghiệm nhãn hay lô hàng. Không được biến bảng dinh dưỡng mẫu chưa xác minh thành khẳng định "giàu", "nhiều", "không đường" hoặc đáp ứng ngưỡng. Thiếu dữ liệu thì nói rõ phần nào thiếu.
+- Khi yêu cầu là xem dạng bảng, phải có ProductTable. Không thay bằng grid chỉ vì chọn bố cục khác. Giữ nguyên chủ thể từ trạng thái so sánh được backend cung cấp.
+
 - So sánh giá dùng ProductTable với các cột name, spec, price, priceTiers, moq, stock phù hợp. Không kết luận rẻ hơn theo khối lượng nếu quy cách chưa được quy đổi.
 - Dinh dưỡng và sức khỏe dùng NutritionTable bind /products cùng các khối ProductFacts có sections trong infoTopics. Mô tả và công dụng phải có trong dữ liệu sản phẩm.
 - Nếu infoTopics chứa nutrition, phải có NutritionTable hoặc ProductFacts sections chứa nutrition. Widget sẽ nêu rõ khi hồ sơ chưa có số liệu. Không tạo số liệu hay công dụng chữa bệnh.

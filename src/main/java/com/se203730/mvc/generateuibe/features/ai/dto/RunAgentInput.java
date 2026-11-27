@@ -7,6 +7,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.util.Map;
+import tools.jackson.databind.JsonNode;
 
 public record RunAgentInput(
         @NotBlank
@@ -22,7 +24,17 @@ public record RunAgentInput(
         AgentState state,
         /** chat (mặc định): trả lời kèm khối nhỏ; page: AI ghép cả trang thay trang mặc định. */
         @Pattern(regexp = "chat|page")
-        String mode) {
+        String mode,
+        @Valid StablePage stablePage) {
+
+    public RunAgentInput(String threadId, String runId, List<ChatMessage> messages, AgentState state, String mode) {
+        this(threadId, runId, messages, state, mode, null);
+    }
+
+    /** Client layout is untrusted: backend validates it and reloads all product facts/prices by public ID. */
+    public record StablePage(@NotNull JsonNode layout,
+            @NotEmpty @Size(max = 16) Map<String, @NotNull @Size(max = 20) List<@NotBlank @Size(max = 100) String>> lists,
+            @NotBlank @Pattern(regexp = "vi|en") String locale) {}
 
     public record ChatMessage(
             @NotBlank
