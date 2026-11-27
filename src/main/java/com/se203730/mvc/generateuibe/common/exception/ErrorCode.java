@@ -11,7 +11,7 @@ import org.springframework.http.HttpStatusCode;
 @Getter
 @RequiredArgsConstructor
 public enum ErrorCode {
-    AI_RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "You have reached the limit of 20 AI requests per hour. Please try again later."),
+    AI_RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "You have reached the limit of 50 AI requests per hour. Please try again later."),
     AI_TRANSLATION_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "You have reached the limit of 200 AI translation suggestions per hour. Please try again later."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "The request is invalid."), VALIDATION_FAILED(
             HttpStatus.BAD_REQUEST,

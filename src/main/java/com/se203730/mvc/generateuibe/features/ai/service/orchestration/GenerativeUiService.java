@@ -492,6 +492,14 @@ public class GenerativeUiService {
                 ? pageData.build(keywords, sort, locale, recommendationOwner, profile)
                 : pageData.build(findProducts(intent, keywords, attributes, sort, locale, 12), locale, recommendationOwner,
                         profile);
+        if (intent.intents().contains("COMPARE_PRODUCTS") && !intent.intents().contains("CHECK_PROMOTIONS")) {
+            Map<String, Object> comparisonSummary = new LinkedHashMap<>();
+            comparisonSummary.put("query", data.summary().get("query"));
+            comparisonSummary.put("/products", data.summary().get("/products"));
+            Map<String, Integer> comparisonLists = Map.of("/products", data.lists().getOrDefault("/products", 0));
+            data = new PageDataTool.PageData(data.dataModel(), comparisonSummary, comparisonLists,
+                    data.query(), data.sort(), data.productNames());
+        }
         Map<String, Object> preference = preference(intent, state);
         String surfaceId = newSurfaceId("page");
         List<String> diagnostics = new ArrayList<>();
@@ -621,7 +629,13 @@ public class GenerativeUiService {
         if (attributes != null) {
             return products.searchByAttributes(attributes, locale, size);
         }
+        if (intent.intents().contains("COMPARE_PRODUCTS") && keywords.size() > 1) {
+            return products.compareRepresentatives(keywords, sort, locale);
+        }
         SearchResult result = products.search(keywords, sort, size, locale);
+        if (intent.intents().contains("COMPARE_PRODUCTS") && result.resultCount() > 0) {
+            return products.withFacts(result, locale, 4);
+        }
         if (intent.intents().contains("ASK_PRODUCT_INFO") && result.resultCount() > 0) {
             return products.withFacts(result, locale, 4);
         }

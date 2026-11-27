@@ -44,12 +44,14 @@ Section.child = một widget, Column hoặc LayoutGrid ghép nhiều widget
   - `/favorites`: "Sản phẩm bạn đã lưu". `/home/featured`: "Nổi bật". `/home/bestSelling`: "Bán chạy" / "Quán khác hay nhập". `/home/deepDiscount`: "Đang giảm sâu". `/home/topRated`: "Đánh giá cao". `/home/flashSale`: "Flash sale".
   - Ví dụ sai: bind `/home/bestSelling` nhưng đặt tiêu đề "Thịt bò cho lẩu". Khi `/products` rỗng, Section highlight phải là `Notice` + `ClarifyQuestion` hoặc `CategoryGrid`, không giả danh sách khác là kết quả tìm kiếm.
 
+Với yêu cầu cụ thể, chỉ đưa nội dung trực tiếp liên quan; không thêm bán chạy, nổi bật, khuyến mãi hoặc danh mục chung trừ khi khách yêu cầu. Khi so sánh, dùng ProductTable và chỉ so sánh các sản phẩm đã có trong /products; nếu thiếu một đối tượng hãy thông báo chưa tìm thấy và hỏi lại, không thay bằng sản phẩm khác. Không chọn giá thấp nhất nếu quy cách hoặc đơn vị khác nhau. Không tự bịa thông tin dinh dưỡng.
+
 ## Chọn section theo mục đích
 
 | Mục đích người dùng | Section highlight | Section hỗ trợ (chọn 1–4) |
 | --- | --- | --- |
 | Tìm một món cụ thể | `ProductGrid` /products | `ProductCarousel` /home/deepDiscount hoặc /home/bestSelling; `CategoryGrid` nếu kết quả ít |
-| So sánh / muốn rẻ | `ProductTable` /products, `highlight: lowestPrice`, cột `price, priceTiers, moq, stock` | `ProductCarousel` /home/deepDiscount; `PromotionList` |
+| So sánh | `ProductTable` /products với cột phù hợp; widget hiển thị thêm chi tiết và dinh dưỡng từ dữ liệu | Không thêm nội dung ngoài yêu cầu |
 | Mua số lượng lớn / giá sỉ | `ProductTable` với cột `priceTiers, moq` hoặc `ProductGrid` `showPriceTiers: true` | `ComboList`; `PromotionList` |
 | Hỏi còn hàng | `ProductTable` có cột `stock`, `highlight: inStock` | `ProductCarousel` sản phẩm thay thế cùng nhóm |
 | Hỏi thông tin sản phẩm (bảo quản, xuất xứ, dinh dưỡng, làm từ gì) | `ProductFacts` /products/0 với `sections` theo `info_topics` (chỉ mục có dữ liệu) | `ProductTable` /products (cột `name, origin, price, stock`) nếu có nhiều kết quả; `ProductCarousel` /home/bestSelling |
@@ -133,17 +135,3 @@ Yêu cầu "Mình mở quán lẩu, cần nhập thịt bò và đồ nhúng", t
 ]}}
 ```
 
-Yêu cầu "so giá whipping cream" có `/products` (3), `/home/deepDiscount` (6), `/home/promotions` (2):
-
-```json
-{"version":"v0.9","updateComponents":{"surfaceId":"page-demo","components":[
-{"id":"root","component":"Column","children":["header","compare","deals","promos"]},
-{"id":"header","component":"PageHeader","title":"So sánh whipping cream","subtitle":"Bảng xếp cạnh nhau theo giá, bậc giá sỉ và tồn kho; dòng giá thấp nhất được làm nổi."},
-{"id":"compare","component":"Section","title":"Bảng so giá","variant":"highlight","child":"table"},
-{"id":"table","component":"ProductTable","items":{"path":"/products"},"columns":["image","name","spec","price","priceTiers","moq","stock"],"highlight":"lowestPrice"},
-{"id":"deals","component":"Section","title":"Đang giảm sâu","child":"deal-row"},
-{"id":"deal-row","component":"ProductCarousel","items":{"path":"/home/deepDiscount"}},
-{"id":"promos","component":"Section","title":"Khuyến mãi đang chạy","child":"promo-list"},
-{"id":"promo-list","component":"PromotionList","items":{"path":"/home/promotions"}}
-]}}
-```
