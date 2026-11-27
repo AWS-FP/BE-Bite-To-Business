@@ -96,7 +96,8 @@ public class OrderCreationService {
         creation.insertOrder(orderId, quoteId, now);
         creation.insertItems(orderId, quoteId);
 
-        reserveProducts(lines, orderId, customerId, now);
+        creation.insertComboSnapshots(orderId);
+        reserveProducts(orderId, customerId, now);
         for (QuotePackage parcel : parcels) {
             QuotePackageAmounts.Amount amount = packageAmounts.get(parcel.getId());
             creation.insertPackage(orderId, parcel.getId(), amount.merchandise(), amount.productCoupon(),
@@ -132,13 +133,12 @@ public class OrderCreationService {
         }
     }
 
-    private void reserveProducts(List<QuoteItem> lines, UUID orderId, UUID customerId, Instant now) {
-        List<QuoteItem> products = new ArrayList<>(lines);
-        products.sort(Comparator.comparing(QuoteItem::getProductId));
+    private void reserveProducts(UUID orderId, UUID customerId, Instant now) {
+        List<OrderRepository.ProductQuantity> products = orders.findProductQuantities(orderId);
         // Keep going after a failed reserve so the customer sees every short product at once;
         // the exception at the end rolls back the reserves already made in this transaction.
         List<ErrorResponse.ValidationError> shortages = new ArrayList<>();
-        for (QuoteItem line : products) {
+        for (OrderRepository.ProductQuantity line : products) {
             if (inventory.reserve(line.getProductId(), line.getQuantity(), now) != 1) {
                 BigDecimal onHand = inventory.findById(line.getProductId())
                         .map(stock -> stock.getAvailableQuantity())

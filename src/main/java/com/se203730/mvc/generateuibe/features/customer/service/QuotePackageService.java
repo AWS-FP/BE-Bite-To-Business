@@ -36,7 +36,7 @@ public class QuotePackageService {
     @Autowired
     private QuoteDraftService drafts;
     @Autowired
-    private com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductInventoryRepository inventory;
+    private CheckoutStockService checkoutStock;
     @Autowired
     private QuoteRepository quotes;
     @Autowired
@@ -68,12 +68,8 @@ public class QuotePackageService {
             if (desired.put(line.productId(), line.quantity()) != null)
                 throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        for (var line : request.items()) {
-            var stock = inventory.findById(line.productId()).orElseThrow(
-                    () -> new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE));
-            if (stock.getAvailableQuantity().compareTo(line.quantity()) < 0)
-                throw new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE);
-        }
+        checkoutStock.requireAvailable(request.items().stream()
+                .map(line -> new CheckoutStockService.Line(line.productId(), line.quantity())).toList());
         List<QuoteItem> existing = items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId);
         Set<UUID> changed = new HashSet<>();
         for (QuoteItem line : existing) {
@@ -154,6 +150,8 @@ public class QuotePackageService {
                     .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
             // No step rule when splitting into packages: any amount (max 3 decimals, checked by the DTO)
             // up to what is left of the line can go to a package.
+            if ("COMBO".equals(item.getUnitCode()) && allocation.quantity().stripTrailingZeros().scale() > 0)
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED);
             BigDecimal allocated = allocations.allocatedElsewhere(item.getId(), parcel.getId());
             if (allocated.add(allocation.quantity()).compareTo(item.getQuantity()) > 0) {
                 throw new BusinessException(ErrorCode.CONFLICT);

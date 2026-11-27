@@ -66,7 +66,11 @@ public class ProductPricingService {
             && price.getSalePrice() != null
             && prices.hasActiveSalePromotion(productId);
 
-        return toResponse(product, price, inventory, tiers, saleActive);
+        BigDecimal comboAvailable = "COMBO".equals(product.getUnitCode())
+            ? inventories.comboAvailability(List.of(productId)).stream().findFirst()
+                .map(ProductInventoryRepository.CheckoutAvailability::getAvailableQuantity).orElse(BigDecimal.ZERO)
+            : null;
+        return toResponse(product, price, inventory, tiers, saleActive, comboAvailable);
     }
 
     /**
@@ -108,6 +112,9 @@ public class ProductPricingService {
             prices.findIdsWithActiveSalePromotion(publishedIds)
         );
 
+        Map<UUID, BigDecimal> comboAvailable = inventories.comboAvailability(publishedIds).stream()
+            .collect(Collectors.toMap(ProductInventoryRepository.CheckoutAvailability::getProductId,
+                ProductInventoryRepository.CheckoutAvailability::getAvailableQuantity));
         return ids.stream()
             .filter(productById::containsKey)
             .map(id -> {
@@ -120,7 +127,8 @@ public class ProductPricingService {
                     price,
                     inventoryById.get(id),
                     tiersById.getOrDefault(id, List.of()),
-                    saleActive
+                    saleActive,
+                    comboAvailable.get(id)
                 );
             })
             .toList();
@@ -131,13 +139,14 @@ public class ProductPricingService {
         ProductPrice price,
         ProductInventory inventory,
         List<ProductPriceTierResponse> tiers,
-        boolean saleActive
+        boolean saleActive,
+        BigDecimal comboAvailable
     ) {
         BigDecimal effectiveSalePrice = saleActive
             ? price.getSalePrice()
             : null;
 
-        BigDecimal availableQuantity = inventory == null
+        BigDecimal availableQuantity = comboAvailable != null ? comboAvailable : inventory == null
             ? null
             : inventory.getAvailableQuantity();
 
@@ -153,7 +162,7 @@ public class ProductPricingService {
             effectiveSalePrice,
             saleActive,
             tiers,
-            inventory != null,
+            comboAvailable != null || inventory != null,
             availableQuantity
         );
     }

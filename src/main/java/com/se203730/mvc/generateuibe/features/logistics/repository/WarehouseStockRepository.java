@@ -24,6 +24,9 @@ public interface WarehouseStockRepository extends JpaRepository<WarehouseStock, 
         java.math.BigDecimal getReserved();
         java.math.BigDecimal getAvailable();
     }
+    @Query(value = "select exists(select 1 from public.products where id=:id and unit_code='COMBO')", nativeQuery = true)
+    boolean isCombo(@Param("id") UUID id);
+
     @Modifying
     @Query(value = """
             insert into public.inventory (product_id, on_hand_quantity, reserved_quantity, updated_by, created_at, updated_at)
@@ -41,18 +44,18 @@ public interface WarehouseStockRepository extends JpaRepository<WarehouseStock, 
                    coalesce(s.available_quantity, 0) as available
             from public.products p left join public.inventory s on p.id = s.product_id
             left join catalog_search.ranked(cast(:keyword as text)) r on r.product_id=p.id
-            where cast(:keyword as text) is null or r.product_id is not null
+            where p.unit_code <> 'COMBO' and (cast(:keyword as text) is null or r.product_id is not null
                or (p.status <> 'PUBLISHED' and catalog_search.fold_v1(:keyword) <> '' and
                    (catalog_search.fold_v1(p.sku)=catalog_search.fold_v1(:keyword)
-                    or to_tsvector('simple',p.catalog_terms) @@ plainto_tsquery('simple',catalog_search.label_v2(:keyword))))
+                    or to_tsvector('simple',p.catalog_terms) @@ plainto_tsquery('simple',catalog_search.label_v2(:keyword)))))
             order by r.relevance desc nulls last, p.name_vi, p.id
             """, countQuery = """
             select count(*) from public.products p
             left join catalog_search.ranked(cast(:keyword as text)) r on r.product_id=p.id
-            where cast(:keyword as text) is null or r.product_id is not null
+            where p.unit_code <> 'COMBO' and (cast(:keyword as text) is null or r.product_id is not null
                or (p.status <> 'PUBLISHED' and catalog_search.fold_v1(:keyword) <> '' and
                    (catalog_search.fold_v1(p.sku)=catalog_search.fold_v1(:keyword)
-                    or to_tsvector('simple',p.catalog_terms) @@ plainto_tsquery('simple',catalog_search.label_v2(:keyword))))
+                    or to_tsvector('simple',p.catalog_terms) @@ plainto_tsquery('simple',catalog_search.label_v2(:keyword)))))
             """, nativeQuery = true)
     Page<StockView> search(@Param("keyword") String keyword, Pageable pageable);
 }

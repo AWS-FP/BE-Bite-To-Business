@@ -69,13 +69,11 @@ public class HomeRepository {
         String sql = """
                 SELECT p.id AS product_id, p.sku, p.name_vi, p.name_en,
                        p.image_url, c.serving_count, pp.list_price,
-                       CASE WHEN inv.product_id IS NULL THEN NULL
-                            ELSE GREATEST(inv.on_hand_quantity - inv.reserved_quantity, 0)
-                       END AS available_quantity
+                       COALESCE(inv.available_quantity,0) AS available_quantity
                 FROM public.combos c
                 JOIN public.products p ON p.id = c.product_id
                 LEFT JOIN public.product_prices pp ON pp.product_id = p.id
-                LEFT JOIN public.inventory inv ON inv.product_id = p.id
+                LEFT JOIN checkout_stock.availability inv ON inv.product_id = p.id
                 WHERE p.status = 'PUBLISHED'
                   AND p.unit_code = 'COMBO'
                   AND EXISTS (

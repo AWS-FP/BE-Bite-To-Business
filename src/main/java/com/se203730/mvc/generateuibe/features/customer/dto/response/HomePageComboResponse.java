@@ -8,5 +8,5 @@ public record HomePageComboResponse(
  Integer servingCount, BigDecimal listPrice, BigDecimal salePrice,
  BigDecimal availableQuantity, List<HomePageComboItemResponse> items,
  BigDecimal minOrderQuantity, BigDecimal quantityStep, BigDecimal vatRate,
- BigDecimal averageRating, long reviewCount
+ BigDecimal averageRating, long reviewCount, BigDecimal separateListPrice
 ) {}
