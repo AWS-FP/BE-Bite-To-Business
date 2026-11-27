@@ -14,14 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class AiRequestLimitService {
-    private static final int HOURLY_LIMIT = 20;
+    private static final int HOURLY_LIMIT = 50;
     private final AiRequestUsageRepository requests;
 
     public AiRequestLimitService(AiRequestUsageRepository requests) {
         this.requests = requests;
     }
 
-    /** Giữ một lượt cho Customer; quá 20 lượt trong 1 giờ thì báo AI_RATE_LIMIT_EXCEEDED (429). */
+    /** Giữ một lượt cho Customer; đủ 50 lượt trong 1 giờ thì báo AI_RATE_LIMIT_EXCEEDED (429). */
     @Transactional
     public UUID reserve(UUID userId) {
         requests.lockUser(userId);
