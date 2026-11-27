@@ -26,10 +26,6 @@ public class ExecutiveDashboardService {
                 "count(*) filter(where status='DRAFT') as draft_products," +
                 "count(*) filter(where status='ARCHIVED') as archived_products from public.products",
             new MapSqlParameterSource()));
-        result.putAll(db.one("select count(*) filter(where status='PENDING_APPROVAL') as pending_quotes," +
-                "count(*) filter(where status='APPROVED') as approved_quotes," +
-                "count(*) filter(where status='REJECTED') as rejected_quotes from public.quotes",
-            new MapSqlParameterSource()));
         result.putAll(db.one("select count(*) filter(where status='PUBLISHED' and starts_at<=now() " +
                 "and ends_at>now()) as active_promotions from public.promotions",
             new MapSqlParameterSource()));

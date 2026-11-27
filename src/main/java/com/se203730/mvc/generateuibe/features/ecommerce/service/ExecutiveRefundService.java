@@ -19,7 +19,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * E-commerce duyệt yêu cầu hủy package của khách: duyệt (hủy package, chốt số tiền hoàn),
+ * Logistics duyệt yêu cầu hủy package của khách: duyệt (hủy package, chốt số tiền hoàn),
  * từ chối (kèm lý do) và xác nhận đã chuyển khoản hoàn tiền.
  */
 @Service
@@ -82,7 +82,7 @@ public class ExecutiveRefundService {
         db.update("update public.order_packages set cancelled_at = :now, updated_at = :now "
             + "where id = :packageId and cancelled_at is null", params);
         // Package đã hủy: nhả hàng đang giữ về kho ngay, không cần Logistics xử lý tay.
-        stockService.releaseCancelled(orderId, packageId, staffId, clock.now(), "Khách hủy package (E-commerce duyệt)");
+        stockService.releaseCancelled(orderId, packageId, staffId, clock.now(), "Khách hủy package (Logistics duyệt)");
         String name = (String) current.get("packageName");
         notifications.publish((UUID) current.get("customerId"), null, null, "ORDER",
             "Yêu cầu hủy đã được duyệt", "Cancellation approved",

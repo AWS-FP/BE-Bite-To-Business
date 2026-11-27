@@ -29,7 +29,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Validated
 @RequestMapping("/api/ecommerce/refund-requests")
-@PreAuthorize("hasRole('ECOMMERCE_EXECUTIVE')")
+@PreAuthorize("hasRole('LOGISTICS_STAFF')")
 @Tag(name = "E-commerce - Customer Cancellation Requests")
 public class ExecutiveRefundController {
     private final ExecutiveRefundService service;

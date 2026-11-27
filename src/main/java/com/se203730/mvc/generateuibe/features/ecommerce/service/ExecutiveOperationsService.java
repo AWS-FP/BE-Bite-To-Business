@@ -10,6 +10,8 @@ import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.customer.service.NotificationEventPublisher;
 import com.se203730.mvc.generateuibe.features.customer.service.ReviewImageStorage;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteRepository;
+import com.se203730.mvc.generateuibe.features.customer.repository.ReviewRepository;
+import com.se203730.mvc.generateuibe.features.customer.dto.response.ReviewImageResponse;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageRepository;
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteWorkflowService;
@@ -32,6 +34,7 @@ public class ExecutiveOperationsService {
     private final DatabaseClock clock;
     private final NotificationEventPublisher notificationEvents;
     private final ReviewImageStorage reviewImageStorage;
+    private final ReviewRepository reviewRepository;
     private static final Set<String> QUOTE_STATES=Set.of(
         "DRAFT","PENDING_APPROVAL","APPROVED","REJECTED","ACCEPTED","EXPIRED","CANCELLED");
 
@@ -144,12 +147,22 @@ public class ExecutiveOperationsService {
         // Ratings support half-stars. E.g. 2 stars includes 2.0 and 2.5.
         if (stars != null) where.append(stars == 5 ? " and r.rating=5" :
             " and r.rating>=:stars and r.rating<(:stars+1)");
-        return db.page("select r.id,r.product_id,r.customer_id,r.rating,r.content,r.deleted_at," +
+        var result = db.page("select r.id,r.product_id,r.customer_id,r.rating,r.content,r.deleted_at," +
                 "r.deleted_by,r.deletion_reason,r.created_at,r.updated_at,p.name_vi as product_name_vi," +
                 "p.name_en as product_name_en from public.product_reviews r " +
                 "join public.products p on p.id=r.product_id" + where +
                 " order by r.created_at desc,r.id",
             "select count(*) from public.product_reviews r" + where,p,page,size);
+        if (!result.items().isEmpty()) {
+            var ids = result.items().stream().map(row -> (UUID) row.get("id")).toList();
+            var images = reviewRepository.imagesForReviews(ids);
+            result.items().forEach(row -> row.put("imageUrls",
+                images.getOrDefault((UUID) row.get("id"), List.of()).stream()
+                    .map(ReviewImageResponse::imageUrl)
+                    .filter(url -> url != null && !url.isBlank())
+                    .toList()));
+        }
+        return result;
     }
     @Transactional
     public Map<String,Object> moderateReview(UUID id,UUID staff,ExecutiveReviewDecisionRequest r) {
