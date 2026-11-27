@@ -22,6 +22,7 @@ public class SystemLogService {
     private final String logGroup;
     private final Map<Integer, Job> jobs = new HashMap<>();
 
+    @org.springframework.beans.factory.annotation.Autowired
     public SystemLogService(AccountAccessService accounts,
             @Value("${app.monitoring.region:ap-southeast-1}") String region,
             @Value("${app.monitoring.log-group:}") String logGroup) {
@@ -31,6 +32,9 @@ public class SystemLogService {
                 .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofSeconds(8))).build();
     }
 
+    SystemLogService(AccountAccessService accounts, CloudWatchLogsClient client, String logGroup) {
+        this.accounts=accounts; this.client=client; this.logGroup=logGroup;
+    }
     public synchronized Result get(UUID adminId, int hours) {
         accounts.requireAdmin(adminId);
         if (!Set.of(1, 6, 24, 168).contains(hours)) throw new IllegalArgumentException("Unsupported range");
@@ -73,9 +77,9 @@ public class SystemLogService {
         }
     }
 
-    private static String sanitize(String text) {
+    static String sanitize(String text) {
         String first = text.lines().findFirst().orElse("");
-        first = first.replaceAll("(?i)(authorization|password|token|secret|api[_-]?key)\\s*[:=]\\s*\\S+", "$1=[redacted]")
+        first = first.replaceAll("(?i)bearer\\s+\\S+", "Bearer [redacted]").replaceAll("(?i)(authorization|password|token|secret|api[_-]?key)\\s*[:=]\\s*\\S+", "$1=[redacted]")
                 .replaceAll("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[email]")
                 .replaceAll("(?i)bearer\\s+\\S+", "Bearer [redacted]");
         return first.length() > 500 ? first.substring(0, 500) + "…" : first;

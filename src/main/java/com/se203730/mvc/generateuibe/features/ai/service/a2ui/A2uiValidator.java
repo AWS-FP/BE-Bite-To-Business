@@ -1,6 +1,7 @@
 package com.se203730.mvc.generateuibe.features.ai.service.a2ui;
 
 import com.se203730.mvc.generateuibe.features.ai.service.context.AiPromptLibrary;
+import com.se203730.mvc.generateuibe.features.ai.service.context.ShoppingResponsePolicy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -41,7 +42,7 @@ public class A2uiValidator {
             "^(/products|/favorites|/recentlyViewed|/forYou|/reorder"
                     + "|/home/(?:featured|bestSelling|deepDiscount|topRated|flashSale))/(\\d+)$");
     private static final Set<String> PAGE_ONLY = Set.of("PageHeader", "Section");
-    private static final Set<String> PRODUCT_COMPONENTS = Set.of("ProductGrid", "ProductTable", "ProductCarousel", "ProductList", "NutritionTable");
+    private static final Set<String> PRODUCT_COMPONENTS = Set.of("ProductGrid", "ProductTable", "ProductCarousel", "ProductList", "NutritionTable", "ProductStats", "ProductPriceChart", "ProductCompareCards");
     private static final int CHAT_MAX_COMPONENTS = 25;
     private static final int CHAT_MAX_DEPTH = 6;
     private static final int PAGE_MAX_SECTIONS = 6;
@@ -367,6 +368,9 @@ public class A2uiValidator {
 
     /** Literal do model viết: giới hạn độ dài, cấm số tiền/% (phải bind data model) và cấm thẻ HTML. */
     private void checkText(String where, String text, List<String> errors) {
+        if (ShoppingResponsePolicy.containsCode(text)) {
+            errors.add(where + " không được chứa mã nguồn hoặc JSON trong nội dung hiển thị");
+        }
         if (text.length() > maxTextLength) {
             errors.add(where + " dài quá " + maxTextLength + " ký tự");
         }
