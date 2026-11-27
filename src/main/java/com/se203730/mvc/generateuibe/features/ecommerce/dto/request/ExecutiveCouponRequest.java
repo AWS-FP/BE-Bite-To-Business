@@ -17,7 +17,5 @@ public record ExecutiveCouponRequest(
     @NotBlank String appliesTo,
     @NotBlank String productScope,
     List<@NotNull UUID> productIds,
-    @Size(max=160) String nameVi,
-    @Size(max=160) String nameEn,
     boolean isActive
 ) {}

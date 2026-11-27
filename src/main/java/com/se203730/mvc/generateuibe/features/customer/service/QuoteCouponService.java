@@ -104,7 +104,7 @@ public class QuoteCouponService {
                     || ("SELECTED".equals(c.getProductScope()) && products.stream().noneMatch(p -> paidLines.contains(p.id()))))) {
                 reason = "PRODUCT_SCOPE";
             }
-            return new SavedCoupon(c.getCode(), c.getAppliesTo(), c.getNameVi(), c.getNameEn(), c.getDiscountType(),
+            return new SavedCoupon(c.getCode(), c.getAppliesTo(), null, null, c.getDiscountType(),
                     c.getDiscountValue(), c.getMaxDiscountAmount(), c.getMinOrderAmount(), c.getUsageLimitPerUser(), c.getUsageLimit(),
                     used, reserved, remaining, c.getStartsAt(), c.getEndsAt(), c.getProductScope(), products,
                     reason == null, reason);

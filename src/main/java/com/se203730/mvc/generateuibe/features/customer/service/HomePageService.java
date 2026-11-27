@@ -50,6 +50,16 @@ public class HomePageService {
             repository.activePromotions(PROMOTION_LIMIT), repository.banners(BANNER_LIMIT));
     }
 
+    public HomePagePromotionProductsResponse promotionProducts(UUID id,int page,int size) {
+        if(page<0 || page>100000 || size<1 || size>48)
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        var promotion=repository.activePromotion(id)
+            .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        var items=repository.promotionProducts(id,size+1,(long)page*size);
+        return new HomePagePromotionProductsResponse(promotion,
+            List.copyOf(items.subList(0,Math.min(size,items.size()))),page,size,items.size()>size);
+    }
+
     public HomePageComboPageResponse comboPage(int page,int size) {
         if(page<0 || page>100000 || size<1 || size>48)
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
