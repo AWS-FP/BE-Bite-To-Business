@@ -24,13 +24,17 @@ public class HomePageRepository {
     private static Instant instant(Timestamp t) {return t==null?null:t.toInstant();}
 
     // A1, A4, A6, A7: real PUBLISHED products. Sale price is visible only during an active promotion.
-    private static final String PRODUCT_SELECT="""
+    private static final String PRODUCT_SELECT = productSelect(false);
+
+    // Shared storefront projection; favorites retain published items even when their category is inactive.
+    static String productSelect(boolean favorites) {
+        return """
  SELECT p.id AS product_id,p.sku,p.name_vi,p.name_en,p.image_url,p.unit_code,
    pp.list_price,
    CASE WHEN promo.status='PUBLISHED' AND promo.starts_at<=CURRENT_TIMESTAMP
               AND promo.ends_at>CURRENT_TIMESTAMP AND pp.sale_price>=0
               AND pp.sale_price<pp.list_price THEN pp.sale_price ELSE NULL END AS sale_price,
-   GREATEST(COALESCE(inv.available_quantity,0),0) AS available_quantity,
+   %s AS available_quantity,
    CASE WHEN promo.status='PUBLISHED' AND promo.starts_at<=CURRENT_TIMESTAMP
               AND promo.ends_at>CURRENT_TIMESTAMP AND pp.sale_price>=0
               AND pp.sale_price<pp.list_price THEN promo.id ELSE NULL END AS promotion_id,
@@ -42,9 +46,10 @@ public class HomePageRepository {
               AND pp.sale_price<pp.list_price THEN promo.ends_at ELSE NULL END AS promotion_ends_at,
    p.category_id,cat.name_vi AS category_name_vi,cat.name_en AS category_name_en,
    p.package_spec_vi,p.package_spec_en,p.min_order_quantity,p.quantity_step,p.vat_rate,
-   ratings.average_rating,ratings.review_count
+   ratings.average_rating,ratings.review_count%s
  FROM public.products p
- JOIN public.categories cat ON cat.id=p.category_id AND cat.is_active=TRUE
+ %s
+ %s
  LEFT JOIN public.categories parent ON parent.id=cat.parent_id
  LEFT JOIN public.product_prices pp ON pp.product_id=p.id
  LEFT JOIN public.inventory inv ON inv.product_id=p.id
@@ -62,7 +67,12 @@ public class HomePageRepository {
   SELECT ROUND(AVG(r.rating),2) average_rating,COUNT(*) review_count
   FROM public.product_reviews r WHERE r.product_id=p.id AND r.deleted_at IS NULL
  ) ratings ON TRUE
- """;
+ """.formatted(
+            favorites ? "CASE WHEN p.unit_code='COMBO' THEN COALESCE((SELECT a.available_quantity FROM checkout_stock.availability a WHERE a.product_id=p.id),0) ELSE GREATEST(COALESCE(inv.available_quantity,0),0) END" : "GREATEST(COALESCE(inv.available_quantity,0),0)",
+            favorites ? ",f.created_at AS favorited_at" : "",
+            favorites ? "JOIN public.product_favorites f ON f.product_id=p.id AND f.customer_id=?" : "",
+            favorites ? "LEFT JOIN public.categories cat ON cat.id=p.category_id" : "JOIN public.categories cat ON cat.id=p.category_id AND cat.is_active=TRUE");
+    }
     private static final String PUBLISHED_FILTER="""
  WHERE p.status='PUBLISHED' AND p.unit_code<>'COMBO'
  AND (cat.parent_id IS NULL OR parent.is_active=TRUE)
@@ -92,7 +102,7 @@ public class HomePageRepository {
                         + ") ranked ORDER BY " + order + " LIMIT ?",
                 (rs, row) -> mapProduct(rs), args.toArray());
     }
-    private HomePageProductResponse mapProduct(java.sql.ResultSet rs) throws java.sql.SQLException {
+    static HomePageProductResponse mapProduct(java.sql.ResultSet rs) throws java.sql.SQLException {
         return new HomePageProductResponse(
             rs.getObject("product_id",UUID.class),rs.getString("sku"),rs.getString("name_vi"),
             rs.getString("name_en"),rs.getString("image_url"),rs.getString("unit_code"),
@@ -175,21 +185,26 @@ public class HomePageRepository {
 
     // A3: advisory sellable combo count is bounded by least available ingredient.
     public List<HomePageComboResponse> combos(int limit) {
+        return combos(limit,0L);
+    }
+
+    public List<HomePageComboResponse> combos(int limit,long offset) {
+        return combos(limit,offset,null);
+    }
+
+    public List<HomePageComboResponse> combos(int limit,long offset,UUID id) {
         String sql="""
   SELECT p.id product_id,p.sku,p.name_vi,p.name_en,p.image_url,c.serving_count,
    pp.list_price,
+   (SELECT CASE WHEN COUNT(*) > 0 AND COUNT(ip.list_price)=COUNT(*)
+           THEN SUM(ci.quantity*ip.list_price) END
+    FROM public.combo_items ci LEFT JOIN public.product_prices ip ON ip.product_id=ci.product_id
+    WHERE ci.combo_id=p.id) separate_list_price,
    CASE WHEN promo.status='PUBLISHED' AND promo.starts_at<=CURRENT_TIMESTAMP
           AND promo.ends_at>CURRENT_TIMESTAMP AND pp.sale_price>=0
           AND pp.sale_price<pp.list_price THEN pp.sale_price ELSE NULL END sale_price,
    p.min_order_quantity,p.quantity_step,p.vat_rate,ratings.average_rating,ratings.review_count,
-   COALESCE((SELECT CASE
-    WHEN COUNT(*)=0 OR COUNT(*) FILTER(WHERE ingredient.id IS NULL OR ingredient.status<>'PUBLISHED'
-         OR ingredient.unit_code='COMBO')>0 THEN 0
-    ELSE MIN(FLOOR(GREATEST(COALESCE(inv.available_quantity,0),0)/ci.quantity)) END
-    FROM public.combo_items ci
-    LEFT JOIN public.products ingredient ON ingredient.id=ci.product_id
-    LEFT JOIN public.inventory inv ON inv.product_id=ci.product_id
-    WHERE ci.combo_id=p.id),0) available_quantity
+   COALESCE((SELECT a.available_quantity FROM checkout_stock.availability a WHERE a.product_id=p.id),0) available_quantity
   FROM public.combos c
   JOIN public.products p ON p.id=c.product_id
   LEFT JOIN public.product_prices pp ON pp.product_id=p.id
@@ -212,15 +227,17 @@ public class HomePageRepository {
    AND NOT EXISTS(SELECT 1 FROM public.combo_items ci
      JOIN public.products ingredient ON ingredient.id=ci.product_id
      WHERE ci.combo_id=p.id AND (ingredient.status<>'PUBLISHED' OR ingredient.unit_code='COMBO'))
-  ORDER BY p.created_at DESC,p.id ASC LIMIT ?
+   AND (CAST(? AS uuid) IS NULL OR p.id=CAST(? AS uuid))
+  ORDER BY p.created_at DESC,p.id ASC LIMIT ? OFFSET ?
   """;
         List<HomePageComboResponse> combos=jdbc.query(sql,(rs,i)->new HomePageComboResponse(
             rs.getObject("product_id",UUID.class),rs.getString("sku"),rs.getString("name_vi"),
             rs.getString("name_en"),rs.getString("image_url"),(Integer)rs.getObject("serving_count"),
             rs.getBigDecimal("list_price"),rs.getBigDecimal("sale_price"),rs.getBigDecimal("available_quantity"),
             List.of(),rs.getBigDecimal("min_order_quantity"),rs.getBigDecimal("quantity_step"),
-            rs.getBigDecimal("vat_rate"),rs.getBigDecimal("average_rating"),rs.getLong("review_count")
-        ),limit);
+            rs.getBigDecimal("vat_rate"),rs.getBigDecimal("average_rating"),rs.getLong("review_count"),
+            rs.getBigDecimal("separate_list_price")
+        ),id,id,limit,offset);
         if(combos.isEmpty()) return combos;
         List<UUID> ids=combos.stream().map(HomePageComboResponse::productId).toList();
         String marks=String.join(",",Collections.nCopies(ids.size(),"?"));
@@ -237,7 +254,30 @@ public class HomePageRepository {
         return combos.stream().map(c->new HomePageComboResponse(c.productId(),c.sku(),c.nameVi(),
             c.nameEn(),c.imageUrl(),c.servingCount(),c.listPrice(),c.salePrice(),c.availableQuantity(),
             List.copyOf(grouped.getOrDefault(c.productId(),List.of())),c.minOrderQuantity(),
-            c.quantityStep(),c.vatRate(),c.averageRating(),c.reviewCount())).toList();
+            c.quantityStep(),c.vatRate(),c.averageRating(),c.reviewCount(),c.separateListPrice())).toList();
+    }
+
+    public java.util.Optional<HomePagePromotionResponse> activePromotion(UUID id) {
+        return jdbc.query("""
+            SELECT id,name_vi,name_en,content_vi,content_en,starts_at,ends_at
+            FROM public.promotions WHERE id=? AND status='PUBLISHED'
+              AND starts_at<=CURRENT_TIMESTAMP AND ends_at>CURRENT_TIMESTAMP
+            """, (rs,i)->new HomePagePromotionResponse(rs.getObject("id",UUID.class),
+                rs.getString("name_vi"),rs.getString("name_en"),rs.getString("content_vi"),
+                rs.getString("content_en"),instant(rs.getTimestamp("starts_at")),
+                instant(rs.getTimestamp("ends_at"))), id).stream().findFirst();
+    }
+
+    public List<HomePageProductResponse> promotionProducts(UUID id,int limit,long offset) {
+        return jdbc.query(PRODUCT_SELECT + """
+            JOIN public.promotion_products assignment ON assignment.product_id=p.id
+            JOIN public.promotions campaign ON campaign.id=assignment.promotion_id
+            """ + PUBLISHED_FILTER + """
+            AND campaign.id=CAST(? AS uuid)
+            AND campaign.status='PUBLISHED' AND campaign.starts_at<=CURRENT_TIMESTAMP
+            AND campaign.ends_at>CURRENT_TIMESTAMP
+            ORDER BY p.name_vi,p.id LIMIT ? OFFSET ?
+            """, (rs,i)->mapProduct(rs),id,limit,offset);
     }
 
     public List<HomePagePromotionResponse> activePromotions(int limit) {
@@ -269,7 +309,7 @@ public class HomePageRepository {
             rs.getObject("id",UUID.class),
             rs.getString("name_vi"),rs.getString("name_en"),
             rs.getString("content_vi"),rs.getString("content_en"),
-            rs.getString("image_url"),null,i),limit);
+            rs.getString("image_url"),"/promotions/"+rs.getObject("id",UUID.class),i),limit);
     }
 
     private record Node(UUID id,UUID parentId,String code,String vi,String en,String dvi,String den,String svg,int order) {}

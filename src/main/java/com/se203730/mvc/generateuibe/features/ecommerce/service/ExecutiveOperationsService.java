@@ -10,6 +10,8 @@ import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.customer.service.NotificationEventPublisher;
 import com.se203730.mvc.generateuibe.features.customer.service.ReviewImageStorage;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteRepository;
+import com.se203730.mvc.generateuibe.features.customer.repository.ReviewRepository;
+import com.se203730.mvc.generateuibe.features.customer.dto.response.ReviewImageResponse;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageRepository;
 import com.se203730.mvc.generateuibe.features.customer.service.QuoteWorkflowService;
@@ -32,6 +34,7 @@ public class ExecutiveOperationsService {
     private final DatabaseClock clock;
     private final NotificationEventPublisher notificationEvents;
     private final ReviewImageStorage reviewImageStorage;
+    private final ReviewRepository reviewRepository;
     private static final Set<String> QUOTE_STATES=Set.of(
         "DRAFT","PENDING_APPROVAL","APPROVED","REJECTED","ACCEPTED","EXPIRED","CANCELLED");
 
@@ -87,11 +90,13 @@ public class ExecutiveOperationsService {
                 "on qp.id=qpi.quote_package_id where qpi.quote_item_id=qi.id " +
                 "and qp.cancelled_at is null),0))",p,Boolean.class));
         checks.put("stockAvailable", db.queryForObject(
-            "select not exists(select 1 from public.quote_items qi " +
-                "left join public.products pr on pr.id=qi.product_id " +
-                "left join public.inventory inv on inv.product_id=qi.product_id " +
-                "where qi.quote_id=:id and (coalesce(inv.available_quantity,0)<qi.quantity " +
-                "or pr.status<>'PUBLISHED'))",p,Boolean.class));
+            "select not exists(select 1 from public.quote_items qi where qi.quote_id=:id " +
+                "and not exists(select 1 from checkout_stock.components c where c.sellable_id=qi.product_id)) " +
+                "and not exists(select 1 from public.quote_items qi " +
+                "join checkout_stock.components c on c.sellable_id=qi.product_id " +
+                "left join public.inventory inv on inv.product_id=c.product_id where qi.quote_id=:id " +
+                "group by c.product_id,inv.available_quantity " +
+                "having sum(qi.quantity*c.factor)>coalesce(inv.available_quantity,0))",p,Boolean.class));
         boolean eligible = Boolean.TRUE.equals(q.get("unexpired")) && checks.values().stream().allMatch(Boolean.TRUE::equals);
         return Map.of("quoteId",id,"status",q.get("status"),
             "revision",q.get("revision"),"checks",checks,"approvalEnabled",eligible);
@@ -142,12 +147,22 @@ public class ExecutiveOperationsService {
         // Ratings support half-stars. E.g. 2 stars includes 2.0 and 2.5.
         if (stars != null) where.append(stars == 5 ? " and r.rating=5" :
             " and r.rating>=:stars and r.rating<(:stars+1)");
-        return db.page("select r.id,r.product_id,r.customer_id,r.rating,r.content,r.deleted_at," +
+        var result = db.page("select r.id,r.product_id,r.customer_id,r.rating,r.content,r.deleted_at," +
                 "r.deleted_by,r.deletion_reason,r.created_at,r.updated_at,p.name_vi as product_name_vi," +
                 "p.name_en as product_name_en from public.product_reviews r " +
                 "join public.products p on p.id=r.product_id" + where +
                 " order by r.created_at desc,r.id",
             "select count(*) from public.product_reviews r" + where,p,page,size);
+        if (!result.items().isEmpty()) {
+            var ids = result.items().stream().map(row -> (UUID) row.get("id")).toList();
+            var images = reviewRepository.imagesForReviews(ids);
+            result.items().forEach(row -> row.put("imageUrls",
+                images.getOrDefault((UUID) row.get("id"), List.of()).stream()
+                    .map(ReviewImageResponse::imageUrl)
+                    .filter(url -> url != null && !url.isBlank())
+                    .toList()));
+        }
+        return result;
     }
     @Transactional
     public Map<String,Object> moderateReview(UUID id,UUID staff,ExecutiveReviewDecisionRequest r) {

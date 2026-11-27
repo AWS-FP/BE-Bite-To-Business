@@ -1,6 +1,8 @@
 package com.se203730.mvc.generateuibe.features.customer.service;
 
 import com.se203730.mvc.generateuibe.features.customer.dto.response.*;
+import com.se203730.mvc.generateuibe.common.exception.BusinessException;
+import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
 import com.se203730.mvc.generateuibe.features.customer.repository.HomePageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -46,6 +48,28 @@ public class HomePageService {
         return new HomePageResponse(List.copyOf(featured), bestSelling, deepDiscount, topRated,
             repository.flashSaleProducts(FLASH_LIMIT), repository.combos(COMBO_LIMIT),
             repository.activePromotions(PROMOTION_LIMIT), repository.banners(BANNER_LIMIT));
+    }
+
+    public HomePagePromotionProductsResponse promotionProducts(UUID id,int page,int size) {
+        if(page<0 || page>100000 || size<1 || size>48)
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        var promotion=repository.activePromotion(id)
+            .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        var items=repository.promotionProducts(id,size+1,(long)page*size);
+        return new HomePagePromotionProductsResponse(promotion,
+            List.copyOf(items.subList(0,Math.min(size,items.size()))),page,size,items.size()>size);
+    }
+
+    public HomePageComboPageResponse comboPage(int page,int size) {
+        if(page<0 || page>100000 || size<1 || size>48)
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        var items=repository.combos(size+1,(long)page*size);
+        return new HomePageComboPageResponse(List.copyOf(items.subList(0,Math.min(size,items.size()))),page,size,items.size()>size);
+    }
+
+    public HomePageComboResponse combo(UUID id) {
+        return repository.combos(1,0L,id).stream().findFirst()
+            .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
     public List<HomePageCategoryResponse> categories() { return repository.categories(); }

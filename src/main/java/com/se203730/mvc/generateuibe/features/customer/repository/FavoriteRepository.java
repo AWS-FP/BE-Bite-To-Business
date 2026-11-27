@@ -58,20 +58,12 @@ public class FavoriteRepository {
                 JOIN public.products p ON p.id = f.product_id
                 WHERE f.customer_id = ? AND p.status = 'PUBLISHED'
                 """, Long.class, customerId);
-        var rows = jdbc.query("""
-                SELECT p.id, p.sku, p.name_vi, p.name_en, p.image_url,
-                       pp.list_price, f.created_at
-                FROM public.product_favorites f
-                JOIN public.products p ON p.id = f.product_id
-                LEFT JOIN public.product_prices pp ON pp.product_id = p.id
-                WHERE f.customer_id = ? AND p.status = 'PUBLISHED'
+        var rows = jdbc.query(HomePageRepository.productSelect(true) + """
+                WHERE p.status = 'PUBLISHED'
                 ORDER BY f.created_at DESC, p.id DESC
                 LIMIT ? OFFSET ?
                 """, (rs, number) -> new FavoriteProductResponse(
-                rs.getObject("id", UUID.class), rs.getString("sku"),
-                rs.getString("name_vi"), rs.getString("name_en"),
-                rs.getString("image_url"), rs.getBigDecimal("list_price"),
-                rs.getTimestamp("created_at").toInstant()),
+                HomePageRepository.mapProduct(rs), rs.getTimestamp("favorited_at").toInstant()),
                 customerId, size, (long) page * size);
         long count = total == null ? 0 : total;
         return new PageResponse<>(rows, page, size, count, (int) ((count + size - 1) / size));

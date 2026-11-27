@@ -22,6 +22,14 @@ public class ExecutivePromotionImageService {
     public record UploadedImage(String imageUrl, String publicId) {}
 
     public UploadedImage upload(MultipartFile file) {
+        return upload(file,"btb/ecommerce/promotions");
+    }
+
+    public UploadedImage uploadCombo(MultipartFile file) {
+        return upload(file,"btb/ecommerce/combos");
+    }
+
+    private UploadedImage upload(MultipartFile file,String folder) {
         if (file == null || file.isEmpty() || file.getSize() > MAX_BYTES) {
             throw new BusinessException(ErrorCode.PAYLOAD_TOO_LARGE);
         }
@@ -36,7 +44,7 @@ public class ExecutivePromotionImageService {
             Cloudinary cloudinary = new Cloudinary(ObjectUtils.asMap(
                 "cloud_name", cloudName, "api_key", apiKey, "api_secret", apiSecret, "secure", true));
             Map<?, ?> result = cloudinary.uploader().upload(bytes, ObjectUtils.asMap(
-                "folder", "btb/ecommerce/promotions", "resource_type", "image", "overwrite", false));
+                "folder", folder, "resource_type", "image", "overwrite", false));
             Object url = result.get("secure_url");
             Object id = result.get("public_id");
             if (!(url instanceof String secureUrl) || !secureUrl.startsWith("https://") ||

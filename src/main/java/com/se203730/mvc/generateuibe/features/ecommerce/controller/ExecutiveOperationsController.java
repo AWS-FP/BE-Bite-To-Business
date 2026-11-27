@@ -36,20 +36,24 @@ public class ExecutiveOperationsController {
         @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate to) {
         return ok(dashboard.metrics(from,to));
     }
+    @PreAuthorize("hasRole('LOGISTICS_STAFF')")
     @GetMapping("/quotes")
     public ResponseEntity<ResponseObject<EcommercePageResponse<Map<String,Object>>>> quotes(
         @RequestParam(required=false) String status,@RequestParam(defaultValue="0") @Min(0) int page,
         @RequestParam(defaultValue="20") @Min(1) @Max(100) int size) {
         return ok(service.quotes(status,page,size));
     }
+    @PreAuthorize("hasRole('LOGISTICS_STAFF')")
     @GetMapping("/quotes/{id}")
     public ResponseEntity<ResponseObject<Map<String,Object>>> quote(@PathVariable UUID id) {
         return ok(service.quote(id));
     }
+    @PreAuthorize("hasRole('LOGISTICS_STAFF')")
     @GetMapping("/quotes/{id}/readiness")
     public ResponseEntity<ResponseObject<Map<String,Object>>> quoteReadiness(@PathVariable UUID id) {
         return ok(service.quoteReadiness(id));
     }
+    @PreAuthorize("hasRole('LOGISTICS_STAFF')")
     @PostMapping("/quotes/{id}/decision")
     public ResponseEntity<ResponseObject<Map<String,Object>>> decideQuote(@CurrentUserUUID UUID staff,
                                                                           @PathVariable UUID id,@Valid @RequestBody ExecutiveQuoteDecisionRequest r) {

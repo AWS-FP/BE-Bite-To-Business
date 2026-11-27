@@ -2,7 +2,6 @@ package com.se203730.mvc.generateuibe.features.customer.service;
 
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.common.exception.ErrorCode;
-import com.se203730.mvc.generateuibe.common.exception.ErrorResponse;
 import com.se203730.mvc.generateuibe.common.util.DatabaseClock;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteDraftResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.QuoteAvailabilityResponse;
@@ -13,8 +12,6 @@ import com.se203730.mvc.generateuibe.features.customer.entity.QuotePackageItem;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuotePackageRepository;
-import com.se203730.mvc.generateuibe.features.ecommerce.entity.ProductInventory;
-import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductInventoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +43,7 @@ public class QuoteWorkflowService {
     @Autowired
     private DatabaseClock clock;
     @Autowired
-    private ProductInventoryRepository inventory;
+    private CheckoutStockService checkoutStock;
     @Autowired
     private QuoteResponseFactory responses;
     @Autowired
@@ -56,12 +53,11 @@ public class QuoteWorkflowService {
     public QuoteAvailabilityResponse availability(UUID customerId, UUID quoteId) {
         drafts.get(customerId, quoteId);
         List<QuoteItem> lines = items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId);
-        Map<UUID, ProductInventory> available = getInventory(lines);
+        Map<UUID, BigDecimal> available = checkoutStock.available(CheckoutStockService.quoteLines(lines));
         List<QuoteAvailabilityResponse.Item> result = new ArrayList<>();
         boolean allAvailable = !lines.isEmpty();
         for (QuoteItem line : lines) {
-            ProductInventory stock = available.get(line.getProductId());
-            BigDecimal quantity = stock == null ? null : stock.getAvailableQuantity();
+            BigDecimal quantity = available.getOrDefault(line.getProductId(), BigDecimal.ZERO);
             boolean enoughStock = quantity != null && quantity.compareTo(line.getQuantity()) >= 0;
             if (!enoughStock) {
                 allAvailable = false;
@@ -86,35 +82,11 @@ public class QuoteWorkflowService {
         }
         List<QuotePackage> parcels = packages.findAllByQuoteIdAndCancelledAtIsNullOrderByCreatedAtAsc(quoteId);
         validateQuote(quote, lines, parcels, clock.now());
-        checkStock(lines);
         return responses.create(quote, lines);
     }
 
     private void checkStock(List<QuoteItem> lines) {
-        Map<UUID, ProductInventory> available = getInventory(lines);
-        List<ErrorResponse.ValidationError> shortages = new ArrayList<>();
-        for (QuoteItem line : lines) {
-            ProductInventory stock = available.get(line.getProductId());
-            BigDecimal onHand = stock == null ? BigDecimal.ZERO : stock.getAvailableQuantity();
-            if (onHand.compareTo(line.getQuantity()) < 0) {
-                shortages.add(StockShortage.of(line.getProductId(), onHand, line.getQuantity()));
-            }
-        }
-        if (!shortages.isEmpty()) {
-            throw new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE, shortages);
-        }
-    }
-
-    private Map<UUID, ProductInventory> getInventory(List<QuoteItem> lines) {
-        List<UUID> productIds = new ArrayList<>();
-        for (QuoteItem line : lines) {
-            productIds.add(line.getProductId());
-        }
-        Map<UUID, ProductInventory> result = new HashMap<>();
-        for (ProductInventory stock : inventory.findAllById(productIds)) {
-            result.put(stock.getProductId(), stock);
-        }
-        return result;
+        checkoutStock.requireAvailable(CheckoutStockService.quoteLines(lines));
     }
 
     public void validateQuote(Quote quote, List<QuoteItem> lines, List<QuotePackage> parcels, Instant now) {
@@ -131,6 +103,8 @@ public class QuoteWorkflowService {
                 }
             }
         }
+        var comboIds = lines.stream().filter(line -> "COMBO".equals(line.getUnitCode()))
+                .map(QuoteItem::getId).collect(java.util.stream.Collectors.toSet());
         Map<UUID, BigDecimal> quantities = new HashMap<>();
         BigDecimal shipping = BigDecimal.ZERO;
         Map<UUID, List<QuotePackageItem>> allocationsByPackage = new HashMap<>();
@@ -150,6 +124,8 @@ public class QuoteWorkflowService {
             List<QuotePackageItem> assigned = allocationsByPackage.getOrDefault(parcel.getId(), List.of());
             if (assigned.isEmpty()) throw new BusinessException(ErrorCode.QUOTE_INCOMPLETE);
             for (QuotePackageItem allocation : assigned) {
+                if (comboIds.contains(allocation.getQuoteItemId()) && allocation.getQuantity().stripTrailingZeros().scale() > 0)
+                    throw new BusinessException(ErrorCode.VALIDATION_FAILED);
                 quantities.merge(allocation.getQuoteItemId(), allocation.getQuantity(), BigDecimal::add);
             }
             shipping = shipping.add(parcel.getShippingFee());
@@ -164,6 +140,7 @@ public class QuoteWorkflowService {
         BigDecimal couponDiscount = BigDecimal.ZERO;
         BigDecimal vat = BigDecimal.ZERO;
         for (QuoteItem item : lines) {
+            checkoutStock.validateSnapshot(item);
             if (quantities.getOrDefault(item.getId(), BigDecimal.ZERO).compareTo(item.getQuantity()) != 0) {
                 throw new BusinessException(ErrorCode.QUOTE_INCOMPLETE);
             }
@@ -173,7 +150,8 @@ public class QuoteWorkflowService {
             } catch (BusinessException exception) {
                 throw new BusinessException(ErrorCode.QUOTE_PRICING_STALE);
             }
-            if (item.getListUnitPrice().compareTo(current.product().getListPrice()) != 0
+            if (!Objects.equals(item.getUnitCode(), current.product().getUnitCode())
+                    || item.getListUnitPrice().compareTo(current.product().getListPrice()) != 0
                     || item.getVolumeUnitPrice().compareTo(current.volume()) != 0
                     || item.getSaleUnitPrice().compareTo(current.sale()) != 0
                     || !Objects.equals(item.getPriceTierId(), current.product().getTierId())) {
@@ -204,6 +182,7 @@ public class QuoteWorkflowService {
             throw new BusinessException(ErrorCode.QUOTE_PRICING_STALE);
         }
         coupons.validateSelection(quote, now);
+        checkStock(lines);
     }
 
     private BigDecimal line(BigDecimal quantity, BigDecimal unitPrice) {
