@@ -216,7 +216,7 @@ public class ReviewRepository {
             List.of());
     }
 
-    private Map<UUID, List<ReviewImageResponse>> imagesForReviews(Collection<UUID> reviewIds) {
+    public Map<UUID, List<ReviewImageResponse>> imagesForReviews(Collection<UUID> reviewIds) {
         if (reviewIds.isEmpty()) return Map.of();
         var args = new MapSqlParameterSource("ids", reviewIds);
         Map<UUID, List<ReviewImageResponse>> result = new LinkedHashMap<>();

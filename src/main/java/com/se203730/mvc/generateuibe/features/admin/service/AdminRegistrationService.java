@@ -72,6 +72,9 @@ public class AdminRegistrationService {
     private AuthProperties properties;
 
     @Autowired
+    private ActivationOtpResendService activationResends;
+
+    @Autowired
     private TransactionTemplate transaction;
 
     @Autowired
@@ -196,20 +199,9 @@ public class AdminRegistrationService {
         return Objects.requireNonNull(transaction.execute(status -> {
             RegistrationRequest registration = findLockedRegistration(requestId);
             accounts.requireApprovedCustomer(registration);
-            if ("QUEUED".equals(registration.getOtpDeliveryState())) {
-                return toResponse(registration);
-            }
-            Instant now = clock.now();
-            Instant lastOtpAttempt = registration.getOtpGeneratedAt();
-            if (lastOtpAttempt != null && now.isBefore(lastOtpAttempt
-                    .plus(properties.getOtpResendCooldown()))) {
+            if (!activationResends.queueIfDue(registration)) {
                 throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
             }
-            registration.setOtpSentAt(null);
-            registration.setOtpGeneratedAt(null);
-            registration.setOtpDeliveryState("QUEUED");
-            registration.setUpdatedAt(now);
-            registrations.saveAndFlush(registration);
             return toResponse(registration);
         }));
     }
@@ -346,9 +338,7 @@ public class AdminRegistrationService {
                 registration.getReviewedAt(),
                 registration.getOtpSentAt(),
                 registration.getOtpDeliveryState(),
-                registration.getOtpGeneratedAt() == null
-                        ? null
-                        : registration.getOtpGeneratedAt().plus(properties.getOtpResendCooldown()),
+                activationResends.availableAt(registration),
                 registration.getActivatedAt(),
                 approvalLocked);
     }

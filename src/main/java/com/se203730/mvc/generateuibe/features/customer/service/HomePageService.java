@@ -24,6 +24,10 @@ public class HomePageService {
     private static final int BANNER_LIMIT = 8;
     private final HomePageRepository repository;
 
+    public List<HomePageProductResponse> rankedProducts(List<UUID> categories, String keyword, String sort, int limit) {
+        return repository.rankedProducts(categories, keyword, sort, limit);
+    }
+
     public HomePageResponse home() {
         List<HomePageProductResponse> bestSelling = repository.bestSellingProducts(FEATURED_LIMIT);
         List<HomePageProductResponse> deepDiscount = repository.deepDiscountProducts(FEATURED_LIMIT);
@@ -44,6 +48,16 @@ public class HomePageService {
         return new HomePageResponse(List.copyOf(featured), bestSelling, deepDiscount, topRated,
             repository.flashSaleProducts(FLASH_LIMIT), repository.combos(COMBO_LIMIT),
             repository.activePromotions(PROMOTION_LIMIT), repository.banners(BANNER_LIMIT));
+    }
+
+    public HomePagePromotionProductsResponse promotionProducts(UUID id,int page,int size) {
+        if(page<0 || page>100000 || size<1 || size>48)
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        var promotion=repository.activePromotion(id)
+            .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        var items=repository.promotionProducts(id,size+1,(long)page*size);
+        return new HomePagePromotionProductsResponse(promotion,
+            List.copyOf(items.subList(0,Math.min(size,items.size()))),page,size,items.size()>size);
     }
 
     public HomePageComboPageResponse comboPage(int page,int size) {

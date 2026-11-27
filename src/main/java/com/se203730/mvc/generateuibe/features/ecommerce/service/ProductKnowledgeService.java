@@ -45,4 +45,16 @@ public class ProductKnowledgeService {
         return repository.search(query.origin(), query.storage(), query.contains(), query.nutrient(),
                 query.compliance(), query.text(), Math.max(1, Math.min(limit, MAX_RESULTS)));
     }
+
+    public List<java.util.UUID> recommendationCandidates(int limit) {
+        return repository.recommendationCandidates(Math.max(1, Math.min(limit, MAX_RESULTS)));
+    }
+
+    public List<com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductAttributeSearchRepository.NutritionRow> verifiedNutrition() {
+        return repository.verifiedNutrition();
+    }
+
+    public List<com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductAttributeSearchRepository.Evidence> evidence(List<java.util.UUID> ids) {
+        return repository.evidence(ids);
+    }
 }

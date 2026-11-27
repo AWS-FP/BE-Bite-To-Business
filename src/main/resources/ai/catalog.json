@@ -1,5 +1,5 @@
 {
-  "contractVersion": "btb-genui-5",
+  "contractVersion": "btb-genui-7",
   "a2uiVersion": "v0.9",
   "catalogId": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
   "catalogSchema": "classpath:a2ui/catalog/bite-to-business.catalog.json",
@@ -148,7 +148,11 @@
     "PromotionList": "[page] Chương trình khuyến mãi đang chạy kèm thời gian, items={path:'/home/promotions'}.",
     "Notice": "Thông báo info|success|warning|empty; không chứa số liệu tự bịa.",
     "ClarifyQuestion": "Câu hỏi làm rõ kèm tối đa 6 lựa chọn là từ khóa ngắn.",
-    "SuggestedPrompts": "1–4 câu gợi ý bước tiếp theo."
+    "SuggestedPrompts": "1–4 câu gợi ý bước tiếp theo.",
+    "NutritionTable": "Bảng dinh dưỡng theo sản phẩm. items bind /products, maxItems 1–6. Hiện số liệu và nutritionBasis nguyên từ DB, ô thiếu dữ liệu ghi rõ. Dùng cho câu hỏi sức khỏe hoặc so sánh dinh dưỡng; không tự suy ra công dụng điều trị.",
+    "ProductStats": "Three factual summary cards calculated from the bound product list: products, in stock and total reviews. No literal metrics.",
+    "ProductPriceChart": "Responsive Recharts bar chart from bound products; metric price or reviews. Prices keep original selling units and are not normalized across pack sizes.",
+    "ProductCompareCards": "Spacious side-by-side product cards with images, actual prices, stock, reviews and optional quantity price tiers; 1 to 4 products."
   },
   "actions": {
     "view_product": "Mở trang chi tiết sản phẩm. Renderer tự gắn cho thẻ/bảng sản phẩm.",

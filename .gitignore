@@ -39,6 +39,8 @@ src/main/resources/application-local.properties
 
 # Tài liệu dự án chỉ lưu ở local.
 /docs/
+/examples/
+/scripts/
 *.md
 HELP.md
 # Prompt AI cần đóng gói cùng ứng dụng.

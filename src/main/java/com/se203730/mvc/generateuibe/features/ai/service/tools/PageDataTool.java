@@ -3,6 +3,7 @@ package com.se203730.mvc.generateuibe.features.ai.service.tools;
 import com.se203730.mvc.generateuibe.common.exception.BusinessException;
 import com.se203730.mvc.generateuibe.features.ai.service.context.UiProfileService.UiProfile;
 import com.se203730.mvc.generateuibe.features.ai.service.tools.ProductSearchTool.SearchResult;
+import com.se203730.mvc.generateuibe.features.ai.service.a2ui.A2uiValidator;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.FavoriteProductResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.HomePageCategoryResponse;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.HomePageComboResponse;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -29,7 +31,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class PageDataTool {
     private static final int LIST_LIMIT = 8;
-    private static final int SUMMARY_NAMES = 6;
 
     private final ProductSearchTool search;
     private final HomePageService home;
@@ -51,6 +52,42 @@ public class PageDataTool {
      */
     public record PageData(Map<String, Object> dataModel, Map<String, Object> summary, Map<String, Integer> lists,
             String query, String sort, Map<UUID, String> productNames) {
+    }
+
+    /** Keep the exact selected IDs/order when changing language; never rerun recommendation selection. */
+    public PageData relocalize(Map<String, List<String>> selected, String locale, String query) {
+        Map<String, Object> model = new LinkedHashMap<>();
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        Map<String, Object> publicPage = null;
+        for (var entry : selected.entrySet()) {
+            String path = entry.getKey();
+            List<?> rows;
+            if (A2uiValidator.PRODUCT_LISTS.contains(path)) {
+                rows = search.byIds(entry.getValue().stream().map(UUID::fromString).toList(), locale);
+            } else {
+                if (!Set.of("/categories", "/home/combos", "/home/banners", "/home/promotions").contains(path))
+                    throw new IllegalArgumentException("Unsupported page data source");
+                if (publicPage == null) publicPage = build(search.empty(), locale, null, UiProfile.empty()).dataModel();
+                Object source = publicPage;
+                for (String segment : path.substring(1).split("/")) source = ((Map<?, ?>) source).get(segment);
+                Map<String, Object> byId = new LinkedHashMap<>();
+                if (source instanceof List<?> list) for (Object value : list) {
+                    if (value instanceof Map<?, ?> row) byId.put(String.valueOf(row.containsKey("id") ? row.get("id") : row.get("code")), value);
+                }
+                rows = entry.getValue().stream().filter(byId::containsKey).map(byId::get).toList();
+            }
+            if (rows.size() != entry.getValue().size()) throw new IllegalArgumentException("Selected product is no longer available");
+            counts.put(path, rows.size());
+            if (path.startsWith("/home/")) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> homeModel = (Map<String, Object>) model.computeIfAbsent("home", ignored -> new LinkedHashMap<>());
+                homeModel.put(path.substring(6), rows);
+            } else model.put(path.substring(1), rows);
+        }
+        model.putIfAbsent("products", List.of());
+        model.put("query", Map.of("text", query, "sort", "relevance"));
+        model.put("resultCount", counts.getOrDefault("/products", 0));
+        return new PageData(model, Map.of(), counts, query, "relevance", Map.of());
     }
 
     /**
@@ -163,9 +200,20 @@ public class PageDataTool {
         lists.put(path, rows.size());
         Map<String, Object> info = new LinkedHashMap<>();
         info.put("count", rows.size());
-        info.put("items", rows.stream().limit(SUMMARY_NAMES).map(row -> {
+        info.put("items", rows.stream().limit(12).map(row -> {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("name", row.getOrDefault("name", row.get("title")));
+            item.put("reviewCount", row.get("reviewCount"));
+            item.put("averageRating", row.get("averageRating"));
+            if (row.get("facts") instanceof Map<?, ?> facts) {
+                Map<String, Object> details = new LinkedHashMap<>();
+                for (String key : List.of("category", "description", "storage", "technical", "origin", "brand", "compliance", "originDetail", "nutritionBasis", "nutrition", "nutritionVerified", "notes")) {
+                    Object value = facts.get(key);
+                    if (value instanceof String text) value = text.substring(0, Math.min(text.length(), 500));
+                    if (value != null) details.put(key, value);
+                }
+                item.put("facts", details);
+            }
             if (row.containsKey("availableQuantity")) {
                 Object available = row.get("availableQuantity");
                 item.put("inStock", available instanceof Number number && number.doubleValue() > 0);

@@ -32,9 +32,15 @@
         <springdoc.version>3.1.1</springdoc.version>
     </properties>
     <dependencies>
+        <dependency><groupId>software.amazon.awssdk</groupId><artifactId>rum</artifactId><version>2.57.8</version></dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>athena</artifactId>
+            <version>2.57.8</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cloudwatchlogs</artifactId>
             <version>2.57.8</version>
         </dependency>
         <dependency>
@@ -146,6 +152,7 @@
     </dependencies>
     <dependencyManagement>
         <dependencies>
+        <dependency><groupId>software.amazon.awssdk</groupId><artifactId>rum</artifactId><version>2.57.8</version></dependency>
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
@@ -158,6 +165,15 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>application-local.properties</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>net.revelc.code.formatter</groupId>
                 <artifactId>formatter-maven-plugin</artifactId>

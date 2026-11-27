@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.HomePageComboResponse;
 import org.springframework.web.bind.annotation.RequestParam;
 import com.se203730.mvc.generateuibe.features.customer.dto.response.HomePageComboPageResponse;
+import com.se203730.mvc.generateuibe.features.customer.dto.response.HomePagePromotionProductsResponse;
 
 @RestController
 @RequestMapping("/api/homepage")
@@ -31,6 +32,13 @@ public class HomePageController {
  @Operation(summary="Homepage cards: standard products, flash sales, combos, promotions and banners")
  public ResponseEntity<ResponseObject<HomePageResponse>> home() {
   return ResponseEntity.ok(new ResponseObject<>(200,"Success",service.home()));
+ }
+ @GetMapping("/promotions/{id}/products")
+ @Operation(summary="Active published promotion and its published products")
+ public ResponseEntity<ResponseObject<HomePagePromotionProductsResponse>> promotionProducts(
+     @PathVariable("id") UUID id,@RequestParam(name="page",defaultValue="0") int page,
+     @RequestParam(name="size",defaultValue="12") int size) {
+  return ResponseEntity.ok(new ResponseObject<>(200,"Success",service.promotionProducts(id,page,size)));
  }
  @GetMapping("/combos")
  @Operation(summary="Published combos with bounded pagination")

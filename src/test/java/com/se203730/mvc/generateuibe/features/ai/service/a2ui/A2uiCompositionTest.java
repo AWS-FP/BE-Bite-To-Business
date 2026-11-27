@@ -63,5 +63,21 @@ class A2uiCompositionTest {
                 [{"id":"root","component":"ProductSpotlight","product":{"path":"/products/0"},"html":"unsafe"}]
                 """), 1).isEmpty());
     }
+
+    @Test
+    void newInsightWidgetsBindOnlyCatalogProducts() {
+        var layout=message("""
+                [{"id":"root","component":"Column","children":["header","stats","chart","cards"]},
+                 {"id":"header","component":"PageHeader","title":"Đối chiếu lựa chọn","variant":"hero"},
+                 {"id":"stats","component":"ProductStats","items":{"path":"/products"}},
+                 {"id":"chart","component":"ProductPriceChart","items":{"path":"/products"},"metric":"reviews","maxItems":2},
+                 {"id":"cards","component":"ProductCompareCards","items":{"path":"/products"},"maxItems":2}]
+                """);
+        assertTrue(validator.validate(layout,Map.of("/products",2),true).isEmpty());
+        var invalid=message("""
+                [{"id":"root","component":"ProductPriceChart","items":{"path":"/customers"},"metric":"revenue"}]
+                """);
+        assertFalse(validator.validate(invalid,Map.of("/products",2),true).isEmpty());
+    }
 }
 

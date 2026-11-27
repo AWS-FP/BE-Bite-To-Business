@@ -5,6 +5,144 @@
   "description": "Catalog A2UI v0.9 của Bite to Business cho hai chế độ: chat (khối nhỏ) và page (cả trang). AI chỉ sinh updateComponents; backend ghi updateDataModel (/query, /products, /home/*, /categories, /favorites). Component cơ bản lấy nguyên từ basic catalog của @a2ui/web_core 0.12.",
   "catalogId": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
   "components": {
+    "ProductStats": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ProductStats"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ProductPriceChart": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ProductPriceChart"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+            },
+            "maxItems": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 8,
+              "default": 6
+            },
+            "metric": {
+              "type": "string",
+              "enum": [
+                "price",
+                "reviews"
+              ],
+              "default": "price"
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ProductCompareCards": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ProductCompareCards"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+            },
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4,
+              "default": 3
+            },
+            "showPriceTiers": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "NutritionTable": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "NutritionTable"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+            },
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6,
+              "default": 6
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
   "LayoutGrid": {
     "type": "object",
     "allOf": [
@@ -794,6 +932,18 @@
             "subtitle": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
               "description": "Một câu giải thích vì sao trang được sắp như vậy."
+            },
+            "variant": {
+              "type": "string",
+              "enum": [
+                "plain",
+                "hero",
+                "soft"
+              ],
+              "default": "plain"
+            },
+            "eyebrow": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
             }
           },
           "required": [
@@ -1411,6 +1561,9 @@
           "$ref": "#/components/PriceTiers"
         },
         {
+          "$ref": "#/components/NutritionTable"
+        },
+        {
           "$ref": "#/components/ProductFacts"
         },
         {
@@ -1451,6 +1604,15 @@
         },
         {
           "$ref": "#/components/SuggestedPrompts"
+        },
+        {
+          "$ref": "#/components/ProductStats"
+        },
+        {
+          "$ref": "#/components/ProductPriceChart"
+        },
+        {
+          "$ref": "#/components/ProductCompareCards"
         }
       ],
       "discriminator": {

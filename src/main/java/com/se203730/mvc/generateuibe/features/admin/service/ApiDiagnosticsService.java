@@ -55,7 +55,7 @@ public class ApiDiagnosticsService {
 
     public ApiDiagnosticsResponse get(UUID adminId, int hours) {
         accounts.requireAdmin(adminId);
-        if (hours != 24 && hours != 168 && hours != 720) throw new IllegalArgumentException("Unsupported range");
+        if (hours != 1 && hours != 6 && hours != 24 && hours != 168 && hours != 720) throw new IllegalArgumentException("Unsupported range");
         return report(hours);
     }
 

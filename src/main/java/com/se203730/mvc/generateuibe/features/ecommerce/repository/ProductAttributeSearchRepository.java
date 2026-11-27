@@ -28,8 +28,10 @@ public class ProductAttributeSearchRepository {
             WITH docs AS MATERIALIZED (
                 SELECT p.id,
                        lower(p.name_vi) AS name_sort,
-                       coalesce(p.origin, '') || ' ' || coalesce(d.origin_content_vi, '') || ' '
-                           || coalesce(d.origin_content_en, '') AS origin_txt,
+                       CASE WHEN EXISTS (SELECT 1 FROM public.product_detail_evidence e
+                           WHERE e.product_id=p.id AND e.sources @> '[{"type":"origin_label"}]'::jsonb)
+                           THEN coalesce(p.origin, '') || ' ' || coalesce(d.origin_content_vi, '') || ' '
+                           || coalesce(d.origin_content_en, '') ELSE '' END AS origin_txt,
                        coalesce(d.kitchen_storage_content_vi, '') || ' '
                            || coalesce(d.kitchen_storage_content_en, '') AS storage_txt,
                        coalesce(p.name_vi, '') || ' ' || coalesce(p.name_en, '') || ' '
@@ -38,9 +40,13 @@ public class ProductAttributeSearchRepository {
                            || ' ' || coalesce(c.name_vi, '') || ' ' || coalesce(c.name_en, '') || ' '
                            || coalesce(pc.name_vi, '') || ' ' || coalesce(pc.name_en, '') AS content_txt,
                        coalesce((SELECT string_agg(n.nutrient || ' ' || n.nutrient_en, ' ')
-                           FROM public.product_nutrition_facts n WHERE n.product_id = p.id), '') AS nutrient_txt,
-                       coalesce(d.compliance_vat_content_vi, '') || ' '
-                           || coalesce(d.compliance_vat_content_en, '') AS compliance_txt,
+                           FROM public.product_nutrition_facts n WHERE n.product_id = p.id
+                             AND EXISTS (SELECT 1 FROM public.product_detail_evidence e
+                                         WHERE e.product_id=p.id AND e.nutrition_verified)), '') AS nutrient_txt,
+                       CASE WHEN EXISTS (SELECT 1 FROM public.product_detail_evidence e
+                           WHERE e.product_id=p.id AND e.sources @> '[{"type":"certificate"}]'::jsonb)
+                           THEN coalesce(d.compliance_vat_content_vi, '') || ' '
+                           || coalesce(d.compliance_vat_content_en, '') ELSE '' END AS compliance_txt,
                        coalesce(b.name, '') AS brand_txt
                 FROM public.products p
                 LEFT JOIN public.product_details d ON d.product_id = p.id
@@ -84,9 +90,51 @@ public class ProductAttributeSearchRepository {
         this.jdbc = jdbc;
     }
 
+    /** Balanced catalog sample for goal-based recommendations, favoring products with documented facts. */
+    public List<UUID> recommendationCandidates(int limit) {
+        return jdbc.query("""
+                WITH ranked AS (
+                    SELECT p.id,
+                           row_number() OVER (
+                               PARTITION BY coalesce(c.parent_id, c.id)
+                               ORDER BY EXISTS (SELECT 1 FROM public.product_detail_evidence e
+                                                WHERE e.product_id=p.id AND e.nutrition_verified) DESC,
+                                        EXISTS (SELECT 1 FROM public.product_nutrition_facts n
+                                                WHERE n.product_id = p.id) DESC,
+                                        (coalesce(p.description_vi, '') <> '') DESC, p.id
+                           ) AS position
+                    FROM public.products p
+                    LEFT JOIN public.categories c ON c.id = p.category_id
+                    WHERE p.status = 'PUBLISHED'
+                )
+                SELECT id FROM ranked ORDER BY position, id LIMIT :limit
+                """, new MapSqlParameterSource("limit", limit), (rs, row) -> rs.getObject("id", UUID.class));
+    }
+
     /** Kết quả: ID sản phẩm và nhóm điều kiện nào đã khớp (để giải thích vì sao sản phẩm xuất hiện). */
     public record Match(UUID productId, boolean origin, boolean storage, boolean contains, boolean nutrient,
             boolean compliance, boolean text) {
+    }
+
+    public record NutritionRow(UUID productId, String nutrient, String nutrientEn, String amount, String basis) {}
+    public record Evidence(UUID productId, boolean nutritionVerified, String notesVi, String notesEn, String sources) {}
+
+    public List<NutritionRow> verifiedNutrition() {
+        return jdbc.query("""
+                SELECT n.product_id,n.nutrient,n.nutrient_en,n.amount,d.nutrition_basis
+                FROM public.product_nutrition_facts n
+                JOIN public.products p ON p.id=n.product_id AND p.status='PUBLISHED'
+                JOIN public.product_details d ON d.product_id=p.id
+                JOIN public.product_detail_evidence e ON e.product_id=p.id AND e.nutrition_verified
+                """, new MapSqlParameterSource(), (rs, row) -> new NutritionRow(rs.getObject(1, UUID.class),
+                rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5)));
+    }
+
+    public List<Evidence> evidence(List<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        return jdbc.query("SELECT product_id,nutrition_verified,notes_vi,notes_en,sources::text FROM public.product_detail_evidence WHERE product_id IN (:ids)",
+                new MapSqlParameterSource("ids", ids), (rs, row) -> new Evidence(rs.getObject(1, UUID.class),
+                rs.getBoolean(2), rs.getString(3), rs.getString(4), rs.getString(5)));
     }
 
     /** Mỗi tham số là danh sách từ (null = không lọc theo nhóm đó). */

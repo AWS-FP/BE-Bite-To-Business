@@ -36,7 +36,7 @@ class ShoppingContextTest {
         String latest = "Bây giờ tôi muốn hỏi về giao hàng";
         when(model.checkUserInput(latest)).thenReturn(new BedrockClient.GuardrailCheck(false, null));
         String classification = """
-                {"intents":["INQUIRE_POLICY"],"requests":[{"intent":"INQUIRE_POLICY","subject":"giao hàng",
+                {"scope":"SHOPPING","intents":["INQUIRE_POLICY"],"requests":[{"intent":"INQUIRE_POLICY","subject":"giao hàng",
                 "subject_source":"message"}],"slots":{},"needs_clarification":false}
                 """;
         when(model.converse(anyString(), anyString(), anyInt(), anyFloat()))
@@ -46,8 +46,7 @@ class ShoppingContextTest {
         service.run(new RunAgentInput("thread", "run", List.of(new RunAgentInput.ChatMessage("user", latest)),
                 state, "chat"), customerId, event -> {});
         var inputs = ArgumentCaptor.forClass(String.class);
-        verify(model, times(2)).converse(anyString(), inputs.capture(), anyInt(), anyFloat());
-        assertTrue(inputs.getAllValues().get(1).contains("\"subject_source\":\"message\""));
+        verify(model).converse(anyString(), inputs.capture(), anyInt(), anyFloat());
         var input = mapper.readTree(inputs.getAllValues().getFirst());
         assertEquals(latest, input.path("latest_message").asString());
         return input.path("shopping_context");
