@@ -45,7 +45,7 @@ public record RunAgentInput(
             String density,
             @Size(max = 100)
             String lastQuery,
-            @Pattern(regexp = "relevance|name_asc|name_desc|newest|oldest")
+            @Pattern(regexp = "relevance|name_asc|name_desc|newest|oldest|price_asc|most_reviewed")
             String lastSort,
             /**
              * ID ẩn danh của trình duyệt (cùng giá trị FE gửi kèm /api/ui-events) để Guest cũng có hồ sơ thói quen.

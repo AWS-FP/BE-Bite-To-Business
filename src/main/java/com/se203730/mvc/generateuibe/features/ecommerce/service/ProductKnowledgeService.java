@@ -45,4 +45,8 @@ public class ProductKnowledgeService {
         return repository.search(query.origin(), query.storage(), query.contains(), query.nutrient(),
                 query.compliance(), query.text(), Math.max(1, Math.min(limit, MAX_RESULTS)));
     }
+
+    public List<java.util.UUID> recommendationCandidates(int limit) {
+        return repository.recommendationCandidates(Math.max(1, Math.min(limit, MAX_RESULTS)));
+    }
 }

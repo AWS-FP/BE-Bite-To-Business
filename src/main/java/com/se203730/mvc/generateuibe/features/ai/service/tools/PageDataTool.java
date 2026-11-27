@@ -29,7 +29,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class PageDataTool {
     private static final int LIST_LIMIT = 8;
-    private static final int SUMMARY_NAMES = 6;
 
     private final ProductSearchTool search;
     private final HomePageService home;
@@ -163,9 +162,20 @@ public class PageDataTool {
         lists.put(path, rows.size());
         Map<String, Object> info = new LinkedHashMap<>();
         info.put("count", rows.size());
-        info.put("items", rows.stream().limit(SUMMARY_NAMES).map(row -> {
+        info.put("items", rows.stream().limit(12).map(row -> {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("name", row.getOrDefault("name", row.get("title")));
+            item.put("reviewCount", row.get("reviewCount"));
+            item.put("averageRating", row.get("averageRating"));
+            if (row.get("facts") instanceof Map<?, ?> facts) {
+                Map<String, Object> details = new LinkedHashMap<>();
+                for (String key : List.of("category", "description", "storage", "technical", "origin", "brand", "compliance", "originDetail", "nutritionBasis", "nutrition")) {
+                    Object value = facts.get(key);
+                    if (value instanceof String text) value = text.substring(0, Math.min(text.length(), 500));
+                    if (value != null) details.put(key, value);
+                }
+                item.put("facts", details);
+            }
             if (row.containsKey("availableQuantity")) {
                 Object available = row.get("availableQuantity");
                 item.put("inStock", available instanceof Number number && number.doubleValue() > 0);

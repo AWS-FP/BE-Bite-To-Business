@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light">
-    <title>Phản hồi yêu cầu sản phẩm | Bite to Business</title>
+    <title>Yêu cầu sản phẩm chưa được chấp thuận | Bite to Business</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;color:#18181b;font-family:Arial,Helvetica,sans-serif;">
-<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;overflow:hidden;">Yêu cầu sản phẩm của bạn đã có phản hồi.</div>
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;overflow:hidden;">Yêu cầu sản phẩm của bạn đã bị từ chối.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
     <tr>
         <td align="center" style="padding:24px 12px;">
@@ -16,13 +16,12 @@
                 <tr th:replace="~{email/fragments/brand :: header}"></tr>
                 <tr>
                     <td style="padding:28px 32px;color:#3f3f46;font-size:15px;line-height:24px;">
-                        <h1 style="margin:0 0 16px;color:#18181b;font-size:20px;line-height:28px;">Phản hồi yêu cầu sản phẩm</h1>
+                        <h1 style="margin:0 0 16px;color:#18181b;font-size:20px;line-height:28px;">Yêu cầu sản phẩm đã bị từ chối</h1>
                         <p style="margin:0 0 16px;">Xin chào bạn,</p>
-                        <p style="margin:0 0 16px;">Yêu cầu sản phẩm của bạn đã có phản hồi:</p>
+                        <p style="margin:0 0 16px;">Rất tiếc, yêu cầu bổ sung sản phẩm của bạn chưa được chấp thuận.</p>
+                        <p style="margin:0 0 8px;font-weight:bold;color:#18181b;">Lý do từ chối:</p>
                         <!--/* Dùng th:text để nội dung Staff nhập hiển thị dạng chữ, không phải HTML. */-->
-                        <div style="padding:16px 20px;background-color:#f4f4f5;border-radius:6px;margin:0 0 16px;">
-                            <p th:text="${responseNote}" style="margin:0;color:#18181b;white-space:pre-line;overflow-wrap:anywhere;">Nội dung phản hồi</p>
-                        </div>
+                        <p th:text="${responseNote}" style="margin:0 0 16px;color:#18181b;white-space:pre-line;overflow-wrap:anywhere;">Lý do từ chối</p>
                         <!--/* Chỉ hiển thị thông tin sản phẩm khi phản hồi có liên kết đến sản phẩm đã thêm. */-->
                         <th:block th:if="${productName != null}">
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"

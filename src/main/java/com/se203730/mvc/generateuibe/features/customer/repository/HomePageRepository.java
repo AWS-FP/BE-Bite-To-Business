@@ -67,6 +67,31 @@ public class HomePageRepository {
  WHERE p.status='PUBLISHED' AND p.unit_code<>'COMBO'
  AND (cat.parent_id IS NULL OR parent.is_active=TRUE)
  """;
+
+    /** Rank the full published group before LIMIT, using the same active prices and reviews as the storefront. */
+    public List<HomePageProductResponse> rankedProducts(List<UUID> categoryIds, String keyword, String sort, int limit) {
+        List<Object> args = new ArrayList<>();
+        String prefix = "";
+        String filter = "";
+        if (!categoryIds.isEmpty()) {
+            String slots = String.join(",", Collections.nCopies(categoryIds.size(), "?"));
+            prefix = "WITH RECURSIVE chosen AS (SELECT id FROM public.categories WHERE id IN (" + slots
+                    + ") UNION SELECT c.id FROM public.categories c JOIN chosen parent ON c.parent_id=parent.id) ";
+            args.addAll(categoryIds);
+            filter = " AND p.category_id IN (SELECT id FROM chosen)";
+        } else if (keyword != null && !keyword.isBlank()) {
+            filter = " AND p.id IN (SELECT product_id FROM catalog_search.ranked(?, CAST(NULL AS uuid), CAST(NULL AS uuid[])))";
+            args.add(keyword);
+        }
+        String order = "most_reviewed".equals(sort)
+                ? "coalesce(review_count,0) DESC, average_rating DESC NULLS LAST, product_id"
+                : "coalesce(sale_price,list_price) ASC NULLS LAST, product_id";
+        String priceFilter = "price_asc".equals(sort) ? " AND pp.list_price IS NOT NULL" : "";
+        args.add(Math.max(1, Math.min(limit, 20)));
+        return jdbc.query(prefix + "SELECT * FROM (" + PRODUCT_SELECT + PUBLISHED_FILTER + filter + priceFilter
+                        + ") ranked ORDER BY " + order + " LIMIT ?",
+                (rs, row) -> mapProduct(rs), args.toArray());
+    }
     private HomePageProductResponse mapProduct(java.sql.ResultSet rs) throws java.sql.SQLException {
         return new HomePageProductResponse(
             rs.getObject("product_id",UUID.class),rs.getString("sku"),rs.getString("name_vi"),
