@@ -10,6 +10,9 @@ import com.se203730.mvc.generateuibe.features.ecommerce.dto.response.ProductDeta
 import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductAttributeSearchRepository.Match;
 import com.se203730.mvc.generateuibe.features.ecommerce.service.ProductKnowledgeService;
 import com.se203730.mvc.generateuibe.features.ecommerce.service.ProductKnowledgeService.AttributeQuery;
+import com.se203730.mvc.generateuibe.features.customer.service.ReviewService;
+import com.se203730.mvc.generateuibe.features.customer.service.HomePageService;
+import com.se203730.mvc.generateuibe.features.customer.dto.response.HomePageCategoryResponse;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -26,18 +29,22 @@ import org.springframework.stereotype.Component;
 @Component
 public class ProductSearchTool {
     /** relevance (mặc định khi có từ khóa) dùng xếp hạng Smart Search V50/V51 của catalog. */
-    public static final Set<String> SORTS = Set.of("relevance", "name_asc", "name_desc", "newest", "oldest");
+    public static final Set<String> SORTS = Set.of("relevance", "name_asc", "name_desc", "newest", "oldest", "price_asc", "most_reviewed");
     private static final int MAX_PRODUCTS = 20;
 
     private final ProductService products;
     private final ProductPricingService pricing;
     private final ProductKnowledgeService knowledge;
+    private final ReviewService reviews;
+    private final HomePageService home;
 
     public ProductSearchTool(ProductService products, ProductPricingService pricing,
-            ProductKnowledgeService knowledge) {
+            ProductKnowledgeService knowledge, ReviewService reviews, HomePageService home) {
         this.products = products;
         this.pricing = pricing;
         this.knowledge = knowledge;
+        this.reviews = reviews;
+        this.home = home;
     }
 
     public record SearchResult(Map<String, Object> dataModel, Map<String, Object> summary, int resultCount,
@@ -54,6 +61,27 @@ public class ProductSearchTool {
                 .map(term -> term.trim().length() > 100 ? term.trim().substring(0, 100) : term.trim())
                 .distinct()
                 .toList();
+        if (Set.of("price_asc", "most_reviewed").contains(safeSort)) {
+            List<com.se203730.mvc.generateuibe.features.customer.dto.response.HomePageProductResponse> ranked = new ArrayList<>();
+            for (String term : terms.isEmpty() ? List.of("") : terms) {
+                ranked.addAll(home.rankedProducts(matchingCategories(term), term, safeSort, limit));
+            }
+            if ("price_asc".equals(safeSort)) {
+                ranked.sort(java.util.Comparator.comparing(row -> row.salePrice() == null ? row.listPrice() : row.salePrice(),
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+            } else {
+                ranked.sort(java.util.Comparator.comparingLong(com.se203730.mvc.generateuibe.features.customer.dto.response.HomePageProductResponse::reviewCount).reversed());
+            }
+            List<Map<String, Object>> rankedRows = new ArrayList<>(byIds(ranked.stream()
+                    .map(com.se203730.mvc.generateuibe.features.customer.dto.response.HomePageProductResponse::productId).distinct().limit(limit).toList(), locale));
+            if ("price_asc".equals(safeSort)) {
+                rankedRows.sort(java.util.Comparator.comparing(row -> (BigDecimal) (Boolean.TRUE.equals(row.get("saleActive"))
+                        ? row.get("salePrice") : row.get("listPrice")), java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+            } else {
+                rankedRows.sort(java.util.Comparator.comparingLong((Map<String, Object> row) -> ((Number) row.getOrDefault("reviewCount", 0)).longValue()).reversed());
+            }
+            return result(rankedRows.stream().limit(limit).toList(), terms.isEmpty() ? null : String.join(", ", terms), safeSort);
+        }
         Map<UUID, ProductSummaryResponse> found = new LinkedHashMap<>();
         if (terms.isEmpty()) {
             products.getAll(null, null, null, safeSort, 0, limit).items()
@@ -61,8 +89,14 @@ public class ProductSearchTool {
         } else {
             int perTerm = terms.size() == 1 ? limit : Math.max(3, limit / terms.size());
             for (String term : terms) {
-                products.getAll(term, null, null, safeSort, 0, perTerm).items()
-                        .forEach(item -> found.putIfAbsent(item.id(), item));
+                List<UUID> categories = matchingCategories(term);
+                if (categories.isEmpty()) {
+                    products.getAll(term, null, null, safeSort, 0, perTerm).items()
+                            .forEach(item -> found.putIfAbsent(item.id(), item));
+                } else {
+                    for (UUID category : categories) products.getAll(null, category, null, safeSort, 0, perTerm).items()
+                            .forEach(item -> found.putIfAbsent(item.id(), item));
+                }
             }
         }
         boolean english = "en".equals(locale);
@@ -115,6 +149,11 @@ public class ProductSearchTool {
             items.add(item);
             summaries.add(summary);
         }
+        addRatings(items);
+        for (int i = 0; i < items.size(); i++) {
+            summaries.get(i).put("averageRating", items.get(i).get("averageRating"));
+            summaries.get(i).put("reviewCount", items.get(i).get("reviewCount"));
+        }
         String queryText = terms.isEmpty() ? null : String.join(", ", terms);
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("text", queryText);
@@ -130,6 +169,26 @@ public class ProductSearchTool {
         summary.put("query", query);
         summary.put("products", summaries);
         return new SearchResult(dataModel, summary, items.size(), queryText);
+    }
+
+    private List<UUID> matchingCategories(String term) {
+        String key = categoryKey(term);
+        if (key.isEmpty()) return List.of();
+        List<HomePageCategoryResponse> categories = home.categories().stream()
+                .flatMap(category -> java.util.stream.Stream.concat(java.util.stream.Stream.of(category), category.children().stream()))
+                .distinct().toList();
+        List<UUID> exact = categories.stream().filter(category -> key.equals(categoryKey(category.nameVi()))
+                || key.equals(categoryKey(category.nameEn()))).map(HomePageCategoryResponse::id).distinct().toList();
+        if (!exact.isEmpty()) return exact;
+        return categories.stream().filter(category -> category.parentId() == null)
+                .filter(category -> categoryKey(category.nameVi()).startsWith(key + " ")
+                        || categoryKey(category.nameEn()).startsWith(key + " "))
+                .map(HomePageCategoryResponse::id).distinct().toList();
+    }
+
+    private static String categoryKey(String text) {
+        return normalizedWords(text == null ? "" : text).replaceAll("\\b(va|and|mon|cac|loai)\\b", " ")
+                .replaceAll("\\s+", " ").trim();
     }
 
     /**
@@ -177,7 +236,34 @@ public class ProductSearchTool {
             item.put("facts", facts(product, english));
             items.add(item);
         }
+        addRatings(items);
         return items;
+    }
+
+    private void addRatings(List<Map<String, Object>> items) {
+        List<UUID> ids = items.stream().map(row -> UUID.fromString((String) row.get("productId"))).toList();
+        Map<UUID, Map<String, Object>> byId = new LinkedHashMap<>();
+        items.forEach(row -> byId.put(UUID.fromString((String) row.get("productId")), row));
+        reviews.summaries(ids).forEach(summary -> {
+            Map<String, Object> row = byId.get(summary.productId());
+            row.put("averageRating", summary.averageRating());
+            row.put("reviewCount", summary.reviewCount());
+        });
+    }
+
+    public SearchResult recommendationCandidates(String locale) {
+        return result(byIds(knowledge.recommendationCandidates(MAX_PRODUCTS), locale), null, "relevance");
+    }
+
+    /** Selection IDs must come from the retrieved catalog, retaining its facts, prices and ratings. */
+    public SearchResult select(SearchResult candidates, List<String> ids, String queryText) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) candidates.dataModel().get("products");
+        Map<String, Map<String, Object>> byId = new LinkedHashMap<>();
+        rows.forEach(row -> byId.put((String) row.get("productId"), row));
+        List<Map<String, Object>> selected = ids.stream().distinct().filter(byId::containsKey)
+                .limit(8).map(byId::get).toList();
+        return result(selected, queryText, "relevance");
     }
 
     /**
@@ -220,7 +306,10 @@ public class ProductSearchTool {
         }
         @SuppressWarnings("unchecked")
         Map<String, Object> query = (Map<String, Object>) result.dataModel().get("query");
-        return result(byIds(ids, locale), result.query(), String.valueOf(query.get("sort")));
+        Map<String, Map<String, Object>> enriched = new LinkedHashMap<>();
+        byIds(ids, locale).forEach(row -> enriched.put((String) row.get("productId"), row));
+        return result(current.stream().map(row -> enriched.getOrDefault((String) row.get("productId"), row)).toList(),
+                result.query(), String.valueOf(query.get("sort")));
     }
 
     /** Chọn một sản phẩm khớp tên cho mỗi đối tượng được so sánh, giữ đúng thứ tự yêu cầu. */
@@ -254,6 +343,8 @@ public class ProductSearchTool {
             Map<String, Object> summary = new LinkedHashMap<>();
             summary.put("index", summaries.size());
             summary.put("name", item.get("name"));
+            summary.put("reviewCount", item.get("reviewCount"));
+            summary.put("averageRating", item.get("averageRating"));
             summary.put("priceAvailable", item.get("priceAvailable"));
             summary.put("inStock", available instanceof BigDecimal number && number.signum() > 0);
             summary.put("hasPriceTiers", item.get("priceTiers") instanceof List<?> tiers && tiers.size() > 1);

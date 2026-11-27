@@ -41,7 +41,7 @@ public class A2uiValidator {
             "^(/products|/favorites|/recentlyViewed|/forYou|/reorder"
                     + "|/home/(?:featured|bestSelling|deepDiscount|topRated|flashSale))/(\\d+)$");
     private static final Set<String> PAGE_ONLY = Set.of("PageHeader", "Section");
-    private static final Set<String> PRODUCT_COMPONENTS = Set.of("ProductGrid", "ProductTable", "ProductCarousel", "ProductList");
+    private static final Set<String> PRODUCT_COMPONENTS = Set.of("ProductGrid", "ProductTable", "ProductCarousel", "ProductList", "NutritionTable");
     private static final int CHAT_MAX_COMPONENTS = 25;
     private static final int CHAT_MAX_DEPTH = 6;
     private static final int PAGE_MAX_SECTIONS = 6;

@@ -179,4 +179,19 @@ Ví dụ rút gọn chỉ minh họa intents và slots. Khi trả kết quả, l
 - "Mở giỏ hàng giúp mình" → `{"intents":["VIEW_CART"],"slots":{},"needs_clarification":false,"clarification_question":null}`
 - "Mình cần đồ cho quán lẩu" → `{"intents":["SEARCH_PRODUCT"],"slots":{"product_name":null,"purpose":"quán lẩu"},"needs_clarification":true,"clarification_question":"Bạn đang cần nhóm hàng nào cho quán lẩu?"}`
 
+## Mục tiêu mua sắm và phạm vi câu hỏi
+
+Yêu cầu xếp hạng có thể áp dụng toàn bộ catalog hoặc một nhóm hàng. "Sản phẩm đang bán nào có nhiều review nhất" có sort=most_reviewed và không cần product_name. "Bánh và tráng miệng nào rẻ nhất" có product_name="bánh và tráng miệng", sort=price_asc. Nhóm hàng là chủ thể đủ để tìm kiếm, không yêu cầu khách chỉ định một SKU. Khi khách đổi sang nhóm hàng mới, bỏ chủ thể và điều kiện của lượt cũ.
+
+Với yêu cầu xem hoặc so sánh dạng bảng, giữ intent COMPARE_PRODUCTS hoặc slot target_view=table để hệ thống mở một trang AI riêng.
+
+Giữ nguyên mục tiêu trong câu mới nhất. `product_name` và `product_names` chỉ lấy tên món hoặc nhóm hàng khách thực sự nêu. Khi khách hỏi chung về sức khỏe, không tự thay mục tiêu bằng rau củ hoặc một nhóm sản phẩm cụ thể.
+
+- "Có loại đồ ăn nào tốt cho sức khỏe không?" → intents=[RECOMMEND_BUNDLE], slots={"product_name":null,"recommendation_goal":"balanced_food","info_topics":["nutrition","description"]}.
+- "Các món phù hợp để nấu một phần cơm trưa tiêu chuẩn" → intents=[RECOMMEND_BUNDLE], slots={"product_name":null,"purpose":"nguyên liệu bổ sung nhau cho một phần cơm trưa","info_topics":["description","nutrition"]}.
+- "So sánh dinh dưỡng các loại rau" → intents=[COMPARE_PRODUCTS], slots={"product_name":"rau","criteria":["nutrition"],"info_topics":["nutrition","description"]}.
+- "Lập bảng so sánh giá các loại thịt bò" → intents=[COMPARE_PRODUCTS,CHECK_TIER_PRICE], slots={"product_name":"thịt bò","criteria":["price"],"info_topics":[]}.
+
+`recommendation_goal` mô tả mục tiêu ăn uống, `purpose` mô tả bữa ăn hoặc cách sử dụng. Chỉ đặt hai slot này khi khách có mục tiêu đó. Thiếu món cụ thể trong yêu cầu gợi ý bữa ăn hoặc sức khỏe vẫn có thể đề xuất từ dữ liệu sản phẩm, không cần gán tên món thay khách. Hạn chế dinh dưỡng cụ thể phải được giữ nguyên. Hỏi dinh dưỡng không đồng nghĩa cần xem bảo quản, xuất xứ, hàng bán chạy hoặc sản phẩm yêu thích.
+
 Tên slot dùng snake_case như trên. `quantity` là số; `unit` giữ nguyên chữ người dùng nói ("thùng", "kg"). `target_view` chỉ nhận `table` hoặc `grid`.

@@ -84,6 +84,25 @@ public class ProductAttributeSearchRepository {
         this.jdbc = jdbc;
     }
 
+    /** Balanced catalog sample for goal-based recommendations, favoring products with documented facts. */
+    public List<UUID> recommendationCandidates(int limit) {
+        return jdbc.query("""
+                WITH ranked AS (
+                    SELECT p.id,
+                           row_number() OVER (
+                               PARTITION BY coalesce(c.parent_id, c.id)
+                               ORDER BY EXISTS (SELECT 1 FROM public.product_nutrition_facts n
+                                                WHERE n.product_id = p.id) DESC,
+                                        (coalesce(p.description_vi, '') <> '') DESC, p.id
+                           ) AS position
+                    FROM public.products p
+                    LEFT JOIN public.categories c ON c.id = p.category_id
+                    WHERE p.status = 'PUBLISHED'
+                )
+                SELECT id FROM ranked ORDER BY position, id LIMIT :limit
+                """, new MapSqlParameterSource("limit", limit), (rs, row) -> rs.getObject("id", UUID.class));
+    }
+
     /** Kết quả: ID sản phẩm và nhóm điều kiện nào đã khớp (để giải thích vì sao sản phẩm xuất hiện). */
     public record Match(UUID productId, boolean origin, boolean storage, boolean contains, boolean nutrient,
             boolean compliance, boolean text) {

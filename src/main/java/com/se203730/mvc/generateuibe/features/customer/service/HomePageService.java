@@ -24,6 +24,10 @@ public class HomePageService {
     private static final int BANNER_LIMIT = 8;
     private final HomePageRepository repository;
 
+    public List<HomePageProductResponse> rankedProducts(List<UUID> categories, String keyword, String sort, int limit) {
+        return repository.rankedProducts(categories, keyword, sort, limit);
+    }
+
     public HomePageResponse home() {
         List<HomePageProductResponse> bestSelling = repository.bestSellingProducts(FEATURED_LIMIT);
         List<HomePageProductResponse> deepDiscount = repository.deepDiscountProducts(FEATURED_LIMIT);

@@ -5,6 +5,39 @@
   "description": "Catalog A2UI v0.9 của Bite to Business cho hai chế độ: chat (khối nhỏ) và page (cả trang). AI chỉ sinh updateComponents; backend ghi updateDataModel (/query, /products, /home/*, /categories, /favorites). Component cơ bản lấy nguyên từ basic catalog của @a2ui/web_core 0.12.",
   "catalogId": "https://bite2business.cloud/a2ui/catalogs/bite-to-business/v1.json",
   "components": {
+    "NutritionTable": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "NutritionTable"
+            },
+            "items": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+            },
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6,
+              "default": 6
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
   "LayoutGrid": {
     "type": "object",
     "allOf": [
@@ -1409,6 +1442,9 @@
         },
         {
           "$ref": "#/components/PriceTiers"
+        },
+        {
+          "$ref": "#/components/NutritionTable"
         },
         {
           "$ref": "#/components/ProductFacts"

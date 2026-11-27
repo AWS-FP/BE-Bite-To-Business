@@ -15,6 +15,7 @@ import com.se203730.mvc.generateuibe.features.admin.dto.response.OtpVerification
 import com.se203730.mvc.generateuibe.features.admin.dto.response.RegistrationReceipt;
 import com.se203730.mvc.generateuibe.features.admin.service.AccountAccessService;
 import com.se203730.mvc.generateuibe.features.admin.service.AuthService;
+import com.se203730.mvc.generateuibe.features.admin.service.ActivationOtpResendService;
 import com.se203730.mvc.generateuibe.features.admin.service.PasswordResetService;
 import com.se203730.mvc.generateuibe.features.admin.service.RegistrationService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -52,6 +53,19 @@ public class AuthController {
     // Spring tự gán các service vào những field có @Autowired khi tạo controller.
     @Autowired
     private AuthService authService;
+
+    @Autowired
+    private ActivationOtpResendService activationResends;
+
+    public record ResendReceipt(long retryAfterSeconds) {}
+
+    @PostMapping("/resend-otp")
+    @SecurityRequirements
+    public ResponseEntity<ResponseObject<ResendReceipt>> resendOtp(@Valid @RequestBody ForgotPasswordRequest request) {
+        long cooldown = activationResends.requestForEmail(request.email());
+        return ResponseEntity.accepted().header("Cache-Control", "no-store").body(
+                new ResponseObject<>(202, "Activation code request received.", new ResendReceipt(cooldown)));
+    }
 
     @Autowired
     private RegistrationService registrationService;

@@ -121,7 +121,7 @@ public class ProductRequestEmailService {
         var helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
         helper.setFrom(from, "Bite to Business");
         helper.setTo(response.getRecipientEmail());
-        helper.setSubject(added ? "Bite to Business - Sản phẩm đã được bổ sung" : "Bite to Business - Phản hồi yêu cầu sản phẩm");
+        helper.setSubject(added ? "Bite to Business - Sản phẩm đã được bổ sung" : "Bite to Business - Yêu cầu sản phẩm đã bị từ chối");
         helper.setText(templates.process(added ? "email/product-request-added" : "email/product-request-response", context), true);
         mail.send(message);
     }

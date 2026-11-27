@@ -69,7 +69,7 @@ public class SystemMonitoringService {
 
     public synchronized SystemMonitoringResponse get(UUID adminId, int hours) {
         accounts.requireAdmin(adminId);
-        if (hours != 24 && hours != 168 && hours != 720) {
+        if (hours != 1 && hours != 6 && hours != 24 && hours != 168 && hours != 720) {
             throw new IllegalArgumentException("Unsupported monitoring range");
         }
         Instant now = Instant.now();
@@ -77,7 +77,7 @@ public class SystemMonitoringService {
         if (cached != null && cached.fetchedAt().plusSeconds(60).isAfter(now)) {
             return cached.response();
         }
-        int period = hours == 24 ? 300 : hours == 168 ? 3600 : 86400;
+        int period = hours == 1 ? 60 : hours == 6 || hours == 24 ? 300 : hours == 168 ? 3600 : 86400;
         // Align both windows to the same buckets so partial periods are not compared.
         Instant to = Instant.ofEpochSecond(now.getEpochSecond() / period * period);
         Instant from = to.minus(Duration.ofHours(hours));
@@ -117,7 +117,7 @@ public class SystemMonitoringService {
                 Instant.ofEpochSecond(((Number) row[0]).longValue()), ((Number) row[1]).longValue(),
                 ((Number) row[2]).longValue(), ((Number) row[3]).longValue(), ((Number) row[4]).longValue())).toList();
         List<AiLog> logs = requests.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
-                from, to, PageRequest.of(0, 30)).stream().map(row -> new AiLog(row.getCreatedAt(), row.getModelId(),
+                from, now, PageRequest.of(0, 100)).stream().map(row -> new AiLog(row.getId(), row.getCreatedAt(), row.getModelId(),
                         row.getStatus(), row.getDurationMs(), row.getInputTokens(), row.getOutputTokens(), row.getErrorCode())).toList();
         SystemMonitoringResponse response = new SystemMonitoringResponse(from, to, period, cloudStatus, metrics, ai, logs);
         cache.put(hours, new Snapshot(now, response));
