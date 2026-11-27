@@ -23,9 +23,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     /** Tổng số lượng từng sản phẩm của đơn, để giữ hàng lại khi khôi phục đơn đã huỷ. */
     @Query(value = """
-            select product_id as "productId", sum(quantity) as quantity
-            from public.order_items where order_id = :orderId
-            group by product_id order by product_id
+            select c.product_id as "productId", sum(oi.quantity * c.factor) as quantity
+            from public.order_items oi join checkout_stock.order_components c on c.order_item_id=oi.id
+            where oi.order_id = :orderId
+            group by c.product_id order by c.product_id
             """, nativeQuery = true)
     List<ProductQuantity> findProductQuantities(@Param("orderId") UUID orderId);
 

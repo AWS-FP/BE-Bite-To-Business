@@ -87,11 +87,13 @@ public class ExecutiveOperationsService {
                 "on qp.id=qpi.quote_package_id where qpi.quote_item_id=qi.id " +
                 "and qp.cancelled_at is null),0))",p,Boolean.class));
         checks.put("stockAvailable", db.queryForObject(
-            "select not exists(select 1 from public.quote_items qi " +
-                "left join public.products pr on pr.id=qi.product_id " +
-                "left join public.inventory inv on inv.product_id=qi.product_id " +
-                "where qi.quote_id=:id and (coalesce(inv.available_quantity,0)<qi.quantity " +
-                "or pr.status<>'PUBLISHED'))",p,Boolean.class));
+            "select not exists(select 1 from public.quote_items qi where qi.quote_id=:id " +
+                "and not exists(select 1 from checkout_stock.components c where c.sellable_id=qi.product_id)) " +
+                "and not exists(select 1 from public.quote_items qi " +
+                "join checkout_stock.components c on c.sellable_id=qi.product_id " +
+                "left join public.inventory inv on inv.product_id=c.product_id where qi.quote_id=:id " +
+                "group by c.product_id,inv.available_quantity " +
+                "having sum(qi.quantity*c.factor)>coalesce(inv.available_quantity,0))",p,Boolean.class));
         boolean eligible = Boolean.TRUE.equals(q.get("unexpired")) && checks.values().stream().allMatch(Boolean.TRUE::equals);
         return Map.of("quoteId",id,"status",q.get("status"),
             "revision",q.get("revision"),"checks",checks,"approvalEnabled",eligible);

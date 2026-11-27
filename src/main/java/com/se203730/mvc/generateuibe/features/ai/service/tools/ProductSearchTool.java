@@ -223,6 +223,27 @@ public class ProductSearchTool {
         return result(byIds(ids, locale), result.query(), String.valueOf(query.get("sort")));
     }
 
+    /** Chọn một sản phẩm khớp tên cho mỗi đối tượng được so sánh, giữ đúng thứ tự yêu cầu. */
+    public SearchResult compareRepresentatives(List<String> terms, String sort, String locale) {
+        List<UUID> ids = new ArrayList<>();
+        for (String term : terms.stream().filter(value -> value != null && !value.isBlank()).distinct().limit(8).toList()) {
+            SearchResult found = search(List.of(term), sort, 12, locale);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> rows = (List<Map<String, Object>>) found.dataModel().get("products");
+            String[] words = normalizedWords(term).split(" ");
+            String distinctive = words[words.length - 1];
+            rows.stream().filter(row -> java.util.Arrays.asList(normalizedWords(String.valueOf(row.get("name"))).split(" "))
+                            .contains(distinctive))
+                    .map(row -> UUID.fromString((String) row.get("productId")))
+                    .filter(id -> !ids.contains(id)).findFirst().ifPresent(ids::add);
+        }
+        return result(byIds(ids, locale), String.join(", ", terms), sort == null ? "relevance" : sort);
+    }
+
+    private static String normalizedWords(String text) {
+        return java.text.Normalizer.normalize(text.toLowerCase(java.util.Locale.ROOT), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").replace('đ', 'd').replaceAll("[^a-z0-9]+", " ").trim();
+    }
     /** Dựng data model + summary từ danh sách thẻ; summary có thêm tóm tắt facts (không có văn bản dài, không giá). */
     private SearchResult result(List<Map<String, Object>> items, String queryText, String sort) {
         List<Map<String, Object>> summaries = new ArrayList<>();

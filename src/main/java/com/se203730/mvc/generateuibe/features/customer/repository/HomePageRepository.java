@@ -150,21 +150,26 @@ public class HomePageRepository {
 
     // A3: advisory sellable combo count is bounded by least available ingredient.
     public List<HomePageComboResponse> combos(int limit) {
+        return combos(limit,0L);
+    }
+
+    public List<HomePageComboResponse> combos(int limit,long offset) {
+        return combos(limit,offset,null);
+    }
+
+    public List<HomePageComboResponse> combos(int limit,long offset,UUID id) {
         String sql="""
   SELECT p.id product_id,p.sku,p.name_vi,p.name_en,p.image_url,c.serving_count,
    pp.list_price,
+   (SELECT CASE WHEN COUNT(*) > 0 AND COUNT(ip.list_price)=COUNT(*)
+           THEN SUM(ci.quantity*ip.list_price) END
+    FROM public.combo_items ci LEFT JOIN public.product_prices ip ON ip.product_id=ci.product_id
+    WHERE ci.combo_id=p.id) separate_list_price,
    CASE WHEN promo.status='PUBLISHED' AND promo.starts_at<=CURRENT_TIMESTAMP
           AND promo.ends_at>CURRENT_TIMESTAMP AND pp.sale_price>=0
           AND pp.sale_price<pp.list_price THEN pp.sale_price ELSE NULL END sale_price,
    p.min_order_quantity,p.quantity_step,p.vat_rate,ratings.average_rating,ratings.review_count,
-   COALESCE((SELECT CASE
-    WHEN COUNT(*)=0 OR COUNT(*) FILTER(WHERE ingredient.id IS NULL OR ingredient.status<>'PUBLISHED'
-         OR ingredient.unit_code='COMBO')>0 THEN 0
-    ELSE MIN(FLOOR(GREATEST(COALESCE(inv.available_quantity,0),0)/ci.quantity)) END
-    FROM public.combo_items ci
-    LEFT JOIN public.products ingredient ON ingredient.id=ci.product_id
-    LEFT JOIN public.inventory inv ON inv.product_id=ci.product_id
-    WHERE ci.combo_id=p.id),0) available_quantity
+   COALESCE((SELECT a.available_quantity FROM checkout_stock.availability a WHERE a.product_id=p.id),0) available_quantity
   FROM public.combos c
   JOIN public.products p ON p.id=c.product_id
   LEFT JOIN public.product_prices pp ON pp.product_id=p.id
@@ -187,15 +192,17 @@ public class HomePageRepository {
    AND NOT EXISTS(SELECT 1 FROM public.combo_items ci
      JOIN public.products ingredient ON ingredient.id=ci.product_id
      WHERE ci.combo_id=p.id AND (ingredient.status<>'PUBLISHED' OR ingredient.unit_code='COMBO'))
-  ORDER BY p.created_at DESC,p.id ASC LIMIT ?
+   AND (CAST(? AS uuid) IS NULL OR p.id=CAST(? AS uuid))
+  ORDER BY p.created_at DESC,p.id ASC LIMIT ? OFFSET ?
   """;
         List<HomePageComboResponse> combos=jdbc.query(sql,(rs,i)->new HomePageComboResponse(
             rs.getObject("product_id",UUID.class),rs.getString("sku"),rs.getString("name_vi"),
             rs.getString("name_en"),rs.getString("image_url"),(Integer)rs.getObject("serving_count"),
             rs.getBigDecimal("list_price"),rs.getBigDecimal("sale_price"),rs.getBigDecimal("available_quantity"),
             List.of(),rs.getBigDecimal("min_order_quantity"),rs.getBigDecimal("quantity_step"),
-            rs.getBigDecimal("vat_rate"),rs.getBigDecimal("average_rating"),rs.getLong("review_count")
-        ),limit);
+            rs.getBigDecimal("vat_rate"),rs.getBigDecimal("average_rating"),rs.getLong("review_count"),
+            rs.getBigDecimal("separate_list_price")
+        ),id,id,limit,offset);
         if(combos.isEmpty()) return combos;
         List<UUID> ids=combos.stream().map(HomePageComboResponse::productId).toList();
         String marks=String.join(",",Collections.nCopies(ids.size(),"?"));
@@ -212,7 +219,7 @@ public class HomePageRepository {
         return combos.stream().map(c->new HomePageComboResponse(c.productId(),c.sku(),c.nameVi(),
             c.nameEn(),c.imageUrl(),c.servingCount(),c.listPrice(),c.salePrice(),c.availableQuantity(),
             List.copyOf(grouped.getOrDefault(c.productId(),List.of())),c.minOrderQuantity(),
-            c.quantityStep(),c.vatRate(),c.averageRating(),c.reviewCount())).toList();
+            c.quantityStep(),c.vatRate(),c.averageRating(),c.reviewCount(),c.separateListPrice())).toList();
     }
 
     public List<HomePagePromotionResponse> activePromotions(int limit) {

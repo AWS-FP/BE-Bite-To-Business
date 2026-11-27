@@ -52,6 +52,7 @@ public class ExecutiveProductService {
         var p = new MapSqlParameterSource("id", id);
         Map<String,Object> product = db.one("select id, status, sku, name_vi, name_en, unit_code " +
             "from public.products where id=:id for update",p);
+        if ("COMBO".equals(product.get("unitCode"))) throw new BusinessException(ErrorCode.ACCESS_DENIED);
         if (status.equals("PUBLISHED")) {
             Integer priced = db.queryForObject("select count(*) from public.product_prices " +
                 "where product_id=:id and list_price is not null and exists " +

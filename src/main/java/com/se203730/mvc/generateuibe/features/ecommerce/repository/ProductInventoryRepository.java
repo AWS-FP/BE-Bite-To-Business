@@ -10,8 +10,22 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
+import java.util.Collection;
 
 public interface ProductInventoryRepository extends JpaRepository<ProductInventory, UUID> {
+    interface CheckoutAvailability {
+        UUID getProductId();
+        BigDecimal getAvailableQuantity();
+    }
+
+    @Query(value = """
+            select p.id as "productId", coalesce(a.available_quantity,0) as "availableQuantity"
+            from public.products p left join checkout_stock.availability a on a.product_id=p.id
+            where p.id in (:ids) and p.unit_code='COMBO'
+            """, nativeQuery = true)
+    List<CheckoutAvailability> comboAvailability(@Param("ids") Collection<UUID> ids);
+
     @Modifying
     @Query(value = """
             update public.inventory set reserved_quantity = reserved_quantity + :quantity, updated_at = :now
