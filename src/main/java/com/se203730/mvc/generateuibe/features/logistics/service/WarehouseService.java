@@ -40,6 +40,7 @@ public class WarehouseService {
     @Transactional
     public StockResponse change(UUID userId, UUID productId, UUID movementId, String type, BigDecimal quantity, String reason) {
         requireLogistics(userId);
+        if (stocks.isCombo(productId)) throw new BusinessException(ErrorCode.INVALID_REQUEST);
         stocks.createIfMissing(productId, userId, clock.now());
         WarehouseStock stock = stocks.findForUpdate(productId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
@@ -80,6 +81,7 @@ public class WarehouseService {
     @Transactional
     public StockResponse clearAvailable(UUID userId, UUID productId, UUID movementId) {
         requireLogistics(userId);
+        if (stocks.isCombo(productId)) throw new BusinessException(ErrorCode.INVALID_REQUEST);
         stocks.createIfMissing(productId, userId, clock.now());
         WarehouseStock stock = stocks.findForUpdate(productId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));

@@ -36,6 +36,9 @@ public interface QuoteRepository extends JpaRepository<Quote, UUID> {
                 'quote', to_jsonb(q),
                 'items', coalesce((select jsonb_agg(to_jsonb(i) order by i.created_at, i.id)
                     from public.quote_items i where i.quote_id = q.id), cast('[]' as jsonb)),
+                'comboItems', coalesce((select jsonb_agg(to_jsonb(ci) order by ci.quote_item_id,ci.product_id)
+                    from public.quote_combo_items ci join public.quote_items i on i.id=ci.quote_item_id
+                    where i.quote_id=q.id), cast('[]' as jsonb)),
                 'packages', coalesce((select jsonb_agg(to_jsonb(p) order by p.created_at, p.id)
                     from public.quote_packages p where p.quote_id = q.id and p.cancelled_at is null), cast('[]' as jsonb)),
                 'allocations', coalesce((select jsonb_agg(to_jsonb(a) order by a.created_at, a.id)

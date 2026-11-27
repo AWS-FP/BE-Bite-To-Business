@@ -27,12 +27,31 @@ public class PackageStockRepository {
 
     public List<Item> items(UUID packageId) {
         return jdbc.query("""
-                select oi.product_id, sum(pi.quantity) as quantity
-                from public.package_items pi join public.order_items oi on oi.id = pi.order_item_id
+                select c.product_id, sum(pi.quantity * c.factor) as quantity
+                from public.package_items pi join checkout_stock.order_components c on c.order_item_id = pi.order_item_id
                 where pi.order_package_id = :packageId
-                group by oi.product_id order by oi.product_id
+                group by c.product_id order by c.product_id
                 """, new MapSqlParameterSource("packageId", packageId),
                 (rs, i) -> new Item(rs.getObject("product_id", UUID.class), rs.getBigDecimal("quantity")));
+    }
+
+    public void lockOrder(UUID orderId) {
+        jdbc.queryForObject("select id from public.orders where id=:orderId for update",
+                new MapSqlParameterSource("orderId", orderId), UUID.class);
+    }
+
+    public boolean usesComponentStock(UUID orderId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                select exists(select 1 from public.order_items where order_id=:orderId and component_inventory)
+                """, new MapSqlParameterSource("orderId", orderId), Boolean.class));
+    }
+
+    public BigDecimal packageMovement(UUID packageId, UUID productId, String type) {
+        return jdbc.queryForObject("""
+                select coalesce(sum(quantity),0) from public.inventory_movements
+                where order_package_id=:packageId and product_id=:productId and movement_type=:type
+                """, new MapSqlParameterSource("packageId", packageId).addValue("productId",productId)
+                .addValue("type",type), BigDecimal.class);
     }
 
     /** Lượng của sản phẩm còn đang giữ cho đơn (đã giữ trừ đã nhả và đã xuất). */

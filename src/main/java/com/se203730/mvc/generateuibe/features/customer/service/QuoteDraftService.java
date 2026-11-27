@@ -15,7 +15,6 @@ import com.se203730.mvc.generateuibe.features.customer.entity.Quote;
 import com.se203730.mvc.generateuibe.features.customer.entity.QuoteItem;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteItemRepository;
 import com.se203730.mvc.generateuibe.features.customer.repository.QuoteRepository;
-import com.se203730.mvc.generateuibe.features.ecommerce.repository.ProductInventoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -27,7 +26,6 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.HashSet;
-import java.util.HashMap;
 import java.util.UUID;
 
 @Service
@@ -39,7 +37,7 @@ public class QuoteDraftService {
     @Autowired
     private QuotePriceService prices;
     @Autowired
-    private ProductInventoryRepository inventory;
+    private CheckoutStockService checkoutStock;
     @Autowired
     private UserRepository users;
     @Autowired
@@ -75,19 +73,15 @@ public class QuoteDraftService {
         for (UpdateQuoteItemRequest line : request.items()) {
             if (!productIds.add(line.productId())) throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        var available = new HashMap<UUID, BigDecimal>();
-        inventory.findAllById(productIds).forEach(stock -> available.put(stock.getProductId(), stock.getAvailableQuantity()));
-        if (request.items().stream().anyMatch(line ->
-                available.getOrDefault(line.productId(), BigDecimal.ZERO).compareTo(line.quantity()) < 0)) {
-            throw new BusinessException(ErrorCode.QUOTE_STOCK_UNAVAILABLE);
-        }
+        checkoutStock.requireAvailable(request.items().stream()
+                .map(line -> new CheckoutStockService.Line(line.productId(), line.quantity())).toList());
         Quote quote = quotes.findFirstByCustomerIdAndStatusOrderByUpdatedAtDesc(customerId, "DRAFT")
                 .orElse(null);
         List<QuoteItem> existing = quote == null ? List.of() : items.findAllByQuoteIdOrderByCreatedAtAsc(quote.getId());
         boolean same = existing.size() == request.items().size() && existing.stream().allMatch(item ->
                 request.items().stream().anyMatch(line -> line.productId().equals(item.getProductId())
                         && line.quantity().compareTo(item.getQuantity()) == 0));
-        if (!same) {
+        if (!same || existing.stream().anyMatch(item -> !checkoutStock.snapshotMatches(item))) {
             quote = newDraft(customerId);
             for (UpdateQuoteItemRequest line : request.items()) putItem(customerId, quote.getId(), line);
         } else {
@@ -142,6 +136,7 @@ public class QuoteDraftService {
         setVatRate(item, price.getVatRate());
         item.setUpdatedAt(now);
         items.saveAndFlush(item);
+        checkoutStock.snapshot(item);
         recalculate(quote, now);
         return response(quote);
     }
@@ -163,6 +158,7 @@ public class QuoteDraftService {
         Quote quote = editableQuote(customerId, quoteId);
         Instant now = clock.now();
         for (QuoteItem item : items.findAllByQuoteIdOrderByCreatedAtAsc(quoteId)) {
+            checkoutStock.validateSnapshot(item);
             QuotePriceService.Price current = prices.calculate(item.getProductId(), item.getQuantity());
             var product = current.product();
             item.setPriceTierId(product.getTierId());

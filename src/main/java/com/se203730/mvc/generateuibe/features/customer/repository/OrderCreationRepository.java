@@ -42,15 +42,30 @@ public class OrderCreationRepository {
                 insert into public.order_items (id, order_id, quote_item_id, product_id, price_tier_id,
                     sku, name_vi, name_en, unit_code, quantity, min_order_quantity, quantity_step,
                     tier_min_quantity, tier_max_quantity, list_unit_price, volume_unit_price, sale_unit_price,
-                    coupon_discount_amount, vat_rate, customer_note)
+                    coupon_discount_amount, vat_rate, customer_note, component_inventory)
                 select qi.id, :orderId, qi.id, qi.product_id, qi.price_tier_id,
                     qi.sku, qi.name_vi, qi.name_en, qi.unit_code, qi.quantity, p.min_order_quantity, p.quantity_step,
                     tier.min_quantity, tier.max_quantity, qi.list_unit_price, qi.volume_unit_price, qi.sale_unit_price,
-                    qi.coupon_discount_amount, qi.vat_rate, qi.customer_note
+                    qi.coupon_discount_amount, qi.vat_rate, qi.customer_note, qi.unit_code = 'COMBO'
                 from public.quote_items qi join public.products p on p.id = qi.product_id
                 left join public.product_price_tiers tier on tier.id = qi.price_tier_id
                 where qi.quote_id = :quoteId
                 """).setParameter("orderId", orderId).setParameter("quoteId", quoteId).executeUpdate();
+    }
+
+    public void insertComboSnapshots(UUID orderId) {
+        entityManager.createNativeQuery("""
+                insert into public.order_combo_items(order_item_id,product_id,sku,name_vi,name_en,unit_code,quantity_per_combo)
+                select oi.id,p.id,p.sku,p.name_vi,p.name_en,ci.unit_code,ci.quantity_per_combo
+                from public.order_items oi join public.quote_combo_items ci on ci.quote_item_id=oi.quote_item_id
+                join public.products p on p.id=ci.product_id
+                where oi.order_id=:orderId and oi.component_inventory
+                """).setParameter("orderId", orderId).executeUpdate();
+        Number missing = (Number) entityManager.createNativeQuery("""
+                select count(*) from public.order_items oi where oi.order_id=:orderId and oi.component_inventory
+                and not exists(select 1 from public.order_combo_items ci where ci.order_item_id=oi.id)
+                """).setParameter("orderId", orderId).getSingleResult();
+        if (missing.longValue() != 0) throw new IllegalStateException("Missing combo snapshot: " + orderId);
     }
 
     public void insertPackage(UUID orderId, UUID packageId, BigDecimal merchandise, BigDecimal productCoupon,
