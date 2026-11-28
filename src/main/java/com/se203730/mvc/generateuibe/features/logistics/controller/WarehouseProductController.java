@@ -37,6 +37,12 @@ public class WarehouseProductController {
         return ResponseEntity.status(201).body(new ResponseObject<>(201, "Product created", products.create(userId, request, image)));
     }
 
+    @org.springframework.web.bind.annotation.DeleteMapping("/{productId}")
+    public ResponseEntity<ResponseObject<Void>> disable(@CurrentUserUUID UUID userId,
+            @org.springframework.web.bind.annotation.PathVariable UUID productId) {
+        products.disable(userId,productId);
+        return ResponseEntity.ok(new ResponseObject<>(200,"Product disabled",null));
+    }
     // Danh sách nhà phân phối cho dropdown ở form tạo sản phẩm.
     @GetMapping("/distributors")
     public ResponseEntity<ResponseObject<List<WarehouseProductService.DistributorOption>>> distributors(

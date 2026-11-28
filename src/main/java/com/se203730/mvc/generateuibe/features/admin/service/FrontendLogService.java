@@ -22,9 +22,12 @@ public class FrontendLogService {
     private final String monitor;
     public FrontendLogService(AccountAccessService accounts, ObjectMapper mapper,
             @Value("${app.monitoring.region:ap-southeast-1}") String region,
+            @Value("${app.monitoring.profile:}") String awsProfile,
             @Value("${app.monitoring.rum:btb-frontend-performance}") String monitor) {
         this.accounts=accounts; this.mapper=mapper; this.monitor=monitor;
-        rum=RumClient.builder().region(Region.of(region)).overrideConfiguration(c -> c.apiCallTimeout(Duration.ofSeconds(10))).build();
+        rum = RumClient.builder().region(Region.of(region))
+                .credentialsProvider(MonitoringCredentials.provider(awsProfile))
+                .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofSeconds(10))).build();
     }
     public Result get(UUID adminId, int hours, Long before, String token) {
         accounts.requireAdmin(adminId);

@@ -27,7 +27,6 @@ public class WarehouseController {
     public record StockChange(@NotNull UUID movementId, @NotNull @Digits(integer = 9, fraction = 3) BigDecimal quantity,
                               @Size(max = 1000) String reason) {}
 
-    public record ClearStockRequest(@NotNull UUID movementId) {}
 
     @GetMapping
     public ResponseEntity<ResponseObject<PageResponse<WarehouseService.StockResponse>>> list(@CurrentUserUUID UUID userId,
@@ -52,11 +51,5 @@ public class WarehouseController {
             @PathVariable UUID productId, @Valid @RequestBody StockChange request) {
         return ResponseEntity.ok(new ResponseObject<>(200, "Success", warehouse.change(userId, productId,
                 request.movementId(), "ADJUST", request.quantity(), request.reason())));
-    }
-
-    @PostMapping("/{productId}/clear-available")
-    public ResponseEntity<ResponseObject<WarehouseService.StockResponse>> clearAvailable(@CurrentUserUUID UUID userId,
-            @PathVariable UUID productId, @Valid @RequestBody ClearStockRequest request) {
-        return ResponseEntity.ok(new ResponseObject<>(200, "Success", warehouse.clearAvailable(userId, productId, request.movementId())));
     }
 }
