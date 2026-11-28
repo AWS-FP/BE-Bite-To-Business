@@ -135,7 +135,7 @@ public class ExecutiveOperationsService {
         return quote(id);
     }
     @Transactional(readOnly=true)
-    public EcommercePageResponse<Map<String,Object>> reviews(String status,Integer stars,int page,int size) {
+    public EcommercePageResponse<Map<String,Object>> reviews(String status,Integer stars,String q,int page,int size) {
         if(status!=null && !Set.of("VISIBLE","HIDDEN").contains(status))
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         if (stars != null && (stars < 1 || stars > 5))
@@ -147,12 +147,19 @@ public class ExecutiveOperationsService {
         // Ratings support half-stars. E.g. 2 stars includes 2.0 and 2.5.
         if (stars != null) where.append(stars == 5 ? " and r.rating=5" :
             " and r.rating>=:stars and r.rating<(:stars+1)");
+        if (q != null && !q.isBlank()) {
+            if (q.length() > 120) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+            p.addValue("q", q.strip());
+            where.append(" and catalog_search.fold_v1(:q) <> '' and strpos(" +
+                "catalog_search.fold_v1(concat_ws(' ',p.name_vi,p.name_en,p.sku,r.content," +
+                "cast(r.id as text),cast(r.product_id as text))),catalog_search.fold_v1(:q)) > 0");
+        }
+        String from = " from public.product_reviews r join public.products p on p.id=r.product_id";
         var result = db.page("select r.id,r.product_id,r.customer_id,r.rating,r.content,r.deleted_at," +
                 "r.deleted_by,r.deletion_reason,r.created_at,r.updated_at,p.name_vi as product_name_vi," +
-                "p.name_en as product_name_en from public.product_reviews r " +
-                "join public.products p on p.id=r.product_id" + where +
+                "p.name_en as product_name_en" + from + where +
                 " order by r.created_at desc,r.id",
-            "select count(*) from public.product_reviews r" + where,p,page,size);
+            "select count(*)" + from + where,p,page,size);
         if (!result.items().isEmpty()) {
             var ids = result.items().stream().map(row -> (UUID) row.get("id")).toList();
             var images = reviewRepository.imagesForReviews(ids);

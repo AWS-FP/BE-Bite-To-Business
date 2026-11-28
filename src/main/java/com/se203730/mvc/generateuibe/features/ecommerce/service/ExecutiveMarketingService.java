@@ -21,13 +21,23 @@ public class ExecutiveMarketingService {
     private final EcommerceExecutiveRepository db;
 
     @Transactional(readOnly = true)
-    public EcommercePageResponse<Map<String,Object>> coupons(int page,int size) {
-        return db.page("select c.id,c.code,c.discount_type,c.discount_value,c.min_order_amount," +
+    public EcommercePageResponse<Map<String,Object>> coupons(String q,int page,int size) {
+        String query=q==null ? "" : q.strip();
+        if(query.length()>100) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        var params=new MapSqlParameterSource();
+        String where="";
+        if(!query.isEmpty()) {
+            params.addValue("q",query);
+            where=" where catalog_search.fold_v1(:q) <> '' and (strpos(" +
+                "catalog_search.fold_v1(concat_ws(' ',c.code,c.name_vi,c.name_en)),catalog_search.fold_v1(:q)) > 0" +
+                " or replace(catalog_search.fold_v1(c.code),' ','')=replace(catalog_search.fold_v1(:q),' ',''))";
+        }
+        return db.page("select c.id,c.code,c.name_vi,c.name_en,c.discount_type,c.discount_value,c.min_order_amount," +
                 "c.max_discount_amount,c.starts_at,c.ends_at,c.usage_limit,c.usage_limit_per_user," +
                 "c.is_active,c.applies_to,c.product_scope,c.created_by,c.created_at,c.updated_at," +
                 "(select count(*) from public.orders o where (o.coupon_id=c.id or o.shipping_coupon_id=c.id) " +
-                "and o.status<>'CANCELLED') as used_count from public.coupons c order by c.created_at desc,c.id",
-            "select count(*) from public.coupons",new MapSqlParameterSource(),page,size);
+                "and o.status<>'CANCELLED') as used_count from public.coupons c"+where+" order by c.created_at desc,c.id",
+            "select count(*) from public.coupons c"+where,params,page,size);
     }
     @Transactional(readOnly=true)
     public Map<String,Object> coupon(UUID id) {

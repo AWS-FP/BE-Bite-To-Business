@@ -27,9 +27,19 @@ public class ExecutiveComboService {
         """;
 
     @Transactional(readOnly=true)
-    public EcommercePageResponse<Map<String,Object>> list(int page,int size) {
-        return db.page(SELECT+" order by p.created_at desc,p.id", "select count(*) from public.combos",
-            new MapSqlParameterSource(),page,size);
+    public EcommercePageResponse<Map<String,Object>> list(String q,int page,int size) {
+        String query=q==null ? "" : q.strip();
+        if(query.length()>100) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        var params=new MapSqlParameterSource();
+        String where="";
+        if(!query.isEmpty()) {
+            params.addValue("q",query);
+            where=" where catalog_search.fold_v1(:q) <> '' and (strpos(" +
+                "catalog_search.fold_v1(concat_ws(' ',p.name_vi,p.name_en,p.sku)),catalog_search.fold_v1(:q)) > 0" +
+                " or replace(catalog_search.fold_v1(p.sku),' ','')=replace(catalog_search.fold_v1(:q),' ',''))";
+        }
+        return db.page(SELECT+where+" order by p.created_at desc,p.id",
+            "select count(*) from public.combos c join public.products p on p.id=c.product_id"+where,params,page,size);
     }
 
     @Transactional(readOnly=true)
