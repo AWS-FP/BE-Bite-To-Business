@@ -32,9 +32,10 @@ public class ExecutiveComboController {
     }
     @GetMapping
     public ResponseEntity<ResponseObject<EcommercePageResponse<Map<String,Object>>>> list(
-        @RequestParam(required=false) String q,
+        @RequestParam(name="q", required=false) String q,
+        @RequestParam(name="status", required=false) String status,
         @RequestParam(defaultValue="0") @Min(0) int page,@RequestParam(defaultValue="20") @Min(1) @Max(100) int size) {
-        return ok(service.list(q,page,size));
+        return ok(service.list(q,status,page,size));
     }
     @GetMapping("/ingredients")
     public ResponseEntity<ResponseObject<EcommercePageResponse<Map<String,Object>>>> ingredients(

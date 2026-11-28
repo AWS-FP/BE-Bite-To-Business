@@ -36,10 +36,11 @@ public class ExecutiveMarketingController {
     }
     @GetMapping("/coupons")
     public ResponseEntity<ResponseObject<EcommercePageResponse<Map<String,Object>>>> coupons(
-        @RequestParam(required=false) String q,
+        @RequestParam(name="q", required=false) String q,
+        @RequestParam(name="status", required=false) String status,
         @RequestParam(defaultValue="0") @Min(0) int page,
         @RequestParam(defaultValue="20") @Min(1) @Max(100) int size) {
-        return ok(service.coupons(q,page,size));
+        return ok(service.coupons(q,status,page,size));
     }
     @GetMapping("/coupons/{id}")
     public ResponseEntity<ResponseObject<Map<String,Object>>> coupon(@PathVariable UUID id) {
