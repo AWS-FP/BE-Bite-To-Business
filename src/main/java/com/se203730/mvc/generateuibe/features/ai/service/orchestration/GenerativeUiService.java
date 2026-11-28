@@ -12,6 +12,7 @@ import com.se203730.mvc.generateuibe.features.ai.dto.RunAgentInput.ChatMessage;
 import com.se203730.mvc.generateuibe.features.ai.repository.AiModelRequestRepository;
 import com.se203730.mvc.generateuibe.features.ai.service.a2ui.A2uiValidator;
 import com.se203730.mvc.generateuibe.features.ai.service.context.AiPromptLibrary;
+import com.se203730.mvc.generateuibe.features.ai.service.context.AssistantConversation;
 import com.se203730.mvc.generateuibe.features.ai.service.context.ShoppingResponsePolicy;
 import com.se203730.mvc.generateuibe.features.ai.service.context.UiProfileService;
 import com.se203730.mvc.generateuibe.features.ai.service.context.UiProfileService.UiProfile;
@@ -121,9 +122,9 @@ public class GenerativeUiService {
         String latest = messages.get(messages.size() - 1).content().trim();
         String history = history(messages);
         if (!"page".equals(input.mode())) {
-            String socialReply = com.se203730.mvc.generateuibe.features.ai.service.context.AssistantConversation.reply(latest, locale);
+            String socialReply = AssistantConversation.reply(latest, locale);
             if (socialReply != null) {
-                sendText(sink,socialReply);
+                sendText(sink, socialReply);
                 return;
             }
         }
