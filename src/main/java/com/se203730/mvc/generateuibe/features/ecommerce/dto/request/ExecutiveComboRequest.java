@@ -23,7 +23,7 @@ public record ExecutiveComboRequest(
     public record Details(
         @Positive @Digits(integer=9,fraction=3) BigDecimal netWeightKg,
         @DecimalMin("0") @Digits(integer=9,fraction=3) BigDecimal tareWeightKg,
-        @Positive @Digits(integer=6,fraction=6) BigDecimal volumeM3,
+        @Positive @Digits(integer=12,fraction=2) BigDecimal volumeCm3,
         @Positive @Digits(integer=8,fraction=2) BigDecimal lengthCm,
         @Positive @Digits(integer=8,fraction=2) BigDecimal widthCm,
         @Positive @Digits(integer=8,fraction=2) BigDecimal heightCm,

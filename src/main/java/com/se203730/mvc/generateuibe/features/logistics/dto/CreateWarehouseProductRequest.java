@@ -26,7 +26,7 @@ public record CreateWarehouseProductRequest(
         @NotBlank @Size(max = 200) String specVi, @NotBlank @Size(max = 200) String specEn,
         @NotNull @DecimalMin(value = "0", inclusive = false) @Digits(integer = 9, fraction = 3) BigDecimal netWeight,
         @NotNull @DecimalMin("0") @Digits(integer = 9, fraction = 3) BigDecimal tareWeight,
-        @NotNull @DecimalMin(value = "0", inclusive = false) @Digits(integer = 6, fraction = 6) BigDecimal volume,
+        @NotNull @DecimalMin(value = "0", inclusive = false) @Digits(integer = 12, fraction = 2) BigDecimal volume, // cm³ (V67)
         @NotNull @DecimalMin(value = "0", inclusive = false) @Digits(integer = 8, fraction = 2) BigDecimal length,
         @NotNull @DecimalMin(value = "0", inclusive = false) @Digits(integer = 8, fraction = 2) BigDecimal width,
         @NotNull @DecimalMin(value = "0", inclusive = false) @Digits(integer = 8, fraction = 2) BigDecimal height,

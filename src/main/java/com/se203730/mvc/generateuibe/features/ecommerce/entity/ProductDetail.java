@@ -27,8 +27,8 @@ public class ProductDetail {
     @Column(name = "tare_weight_kg")
     private BigDecimal tareWeightKg;
 
-    @Column(name = "volume_m3")
-    private BigDecimal volumeM3;
+    @Column(name = "volume_cm3")
+    private BigDecimal volumeCm3;
 
     @Column(name = "length_cm")
     private BigDecimal lengthCm;

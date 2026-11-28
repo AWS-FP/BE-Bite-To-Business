@@ -9,7 +9,7 @@ import java.util.List;
 public record ProductDetailsResponse(
         BigDecimal netWeightKg,
         BigDecimal tareWeightKg,
-        BigDecimal volumeM3,
+        BigDecimal volumeCm3,
         BigDecimal lengthCm,
         BigDecimal widthCm,
         BigDecimal heightCm,
@@ -34,7 +34,7 @@ public record ProductDetailsResponse(
         return new ProductDetailsResponse(
                 details.getNetWeightKg(),
                 details.getTareWeightKg(),
-                details.getVolumeM3(),
+                details.getVolumeCm3(),
                 details.getLengthCm(),
                 details.getWidthCm(),
                 details.getHeightCm(),
