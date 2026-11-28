@@ -31,13 +31,14 @@ public class SystemMonitoringService {
 
     public SystemMonitoringService(AccountAccessService accounts, AiModelRequestRepository requests,
             @Value("${app.monitoring.region:ap-southeast-1}") String region,
+            @Value("${app.monitoring.profile:}") String awsProfile,
             @Value("${app.monitoring.cluster:btb-cluster}") String cluster,
             @Value("${app.monitoring.service:btb-backend-service}") String service,
             @Value("${app.monitoring.rum:btb-frontend-performance}") String rum,
             @Value("${app.monitoring.alb:}") String alb) {
         this.accounts = accounts;
         this.requests = requests;
-        this.cloudwatch = CloudWatchClient.builder().region(Region.of(region))
+        this.cloudwatch = CloudWatchClient.builder().region(Region.of(region)).credentialsProvider(MonitoringCredentials.provider(awsProfile))
                 .overrideConfiguration(ClientOverrideConfiguration.builder()
                         .apiCallTimeout(Duration.ofSeconds(10))
                         .apiCallAttemptTimeout(Duration.ofSeconds(4)).build()).build();

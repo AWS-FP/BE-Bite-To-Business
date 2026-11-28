@@ -12,6 +12,7 @@ import com.se203730.mvc.generateuibe.features.ai.dto.RunAgentInput.ChatMessage;
 import com.se203730.mvc.generateuibe.features.ai.repository.AiModelRequestRepository;
 import com.se203730.mvc.generateuibe.features.ai.service.a2ui.A2uiValidator;
 import com.se203730.mvc.generateuibe.features.ai.service.context.AiPromptLibrary;
+import com.se203730.mvc.generateuibe.features.ai.service.context.AssistantConversation;
 import com.se203730.mvc.generateuibe.features.ai.service.context.ShoppingResponsePolicy;
 import com.se203730.mvc.generateuibe.features.ai.service.context.UiProfileService;
 import com.se203730.mvc.generateuibe.features.ai.service.context.UiProfileService.UiProfile;
@@ -120,6 +121,13 @@ public class GenerativeUiService {
         List<ChatMessage> messages = input.messages();
         String latest = messages.get(messages.size() - 1).content().trim();
         String history = history(messages);
+        if (!"page".equals(input.mode())) {
+            String socialReply = AssistantConversation.reply(latest, locale);
+            if (socialReply != null) {
+                sendText(sink, socialReply);
+                return;
+            }
+        }
 
         if (ShoppingResponsePolicy.outsideShopping(latest)) {
             refuse(sink, locale);
@@ -218,8 +226,8 @@ public class GenerativeUiService {
         sendText(sink, nutrition ? ("en".equals(locale)
                 ? "No products have sufficient verified nutrition on the required basis to confirm this request. Missing values are unknown, not zero."
                 : "Chưa có sản phẩm đủ số liệu dinh dưỡng đã đối chiếu nguồn, cùng cơ sở tính, để xác nhận đúng yêu cầu. Dữ liệu thiếu là chưa biết, không phải bằng 0.")
-                : ("en".equals(locale) ? "No matching product was found in the catalog. I cannot provide specifications for a product the shop does not list."
-                : "Chưa tìm thấy sản phẩm phù hợp trong danh mục. Mình không suy đoán thông số hoặc đề xuất sản phẩm ngoài dữ liệu của cửa hàng."));
+                : ("en".equals(locale) ? "No matching product was found in the catalog."
+                : "Chưa tìm thấy sản phẩm phù hợp trong danh mục."));
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("locale", locale);
         snapshot.put("lastQuery", null);

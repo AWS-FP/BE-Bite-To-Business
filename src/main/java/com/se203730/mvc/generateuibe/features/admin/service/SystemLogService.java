@@ -25,10 +25,11 @@ public class SystemLogService {
     @org.springframework.beans.factory.annotation.Autowired
     public SystemLogService(AccountAccessService accounts,
             @Value("${app.monitoring.region:ap-southeast-1}") String region,
+            @Value("${app.monitoring.profile:}") String awsProfile,
             @Value("${app.monitoring.log-group:}") String logGroup) {
         this.accounts = accounts;
         this.logGroup = logGroup;
-        this.client = CloudWatchLogsClient.builder().region(Region.of(region))
+        this.client = CloudWatchLogsClient.builder().region(Region.of(region)).credentialsProvider(MonitoringCredentials.provider(awsProfile))
                 .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofSeconds(8))).build();
     }
 

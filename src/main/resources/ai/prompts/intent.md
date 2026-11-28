@@ -18,7 +18,7 @@ Mọi JSON kết quả bắt buộc có `scope`: `SHOPPING` hoặc `OUT_OF_SCOPE
 - Yêu cầu "giàu đạm trên 15g/100g, nhiều chất xơ" có product_name=null, info_topics=[nutrition], không biến "nguyên liệu" hoặc ngưỡng thành tên món. Phải giữ đồng thời hai điều kiện, không dùng phép OR giữa đạm và chất xơ. Backend lọc số liệu đã đối chiếu nguồn; dữ liệu thiếu/không rõ đơn vị không đủ chứng minh điều kiện.
 
 Chỉ xuất một JSON object:
-
+xz
 ```json
 {
   "scope": "SHOPPING",

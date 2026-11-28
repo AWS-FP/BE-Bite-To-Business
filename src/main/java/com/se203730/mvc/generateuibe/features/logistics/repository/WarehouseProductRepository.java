@@ -13,6 +13,10 @@ import java.util.UUID;
 public class WarehouseProductRepository {
     private final NamedParameterJdbcTemplate jdbc;
 
+    public boolean archive(UUID id) {
+        return jdbc.update("UPDATE public.products SET status='ARCHIVED', updated_at=CURRENT_TIMESTAMP WHERE id=:id AND unit_code <> 'COMBO'",
+                new MapSqlParameterSource("id",id)) == 1;
+    }
     public void insert(UUID id, UUID userId, CreateWarehouseProductRequest r, String imageUrl, String imageId) {
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("id", id).addValue("userId", userId).addValue("sku", r.sku().trim())
@@ -39,7 +43,7 @@ public class WarehouseProductRepository {
         // Nguồn gốc và "An toàn thực phẩm & VAT" không lưu văn bản: trang sản phẩm ghép từ origin, brand,
         // distributor và vat_rate để không trùng dữ liệu.
         jdbc.update("""
-                insert into public.product_details (product_id, net_weight_kg, tare_weight_kg, volume_m3,
+                insert into public.product_details (product_id, net_weight_kg, tare_weight_kg, volume_cm3,
                   length_cm, width_cm, height_cm, technical_content_vi, technical_content_en,
                   kitchen_storage_content_vi, kitchen_storage_content_en, compliance_vat_content_vi,
                   compliance_vat_content_en, origin_content_vi, origin_content_en, nutrition_basis)
