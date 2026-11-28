@@ -45,6 +45,9 @@ public class ExecutiveCatalogSearchRepository {
                     OR catalog_search.fold_v1(p.name_en) = d.q) THEN 125
                 WHEN d.q <> '' AND to_tsvector('simple',p.catalog_terms)
                     @@ plainto_tsquery('simple',catalog_search.label_v2(:term)) THEN 90
+                WHEN lower(trim(:term)) ~ '^[a-z0-9 ,./×*_-]+$'
+                    AND catalog_search.english_terms(p.name_en,p.package_spec_en,p.unit_code)
+                        @@ plainto_tsquery('english',catalog_search.label_v2(:term)) THEN 85
                 WHEN d.q <> '' AND (d.brand_key = d.q OR d.category_key = d.q) THEN 60
                 ELSE 0
             END AS relevance
