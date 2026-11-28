@@ -33,6 +33,11 @@ public class WarehouseProductService {
     private final WarehouseProductImageStorage images;
     private final DistributorRepository distributors;
 
+    @Transactional
+    public void disable(UUID userId, UUID productId) {
+        if (accounts.requireActiveUser(userId).getRole() != UserRole.LOGISTICS_STAFF) throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        if (!products.archive(productId)) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+    }
     public record CreatedProduct(UUID id, String sku, String status) {}
 
     public record DistributorOption(UUID id, String name) {}

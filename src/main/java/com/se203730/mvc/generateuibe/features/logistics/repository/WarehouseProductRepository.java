@@ -13,6 +13,10 @@ import java.util.UUID;
 public class WarehouseProductRepository {
     private final NamedParameterJdbcTemplate jdbc;
 
+    public boolean archive(UUID id) {
+        return jdbc.update("UPDATE public.products SET status='ARCHIVED', updated_at=CURRENT_TIMESTAMP WHERE id=:id AND unit_code <> 'COMBO'",
+                new MapSqlParameterSource("id",id)) == 1;
+    }
     public void insert(UUID id, UUID userId, CreateWarehouseProductRequest r, String imageUrl, String imageId) {
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("id", id).addValue("userId", userId).addValue("sku", r.sku().trim())

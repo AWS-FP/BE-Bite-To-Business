@@ -24,10 +24,11 @@ public class SystemLogService {
 
     public SystemLogService(AccountAccessService accounts,
             @Value("${app.monitoring.region:ap-southeast-1}") String region,
+            @Value("${app.monitoring.profile:}") String awsProfile,
             @Value("${app.monitoring.log-group:}") String logGroup) {
         this.accounts = accounts;
         this.logGroup = logGroup;
-        this.client = CloudWatchLogsClient.builder().region(Region.of(region))
+        this.client = CloudWatchLogsClient.builder().region(Region.of(region)).credentialsProvider(MonitoringCredentials.provider(awsProfile))
                 .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofSeconds(8))).build();
     }
 
@@ -73,7 +74,7 @@ public class SystemLogService {
         }
     }
 
-    private static String sanitize(String text) {
+    static String sanitize(String text) {
         String first = text.lines().findFirst().orElse("");
         first = first.replaceAll("(?i)(authorization|password|token|secret|api[_-]?key)\\s*[:=]\\s*\\S+", "$1=[redacted]")
                 .replaceAll("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[email]")

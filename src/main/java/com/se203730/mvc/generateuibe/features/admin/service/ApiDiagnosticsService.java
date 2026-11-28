@@ -42,6 +42,7 @@ public class ApiDiagnosticsService {
     public ApiDiagnosticsService(AccountAccessService accounts,
             @Qualifier("requestMappingHandlerMapping") ObjectProvider<RequestMappingHandlerMapping> mappings,
             @Value("${app.monitoring.region:ap-southeast-1}") String region,
+            @Value("${app.monitoring.profile:}") String awsProfile,
             @Value("${app.monitoring.athena-output:}") String output,
             @Value("${app.monitoring.alb:}") String alb) throws IOException {
         this.accounts = accounts;
@@ -49,7 +50,7 @@ public class ApiDiagnosticsService {
         this.output = output;
         this.alb = alb;
         this.sql = new ClassPathResource("monitoring/api-diagnostics.sql").getContentAsString(StandardCharsets.UTF_8);
-        this.athena = AthenaClient.builder().region(Region.of(region))
+        this.athena = AthenaClient.builder().region(Region.of(region)).credentialsProvider(MonitoringCredentials.provider(awsProfile))
                 .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofSeconds(6))).build();
     }
 

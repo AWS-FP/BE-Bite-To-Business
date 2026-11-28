@@ -116,6 +116,13 @@ public class GenerativeUiService {
         List<ChatMessage> messages = input.messages();
         String latest = messages.get(messages.size() - 1).content().trim();
         String history = history(messages);
+        if (!"page".equals(input.mode())) {
+            String socialReply = com.se203730.mvc.generateuibe.features.ai.service.context.AssistantConversation.reply(latest, locale);
+            if (socialReply != null) {
+                sendText(sink,socialReply);
+                return;
+            }
+        }
 
         // Chỉ kiểm câu người dùng vừa gõ; bị chặn thì trả lời từ chối và không gọi model.
         BedrockClient.GuardrailCheck guard = bedrock.checkUserInput(latest);

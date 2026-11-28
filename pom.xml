@@ -32,6 +32,7 @@
         <springdoc.version>3.1.1</springdoc.version>
     </properties>
     <dependencies>
+        <dependency><groupId>software.amazon.awssdk</groupId><artifactId>rum</artifactId><version>2.57.8</version></dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>athena</artifactId>
@@ -151,6 +152,7 @@
     </dependencies>
     <dependencyManagement>
         <dependencies>
+        <dependency><groupId>software.amazon.awssdk</groupId><artifactId>rum</artifactId><version>2.57.8</version></dependency>
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
