@@ -26,9 +26,10 @@ public class LogisticsProductRequestController {
 
     @GetMapping
     public ResponseEntity<ResponseObject<PageResponse<ProductRequestService.RequestView>>> list(@CurrentUserUUID UUID userId,
-            @RequestParam(required = false) String status, @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String status, @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(new ResponseObject<>(200, "Success", PageResponse.from(service.list(userId, status, page, size))));
+        return ResponseEntity.ok(new ResponseObject<>(200, "Success", PageResponse.from(service.list(userId, status, keyword, page, size))));
     }
 
     @PostMapping("/{requestId}/start-review")

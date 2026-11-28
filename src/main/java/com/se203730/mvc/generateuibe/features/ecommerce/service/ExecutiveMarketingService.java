@@ -21,13 +21,29 @@ public class ExecutiveMarketingService {
     private final EcommerceExecutiveRepository db;
 
     @Transactional(readOnly = true)
-    public EcommercePageResponse<Map<String,Object>> coupons(int page,int size) {
-        return db.page("select c.id,c.code,c.discount_type,c.discount_value,c.min_order_amount," +
+    public EcommercePageResponse<Map<String,Object>> coupons(String q,String status,int page,int size) {
+        String query=q==null ? "" : q.strip();
+        if(query.length()>100) throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        var params=new MapSqlParameterSource();
+        if(status!=null && !status.isBlank() && !Set.of("ACTIVE","INACTIVE").contains(status))
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        String where=" where 1=1";
+        if(!query.isEmpty()) {
+            params.addValue("q",query);
+            where+=" and catalog_search.fold_v1(:q) <> '' and (strpos(" +
+                "catalog_search.fold_v1(concat_ws(' ',c.code,c.name_vi,c.name_en)),catalog_search.fold_v1(:q)) > 0" +
+                " or replace(catalog_search.fold_v1(c.code),' ','')=replace(catalog_search.fold_v1(:q),' ',''))";
+        }
+        if(status!=null && !status.isBlank()) {
+            where += " and c.is_active=:active";
+            params.addValue("active","ACTIVE".equals(status));
+        }
+        return db.page("select c.id,c.code,c.name_vi,c.name_en,c.discount_type,c.discount_value,c.min_order_amount," +
                 "c.max_discount_amount,c.starts_at,c.ends_at,c.usage_limit,c.usage_limit_per_user," +
                 "c.is_active,c.applies_to,c.product_scope,c.created_by,c.created_at,c.updated_at," +
                 "(select count(*) from public.orders o where (o.coupon_id=c.id or o.shipping_coupon_id=c.id) " +
-                "and o.status<>'CANCELLED') as used_count from public.coupons c order by c.created_at desc,c.id",
-            "select count(*) from public.coupons",new MapSqlParameterSource(),page,size);
+                "and o.status<>'CANCELLED') as used_count from public.coupons c"+where+" order by c.created_at desc,c.id",
+            "select count(*) from public.coupons c"+where,params,page,size);
     }
     @Transactional(readOnly=true)
     public Map<String,Object> coupon(UUID id) {
@@ -115,14 +131,24 @@ public class ExecutiveMarketingService {
 
     @Transactional(readOnly=true)
     public EcommercePageResponse<Map<String,Object>> promotions(String status,String q,int page,int size) {
-        if (status!=null && !Set.of("DRAFT","PUBLISHED","DISABLED","ARCHIVED").contains(status))
+        if (status!=null && !Set.of("DRAFT","PUBLISHED","DISABLED","ARCHIVED","EXPIRED").contains(status))
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         String query=q==null ? "" : q.strip();
         if (query.length()>100) throw new BusinessException(ErrorCode.INVALID_REQUEST);
         var p = new MapSqlParameterSource("status",status)
             .addValue("search", query.isEmpty()?"%%":"%"+EcommerceExecutiveRepository.find(query,100)+"%");
         String where = " where 1=1";
-        if(status!=null) where += " and p.status=:status";
+        // Match the display lifecycle: only previously published campaigns can expire.
+        String expired = "(p.published_at is not null and p.status in ('PUBLISHED','DISABLED') " +
+            "and p.ends_at <= CURRENT_TIMESTAMP)";
+        if ("EXPIRED".equals(status)) {
+            where += " and " + expired;
+        } else if (status != null) {
+            where += " and p.status=:status";
+            if (Set.of("PUBLISHED","DISABLED").contains(status)) {
+                where += " and not " + expired;
+            }
+        }
         if(!query.isEmpty()) where += " and (p.name_vi ILIKE :search ESCAPE '\\' " +
             "or p.name_en ILIKE :search ESCAPE '\\')";
         return db.page("select p.id,p.name_vi,p.name_en,p.content_vi,p.content_en,p.status," +

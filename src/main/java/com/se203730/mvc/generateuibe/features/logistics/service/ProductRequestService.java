@@ -93,7 +93,7 @@ public class ProductRequestService {
     }
 
     @Transactional(readOnly = true)
-    public Page<RequestView> list(UUID userId, String status, int page, int size) {
+    public Page<RequestView> list(UUID userId, String status, String keyword, int page, int size) {
         requireLogistics(userId);
         if (status != null && !List.of("PENDING", "REVIEWING", "ADDED", "REJECTED").contains(status)) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
@@ -102,7 +102,12 @@ public class ProductRequestService {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
         PageRequest pageable = PageRequest.of(page, size);
-        Page<ProductRequest> result = status == null ? requests.findAllByOrderByCreatedAtDesc(pageable)
+        String term = keyword == null ? "" : keyword.strip();
+        if (term.length() > 200) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        Page<ProductRequest> result = !term.isEmpty() ? requests.searchRequests(status, term, pageable)
+                : status == null ? requests.findAllByOrderByCreatedAtDesc(pageable)
                 : requests.findByStatusOrderByCreatedAtDesc(status, pageable);
         return result.map(this::view);
     }

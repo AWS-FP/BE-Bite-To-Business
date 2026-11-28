@@ -18,5 +18,20 @@ public interface ProductRequestRepository extends JpaRepository<ProductRequest, 
     Page<ProductRequest> findByStatusOrderByCreatedAtDesc(String status, Pageable pageable);
     Page<ProductRequest> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
+    @Query(value = """
+            SELECT r.* FROM public.product_requests r
+            WHERE (CAST(:status AS text) IS NULL OR r.status = :status)
+              AND strpos(catalog_search.fold_v1(concat_ws(' ', r.product_name, r.customer_note)),
+                         catalog_search.fold_v1(:keyword)) > 0
+            ORDER BY r.created_at DESC, r.id ASC
+            """, countQuery = """
+            SELECT count(*) FROM public.product_requests r
+            WHERE (CAST(:status AS text) IS NULL OR r.status = :status)
+              AND strpos(catalog_search.fold_v1(concat_ws(' ', r.product_name, r.customer_note)),
+                         catalog_search.fold_v1(:keyword)) > 0
+            """, nativeQuery = true)
+    Page<ProductRequest> searchRequests(@Param("status") String status, @Param("keyword") String keyword,
+                                        Pageable pageable);
+
     Page<ProductRequest> findByCustomerIdOrderByCreatedAtDescIdAsc(UUID customerId, Pageable pageable);
 }
