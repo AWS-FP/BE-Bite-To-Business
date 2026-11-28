@@ -43,6 +43,10 @@ public class RegistrationRequest {
     @Column(name = "otp_generated_at")
     private Instant otpGeneratedAt;
 
+    /** Cooldown anchor recorded when a resend is accepted, before the async mail worker runs. */
+    @Column(name = "otp_resend_requested_at")
+    private Instant otpResendRequestedAt;
+
     @Column(name = "otp_delivery_state", length = 20)
     private String otpDeliveryState;
 

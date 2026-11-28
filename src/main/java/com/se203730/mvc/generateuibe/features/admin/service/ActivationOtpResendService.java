@@ -32,7 +32,10 @@ public class ActivationOtpResendService {
     }
 
     Instant availableAt(RegistrationRequest row) {
-        Instant attempt = "FAILED".equals(row.getOtpDeliveryState()) ? row.getUpdatedAt() : row.getOtpGeneratedAt();
+        Instant attempt = row.getOtpResendRequestedAt();
+        if (attempt == null) {
+            attempt = "FAILED".equals(row.getOtpDeliveryState()) ? row.getUpdatedAt() : row.getOtpGeneratedAt();
+        }
         return attempt == null ? null : attempt.plus(properties.getOtpResendCooldown());
     }
 
@@ -43,6 +46,7 @@ public class ActivationOtpResendService {
         Instant available = availableAt(row);
         if (available != null && now.isBefore(available)) return false;
         row.setOtpSentAt(null);
+        row.setOtpResendRequestedAt(now);
         row.setOtpGeneratedAt(null);
         row.setOtpDeliveryState("QUEUED");
         row.setUpdatedAt(now);
