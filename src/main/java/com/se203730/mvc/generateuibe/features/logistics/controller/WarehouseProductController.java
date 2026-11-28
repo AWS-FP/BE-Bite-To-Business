@@ -16,6 +16,12 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
+import java.util.Map;
+import org.springframework.http.CacheControl;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import com.se203730.mvc.generateuibe.features.logistics.repository.WarehouseProductRepository;
 import java.util.UUID;
 
 @RestController
@@ -35,6 +41,29 @@ public class WarehouseProductController {
             @RequestPart(value = "image", required = false)
             MultipartFile image) {
         return ResponseEntity.status(201).body(new ResponseObject<>(201, "Product created", products.create(userId, request, image)));
+    }
+
+    @GetMapping
+    public ResponseEntity<ResponseObject<WarehouseProductRepository.EditPage>> editable(
+            @CurrentUserUUID UUID userId, @RequestParam(defaultValue = "") String q,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Editable products", products.editable(userId, q, page, size)));
+    }
+
+    @GetMapping("/{productId}")
+    public ResponseEntity<ResponseObject<Map<String, Object>>> detail(
+            @CurrentUserUUID UUID userId, @PathVariable UUID productId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new ResponseObject<>(200, "Product", products.editDetail(userId, productId)));
+    }
+
+    @PutMapping(value = "/{productId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResponseObject<WarehouseProductService.CreatedProduct>> update(
+            @CurrentUserUUID UUID userId, @PathVariable UUID productId,
+            @RequestPart("data") CreateWarehouseProductRequest request,
+            @RequestPart(value = "image", required = false) MultipartFile image) {
+        return ResponseEntity.ok(new ResponseObject<>(200, "Product updated", products.update(userId, productId, request, image)));
     }
 
     @org.springframework.web.bind.annotation.DeleteMapping("/{productId}")
