@@ -57,7 +57,7 @@ public class ExecutiveComboService {
         var p=new MapSqlParameterSource("id",id);
         var result=db.one(SELECT+" where p.id=:id",p);
         var details = db.list("""
-            select net_weight_kg,tare_weight_kg,volume_m3,length_cm,width_cm,height_cm,
+            select net_weight_kg,tare_weight_kg,volume_cm3,length_cm,width_cm,height_cm,
                    technical_content_vi,technical_content_en,kitchen_storage_content_vi,
                    kitchen_storage_content_en,origin_content_vi,origin_content_en
             from public.product_details where product_id=:id
@@ -143,18 +143,18 @@ public class ExecutiveComboService {
         if (d == null) return;
         var p = new MapSqlParameterSource("id",id)
             .addValue("net",d.netWeightKg()).addValue("tare",d.tareWeightKg())
-            .addValue("volume",d.volumeM3()).addValue("length",d.lengthCm())
+            .addValue("volume",d.volumeCm3()).addValue("length",d.lengthCm())
             .addValue("width",d.widthCm()).addValue("height",d.heightCm())
             .addValue("techVi",d.technicalContentVi()).addValue("techEn",d.technicalContentEn())
             .addValue("storageVi",d.kitchenStorageContentVi()).addValue("storageEn",d.kitchenStorageContentEn())
             .addValue("originVi",d.originContentVi()).addValue("originEn",d.originContentEn());
         db.update("""
-            insert into public.product_details(product_id,net_weight_kg,tare_weight_kg,volume_m3,
+            insert into public.product_details(product_id,net_weight_kg,tare_weight_kg,volume_cm3,
               length_cm,width_cm,height_cm,technical_content_vi,technical_content_en,
               kitchen_storage_content_vi,kitchen_storage_content_en,origin_content_vi,origin_content_en)
             values(:id,:net,:tare,:volume,:length,:width,:height,:techVi,:techEn,:storageVi,:storageEn,:originVi,:originEn)
             on conflict(product_id) do update set net_weight_kg=excluded.net_weight_kg,
-              tare_weight_kg=excluded.tare_weight_kg,volume_m3=excluded.volume_m3,
+              tare_weight_kg=excluded.tare_weight_kg,volume_cm3=excluded.volume_cm3,
               length_cm=excluded.length_cm,width_cm=excluded.width_cm,height_cm=excluded.height_cm,
               technical_content_vi=excluded.technical_content_vi,technical_content_en=excluded.technical_content_en,
               kitchen_storage_content_vi=excluded.kitchen_storage_content_vi,
